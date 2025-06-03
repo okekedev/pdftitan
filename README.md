@@ -1,37 +1,23 @@
-# TitanPDF - ServiceTitan PDF Editor
+# TitanPDF Project Overview
 
+## What It Does
 Simple PDF editor that integrates with ServiceTitan to let technicians edit, sign, and fill out PDFs directly from their jobs without printing/scanning.
 
-## 🚀 Quick Start
+## Problem Statement
+- Technicians print PDFs, fill them out by hand, then scan and upload
+- Wastes 10-15 minutes per job
+- Costs money in printing/scanning
+- Creates delays in job completion
 
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Start development server: `npm start`
-4. Open http://localhost:3000
+## Solution
+- Login with ServiceTitan account
+- Browse Projects → Jobs → PDF Attachments
+- Edit PDFs with basic tools (text, signatures, dates, checkboxes)
+- Auto-fill technician name, job details, customer info
+- Save edited PDF (initially manual upload to ServiceTitan)
 
-## ✨ Features
+## Target Market
+ServiceTitan customers in HVAC, plumbing, and electrical trades who need to complete PDF forms in the field.
 
-- ServiceTitan OAuth integration
-- Project/Job browsing
-- PDF editing (text, signatures, dates, checkboxes)
-- Auto-populate job data
-- Mobile-friendly for tablets
-
-## 🛠️ Tech Stack
-
-- React frontend
-- PDF-lib for editing
-- ServiceTitan API for job data
-
-## 💰 Business Model
-
-- $29-79/month per company
-- Target ServiceTitan marketplace listing
-
-## 📧 Contact
-
-For questions or partnership inquiries, reach out to [your-email@example.com]
-
----
-
-*Simple, focused solution that saves time and eliminates paper workflows.*
+## Development Timeline
+1-week MVP development focused on core PDF editing functionality.
