@@ -1,0 +1,253 @@
+.attachments-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.attachments-header {
+  margin-bottom: 2rem;
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.back-button {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.back-button:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.job-info h2 {
+  color: #333;
+  margin: 0 0 0.25rem 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.job-details {
+  color: #666;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.attachments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.attachment-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e9ecef;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.attachment-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  border-color: #2ecc71;
+}
+
+.attachment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.attachment-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.file-icon {
+  font-size: 1.5rem;
+  background: #f8f9fa;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 2px solid #e9ecef;
+}
+
+.attachment-name {
+  color: #333;
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem 0;
+}
+
+.attachment-type {
+  color: #666;
+  font-size: 0.85rem;
+  margin: 0;
+  font-weight: 500;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  min-width: 80px;
+}
+
+.status-required {
+  background: #ffebee;
+  color: #e74c3c;
+}
+
+.status-optional {
+  background: #fff8e1;
+  color: #f39c12;
+}
+
+.status-completed {
+  background: #1a1a1a;
+  color: #2ecc71;
+}
+
+.status-default {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.attachment-description {
+  margin-bottom: 1rem;
+}
+
+.attachment-description p {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.attachment-details {
+  margin-bottom: 1rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #f8f9fa;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  color: #666;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.detail-value {
+  color: #333;
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.attachment-footer {
+  padding-top: 1rem;
+  border-top: 1px solid #f8f9fa;
+}
+
+.open-pdf-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.open-pdf-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+}
+
+.attachments-actions {
+  text-align: center;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.save-all-btn {
+  background: #1a1a1a;
+  color: #2ecc71;
+  border: 2px solid #2ecc71;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.save-all-btn:hover {
+  background: #2ecc71;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(46, 204, 113, 0.3);
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .attachments-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .attachments-container {
+    padding: 1rem;
+  }
+  
+  .header-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .attachments-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .attachment-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+}
