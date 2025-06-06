@@ -2,39 +2,22 @@ import React, { useState } from 'react';
 import './Jobs.css';
 
 function Jobs({ project, onSelectJob, onBack }) {
-  // Simple backflow testing job data
+  // Simple job data - only first one is active
   const [jobs] = useState([
     {
-      id: 1,
-      workOrderNumber: "WO-001247",
-      deviceType: "Double Check Valve",
-      location: "Main Building",
-      status: "Scheduled",
-      technician: "Mike Rodriguez"
+      id: "JOB-001247",
+      name: "Main Building - Double Check Valve",
+      active: true
     },
     {
-      id: 2,
-      workOrderNumber: "WO-001248", 
-      deviceType: "Pressure Vacuum Breaker",
-      location: "East Wing",
-      status: "In Progress",
-      technician: "Sarah Chen"
+      id: "JOB-001248", 
+      name: "East Wing - Pressure Vacuum Breaker",
+      active: false
     },
     {
-      id: 3,
-      workOrderNumber: "WO-001249",
-      deviceType: "RPZ Assembly",
-      location: "Kitchen Area",
-      status: "Completed",
-      technician: "Mike Rodriguez"
-    },
-    {
-      id: 4,
-      workOrderNumber: "WO-001250",
-      deviceType: "Double Check Valve",
-      location: "Fire Line",
-      status: "Needs Review",
-      technician: "David Kim"
+      id: "JOB-001249",
+      name: "Kitchen Area - RPZ Assembly",
+      active: false
     }
   ]);
 
@@ -72,8 +55,7 @@ function Jobs({ project, onSelectJob, onBack }) {
             ← Back to Projects
           </button>
           <div className="project-info">
-            <h2>{project.name}</h2>
-            <p>Select a job to view PDF forms</p>
+            <h2>Select Job - {project.name}</h2>
           </div>
         </div>
       </div>
@@ -82,36 +64,20 @@ function Jobs({ project, onSelectJob, onBack }) {
         {jobs.map((job) => (
           <div
             key={job.id}
-            className="job-card"
-            onClick={() => onSelectJob(job)}
+            className={`job-card ${!job.active ? 'disabled' : ''}`}
+            onClick={() => job.active && onSelectJob(job)}
           >
-            <div className="job-header">
-              <div className="job-title">
-                <span className="device-icon">{getDeviceIcon(job.deviceType)}</span>
-                <div>
-                  <h3 className="work-order">{job.workOrderNumber}</h3>
-                  <p className="device-type">{job.deviceType}</p>
-                </div>
-              </div>
-              <span className={`status-badge ${getStatusColor(job.status)}`}>
-                {job.status}
-              </span>
-            </div>
-
-            <div className="job-details">
-              <div className="detail-row">
-                <span className="detail-label">Location:</span>
-                <span className="detail-value">{job.location}</span>
-              </div>
-              <div className="detail-row">
-                <span className="detail-label">Technician:</span>
-                <span className="detail-value">{job.technician}</span>
-              </div>
+            <div className="job-content">
+              <h3 className="job-id">{job.id}</h3>
+              <h4 className="job-name">{job.name}</h4>
             </div>
 
             <div className="job-footer">
-              <button className="view-attachments-btn">
-                View Forms →
+              <button 
+                className={`view-attachments-btn ${!job.active ? 'disabled' : ''}`}
+                disabled={!job.active}
+              >
+                {job.active ? 'View Forms →' : 'View Forms'}
               </button>
             </div>
           </div>
