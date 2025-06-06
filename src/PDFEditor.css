@@ -75,92 +75,335 @@
   box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
 }
 
-.pdf-editor-content {
-  flex: 1;
-  padding: 2rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.pdf-viewer-section {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-}
-
-.pdf-viewer-section h3 {
+.pdf-editor-container {
+  min-height: 100vh;
   background: #f8f9fa;
-  margin: 0;
-  padding: 1rem 1.5rem;
-  color: #333;
-  font-size: 1.1rem;
-  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-editor-header {
+  background: white;
   border-bottom: 1px solid #e9ecef;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
-.pdf-container {
-  padding: 1rem;
-}
-
-.pdf-viewer {
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #e9ecef;
-}
-
-.pdf-frame {
-  border: none;
-  border-radius: 8px;
-}
-
-.pdf-placeholder {
+.header-left {
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 600px;
-  border: 2px dashed #e9ecef;
-  border-radius: 8px;
-  background: #f8f9fa;
+  gap: 1rem;
 }
 
-.pdf-error {
-  text-align: center;
+.close-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.close-btn:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.pdf-info h2 {
+  color: #333;
+  margin: 0 0 0.25rem 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.pdf-info p {
   color: #666;
-}
-
-.pdf-error h4 {
-  color: #dc3545;
-  margin: 0 0 0.5rem 0;
-  font-size: 1.1rem;
-}
-
-.pdf-error p {
-  margin: 0 0 0.5rem 0;
+  margin: 0;
   font-size: 0.9rem;
 }
 
-.pdf-error small {
-  color: #999;
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.page-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.page-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
   font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.page-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.page-info {
+  color: #666;
+  font-size: 0.8rem;
+  margin: 0 0.5rem;
+}
+
+.save-btn {
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.save-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+}
+
+.pdf-editor-content {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .pdf-loading {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 600px;
+  height: 400px;
   color: #666;
+  font-size: 1.1rem;
 }
 
-.form-container {
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #2ecc71;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.pdf-viewer-container {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 2rem;
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   overflow: hidden;
+}
+
+.pdf-canvas-container {
+  position: relative;
+  padding: 2rem;
+  background: #f8f9fa;
+  min-height: 600px;
+  overflow: auto;
+}
+
+.pdf-canvas-container canvas {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  display: block;
+  margin: 0 auto;
+}
+
+/* Interactive PDF form fields */
+.pdf-form-field {
+  border: 2px solid transparent;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.9rem;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.pdf-form-field.readonly {
+  background: rgba(46, 204, 113, 0.1);
+  border-color: #2ecc71;
+  color: #27ae60;
+  font-weight: 500;
+}
+
+.pdf-form-field.editable {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #007bff;
+}
+
+.pdf-form-field.editable:focus {
+  outline: none;
+  border-color: #0056b3;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.form-fields-info {
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-left: 1px solid #e9ecef;
+}
+
+.form-fields-info h4 {
+  color: #333;
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  background: white;
+}
+
+.field-info.auto-filled {
+  background: rgba(46, 204, 113, 0.1);
+  border-color: #2ecc71;
+}
+
+.field-info.editable {
+  background: rgba(0, 123, 255, 0.05);
+  border-color: #007bff;
+}
+
+.field-name {
+  font-size: 0.8rem;
+  color: #333;
+  font-weight: 500;
+}
+
+.field-status {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  background: #e9ecef;
+  color: #666;
+}
+
+.field-info.auto-filled .field-status {
+  background: #2ecc71;
+  color: white;
+}
+
+.field-info.editable .field-status {
+  background: #007bff;
+  color: white;
+}
+
+.pdf-error-message {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+}
+
+.pdf-error-message h3 {
+  color: #dc3545;
+  margin-bottom: 1rem;
+}
+
+.pdf-error-message code {
+  background: #f8f9fa;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .pdf-viewer-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-fields-info {
+    border-left: none;
+    border-top: 1px solid #e9ecef;
+  }
+  
+  .pdf-editor-content {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .pdf-editor-header {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .header-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .header-right {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .pdf-editor-content {
+    padding: 0.5rem;
+  }
+  
+  .pdf-canvas-container {
+    padding: 1rem;
+  }
+  
+  .form-fields-info {
+    padding: 1rem;
+  }
 }
 
 /* Pre-filled section styling */
@@ -348,30 +591,25 @@
 /* Responsive design */
 @media (max-width: 1024px) {
   .pdf-editor-content {
-    grid-template-columns: 1fr;
     padding: 1rem;
   }
   
-  .pdf-container {
-    padding: 0.5rem;
+  .pdf-page {
+    padding: 1.5rem;
   }
   
-  .pdf-viewer iframe {
-    height: 400px;
-  }
-  
-  .pdf-placeholder {
-    height: 400px;
-  }
-  
-  .readonly-grid,
-  .input-grid {
+  .form-fields-grid {
     grid-template-columns: 1fr;
   }
   
-  .signature-canvas {
+  .signature-canvas-pdf {
     width: 100%;
     max-width: 350px;
+  }
+  
+  .overlay-input {
+    font-size: 0.8rem;
+    padding: 0.4rem;
   }
 }
 
@@ -389,31 +627,37 @@
   
   .pdf-editor-content {
     padding: 0.5rem;
-    gap: 1rem;
   }
   
-  .pdf-viewer iframe {
-    height: 300px;
-  }
-  
-  .pdf-placeholder {
-    height: 300px;
-  }
-  
-  .form-section.prefilled,
-  .form-section.technician-input,
-  .form-section.signature-section {
+  .pdf-fallback {
     padding: 1rem;
   }
   
-  .signature-canvas {
-    width: 100%;
-    max-width: 300px;
-    height: 120px;
+  .pdf-page {
+    padding: 1rem;
   }
   
-  .signature-actions {
+  .form-section-pdf {
+    padding: 1rem;
+  }
+  
+  .form-section-pdf h4 {
+    margin: -1rem -1rem 1rem -1rem;
+    padding: 0.5rem 1rem;
+  }
+  
+  .signature-canvas-pdf {
+    width: 100%;
+    max-width: 300px;
+    height: 100px;
+  }
+  
+  .signature-controls {
     flex-direction: column;
     gap: 0.5rem;
+  }
+  
+  .pdf-background {
+    height: 600px;
   }
 }
