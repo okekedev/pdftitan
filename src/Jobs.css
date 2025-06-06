@@ -50,7 +50,7 @@
 
 .jobs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
 }
 
@@ -62,129 +62,42 @@
   border: 1px solid #e9ecef;
   cursor: pointer;
   transition: all 0.3s ease;
+  text-align: center;
 }
 
-.job-card:hover {
+.job-card:hover:not(.disabled) {
   transform: translateY(-4px);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
   border-color: #2ecc71;
 }
 
-.job-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  gap: 1rem;
-}
-
-.job-title {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.device-icon {
-  font-size: 1.5rem;
+.job-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
   background: #f8f9fa;
-  padding: 0.5rem;
-  border-radius: 8px;
-  border: 2px solid #e9ecef;
 }
 
-.work-order {
+.job-card.disabled .job-id,
+.job-card.disabled .job-name {
+  color: #6c757d;
+}
+
+.job-content {
+  margin-bottom: 1.5rem;
+}
+
+.job-id {
+  color: #2ecc71;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+}
+
+.job-name {
   color: #333;
   font-size: 1rem;
-  font-weight: 700;
-  margin: 0 0 0.25rem 0;
-}
-
-.device-type {
-  color: #666;
-  font-size: 0.9rem;
-  margin: 0;
-  font-weight: 500;
-}
-
-.job-badges {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
-
-.status-badge, .priority-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
   font-weight: 600;
-  text-align: center;
-  min-width: 80px;
-}
-
-.status-completed {
-  background: #1a1a1a;
-  color: #2ecc71;
-}
-
-.status-progress {
-  background: #e8f5e8;
-  color: #27ae60;
-}
-
-.status-scheduled {
-  background: #fff8e1;
-  color: #f39c12;
-}
-
-.status-review {
-  background: #ffebee;
-  color: #e74c3c;
-}
-
-.priority-high {
-  background: #ffebee;
-  color: #e74c3c;
-}
-
-.priority-medium {
-  background: #fff8e1;
-  color: #f39c12;
-}
-
-.priority-low {
-  background: #e8f5e8;
-  color: #27ae60;
-}
-
-.job-details {
-  margin-bottom: 1rem;
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #f8f9fa;
-}
-
-.detail-row:last-child {
-  border-bottom: none;
-}
-
-.detail-label {
-  color: #666;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.detail-value {
-  color: #333;
-  font-size: 0.9rem;
-  text-align: right;
-  max-width: 60%;
-  word-break: break-word;
+  margin: 0;
 }
 
 .job-footer {
@@ -205,9 +118,16 @@
   transition: all 0.3s ease;
 }
 
-.view-attachments-btn:hover {
+.view-attachments-btn:hover:not(.disabled) {
   transform: translateY(-1px);
   box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+}
+
+.view-attachments-btn.disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* Responsive design */

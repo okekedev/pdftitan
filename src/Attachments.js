@@ -5,7 +5,7 @@ import './Attachments.css';
 function Attachments({ job, onBack }) {
   const [selectedPDF, setSelectedPDF] = useState(null);
 
-  // Mock PDF attachments specific to backflow testing
+  // Mock PDF attachments - only first one is active
   const [attachments] = useState([
     {
       id: 1,
@@ -14,7 +14,9 @@ function Attachments({ job, onBack }) {
       status: "Required",
       size: "2.3 MB",
       lastModified: "2025-06-04",
-      description: "Standard backflow prevention device test report"
+      description: "Standard backflow prevention device test report",
+      active: true,
+      pdfPath: "/assets/sample.pdf"
     },
     {
       id: 2,
@@ -23,7 +25,8 @@ function Attachments({ job, onBack }) {
       status: "Required",
       size: "1.8 MB",
       lastModified: "2025-06-04",
-      description: "University of Southern California Foundation safety compliance form"
+      description: "University of Southern California Foundation safety compliance form",
+      active: false
     },
     {
       id: 3,
@@ -32,16 +35,8 @@ function Attachments({ job, onBack }) {
       status: "Optional",
       size: "1.2 MB",
       lastModified: "2025-06-03",
-      description: "Municipal water department compliance certificate"
-    },
-    {
-      id: 4,
-      name: "Device Maintenance Log",
-      type: "Maintenance",
-      status: "Completed",
-      size: "950 KB",
-      lastModified: "2025-06-02",
-      description: "Historical maintenance and repair log"
+      description: "Municipal water department compliance certificate",
+      active: false
     }
   ]);
 
@@ -65,7 +60,9 @@ function Attachments({ job, onBack }) {
   };
 
   const handleOpenPDF = (attachment) => {
-    setSelectedPDF(attachment);
+    if (attachment.active) {
+      setSelectedPDF(attachment);
+    }
   };
 
   const handleClosePDF = () => {
@@ -98,8 +95,8 @@ function Attachments({ job, onBack }) {
             ← Back to Jobs
           </button>
           <div className="job-info">
-            <h2>PDF Forms - {job.workOrderNumber}</h2>
-            <p className="job-details">{job.deviceType} • {job.location}</p>
+            <h2>PDF Forms - {job.id}</h2>
+            <p className="job-details">{job.name}</p>
           </div>
         </div>
       </div>
@@ -108,7 +105,7 @@ function Attachments({ job, onBack }) {
         {attachments.map((attachment) => (
           <div
             key={attachment.id}
-            className="attachment-card"
+            className={`attachment-card ${!attachment.active ? 'disabled' : ''}`}
             onClick={() => handleOpenPDF(attachment)}
           >
             <div className="attachment-header">
@@ -140,8 +137,14 @@ function Attachments({ job, onBack }) {
             </div>
 
             <div className="attachment-footer">
-              <button className="open-pdf-btn">
-                {attachment.status === 'Completed' ? 'View Form' : 'Fill Out Form'} →
+              <button 
+                className={`open-pdf-btn ${!attachment.active ? 'disabled' : ''}`}
+                disabled={!attachment.active}
+              >
+                {attachment.active 
+                  ? (attachment.status === 'Completed' ? 'View Form →' : 'Fill Out Form →')
+                  : (attachment.status === 'Completed' ? 'View Form' : 'Fill Out Form')
+                }
               </button>
             </div>
           </div>

@@ -2,28 +2,22 @@ import React, { useState } from 'react';
 import './Projects.css';
 
 function Projects({ onSelectProject }) {
-  // Simple backflow testing project data
+  // Simple project data - only first one is active
   const [projects] = useState([
     {
-      id: 1,
+      id: "PRJ-2025-001",
       name: "Metro Hospital System",
-      address: "1200 Medical Center Dr, Dallas, TX",
-      status: "In Progress",
-      jobCount: 8
+      active: true
     },
     {
-      id: 2,
+      id: "PRJ-2025-002", 
       name: "City of Dallas - Highland Park",
-      address: "Multiple Residential Locations",
-      status: "Scheduled", 
-      jobCount: 12
+      active: false
     },
     {
-      id: 3,
+      id: "PRJ-2025-003",
       name: "Texas Manufacturing Corp",
-      address: "4500 Industrial Blvd, Dallas, TX",
-      status: "In Progress",
-      jobCount: 5
+      active: false
     }
   ]);
 
@@ -48,38 +42,27 @@ function Projects({ onSelectProject }) {
   return (
     <div className="projects-container">
       <div className="projects-header">
-        <h2>Backflow Testing Projects</h2>
-        <p>Select a project to view jobs</p>
+        <h2>Select Project</h2>
       </div>
 
       <div className="projects-grid">
         {projects.map((project) => (
           <div
             key={project.id}
-            className="project-card"
-            onClick={() => onSelectProject(project)}
+            className={`project-card ${!project.active ? 'disabled' : ''}`}
+            onClick={() => project.active && onSelectProject(project)}
           >
-            <div className="project-header">
-              <h3 className="project-name">{project.name}</h3>
-              <span className={`status-badge ${getStatusColor(project.status)}`}>
-                {project.status}
-              </span>
-            </div>
-
-            <div className="project-details">
-              <div className="detail-row">
-                <span className="detail-label">Address:</span>
-                <span className="detail-value">{project.address}</span>
-              </div>
-              <div className="detail-row">
-                <span className="detail-label">Jobs:</span>
-                <span className="detail-value">{project.jobCount} total</span>
-              </div>
+            <div className="project-content">
+              <h3 className="project-id">{project.id}</h3>
+              <h4 className="project-name">{project.name}</h4>
             </div>
 
             <div className="project-footer">
-              <button className="view-jobs-btn">
-                View Jobs →
+              <button 
+                className={`view-jobs-btn ${!project.active ? 'disabled' : ''}`}
+                disabled={!project.active}
+              >
+                {project.active ? 'View Jobs →' : 'View Jobs'}
               </button>
             </div>
           </div>

@@ -65,10 +65,22 @@
   transition: all 0.3s ease;
 }
 
-.attachment-card:hover {
+.attachment-card:hover:not(.disabled) {
   transform: translateY(-4px);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
   border-color: #2ecc71;
+}
+
+.attachment-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f8f9fa;
+}
+
+.attachment-card.disabled .attachment-name,
+.attachment-card.disabled .attachment-type,
+.attachment-card.disabled .attachment-description p {
+  color: #6c757d;
 }
 
 .attachment-header {
@@ -193,9 +205,16 @@
   transition: all 0.3s ease;
 }
 
-.open-pdf-btn:hover {
+.open-pdf-btn:hover:not(.disabled) {
   transform: translateY(-1px);
   box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+}
+
+.open-pdf-btn.disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .attachments-actions {
