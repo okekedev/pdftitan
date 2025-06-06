@@ -21,24 +21,6 @@ function Projects({ onSelectProject }) {
     }
   ]);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'In Progress': return 'status-progress';
-      case 'Scheduled': return 'status-scheduled';
-      case 'Completed': return 'status-completed';
-      default: return 'status-default';
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'High': return 'priority-high';
-      case 'Medium': return 'priority-medium';
-      case 'Low': return 'priority-low';
-      default: return 'priority-default';
-    }
-  };
-
   return (
     <div className="projects-container">
       <div className="projects-header">

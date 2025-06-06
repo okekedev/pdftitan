@@ -3,296 +3,527 @@ import './PDFEditor.css';
 
 function PDFEditor({ pdf, job, onClose, onSave }) {
   const pdfContainerRef = useRef(null);
-  const [pdfDocument, setPdfDocument] = useState(null);
   const [pdfLoaded, setPdfLoaded] = useState(false);
   const [pdfError, setPdfError] = useState(false);
-  const [formFields, setFormFields] = useState({});
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
+  const [editableElements, setEditableElements] = useState([]);
+  const [selectedElement, setSelectedElement] = useState(null);
+  const [showInstructions, setShowInstructions] = useState(true);
+  
+  // Touch and zoom state
+  const [scale, setScale] = useState(1);
+  const [translateX, setTranslateX] = useState(0);
+  const [translateY, setTranslateY] = useState(0);
+  const [lastTouchDistance, setLastTouchDistance] = useState(0);
+  const [lastTouchCenter, setLastTouchCenter] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Auto-fill data from ServiceTitan
-  const autoFillData = {
-    'job_id': job.id,
-    'job_name': job.name,
-    'technician': 'Mike Rodriguez',
-    'test_date': new Date().toLocaleDateString(),
-    'customer': 'Metro Hospital System',
-    'date': new Date().toLocaleDateString(),
-    'technician_name': 'Mike Rodriguez'
-  };
-
-  // Load PDF.js library and PDF document
+  // Load PDF when component mounts
   useEffect(() => {
-    const loadPDF = async () => {
-      try {
-        // Load PDF.js library
-        if (!window.pdfjsLib) {
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-          script.onload = () => {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 
-              'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            loadPDFDocument();
-          };
-          document.head.appendChild(script);
-        } else {
-          loadPDFDocument();
-        }
-      } catch (error) {
-        console.error('Error loading PDF.js:', error);
-        setPdfError(true);
-      }
-    };
-
-    const loadPDFDocument = async () => {
-      try {
-        const response = await fetch('/assets/sample.pdf');
-        if (!response.ok) {
-          setPdfError(true);
-          return;
-        }
-
-        const arrayBuffer = await response.arrayBuffer();
-        const pdf = await window.pdfjsLib.getDocument(arrayBuffer).promise;
-        
-        setPdfDocument(pdf);
-        setTotalPages(pdf.numPages);
-        setPdfLoaded(true);
-
-        // Load first page and detect form fields
-        await loadPage(pdf, 1);
-      } catch (error) {
-        console.error('Error loading PDF document:', error);
-        setPdfError(true);
-      }
-    };
-
     loadPDF();
   }, []);
 
-  const loadPage = async (pdf, pageNumber) => {
+  const loadPDF = async () => {
     try {
-      const page = await pdf.getPage(pageNumber);
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      
-      const viewport = page.getViewport({ scale: 1.5 });
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-
-      await page.render({
-        canvasContext: context,
-        viewport: viewport
-      }).promise;
-
-      // Get form fields (annotations)
-      const annotations = await page.getAnnotations();
-      const detectedFields = {};
-
-      annotations.forEach((annotation, index) => {
-        if (annotation.subtype === 'Widget' && annotation.fieldName) {
-          const fieldName = annotation.fieldName.toLowerCase();
-          
-          // Auto-fill if we have matching data
-          let value = '';
-          Object.keys(autoFillData).forEach(key => {
-            if (fieldName.includes(key) || key.includes(fieldName)) {
-              value = autoFillData[key];
-            }
-          });
-
-          detectedFields[annotation.fieldName] = {
-            name: annotation.fieldName,
-            type: annotation.fieldType || 'text',
-            value: value,
-            rect: annotation.rect,
-            page: pageNumber,
-            readonly: !!value // Auto-filled fields are readonly
-          };
-        }
-      });
-
-      setFormFields(prev => ({ ...prev, ...detectedFields }));
-
-      // Display the rendered page
-      if (pdfContainerRef.current) {
-        pdfContainerRef.current.innerHTML = '';
-        pdfContainerRef.current.appendChild(canvas);
-        
-        // Add interactive form fields
-        addInteractiveFields(detectedFields, viewport);
+      const response = await fetch('/assets/sample.pdf');
+      if (response.ok) {
+        setPdfLoaded(true);
+      } else {
+        setPdfError(true);
       }
-
     } catch (error) {
-      console.error('Error loading page:', error);
+      console.error('Error loading PDF:', error);
+      setPdfError(true);
     }
   };
 
-  const addInteractiveFields = (fields, viewport) => {
-    Object.values(fields).forEach(field => {
-      const fieldElement = document.createElement(field.type === 'choice' ? 'select' : 'input');
-      
-      if (field.type === 'choice') {
-        // Add dropdown options
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Select...';
-        fieldElement.appendChild(defaultOption);
-        
-        ['Pass', 'Fail', 'Needs Repair'].forEach(option => {
-          const optionElement = document.createElement('option');
-          optionElement.value = option;
-          optionElement.textContent = option;
-          fieldElement.appendChild(optionElement);
-        });
-      } else {
-        fieldElement.type = field.type === 'signature' ? 'text' : 'text';
-        fieldElement.placeholder = field.readonly ? 'Auto-filled' : `Enter ${field.name}`;
-      }
+  // Touch gesture handlers
+  const getDistance = (touch1, touch2) => {
+    return Math.sqrt(
+      Math.pow(touch2.clientX - touch1.clientX, 2) + 
+      Math.pow(touch2.clientY - touch1.clientY, 2)
+    );
+  };
 
-      fieldElement.value = field.value;
-      fieldElement.disabled = field.readonly;
-      fieldElement.className = `pdf-form-field ${field.readonly ? 'readonly' : 'editable'}`;
-      
-      // Position field based on PDF coordinates
-      fieldElement.style.position = 'absolute';
-      fieldElement.style.left = `${field.rect[0]}px`;
-      fieldElement.style.top = `${viewport.height - field.rect[3]}px`;
-      fieldElement.style.width = `${field.rect[2] - field.rect[0]}px`;
-      fieldElement.style.height = `${field.rect[3] - field.rect[1]}px`;
-      
-      fieldElement.addEventListener('change', (e) => {
-        setFormFields(prev => ({
-          ...prev,
-          [field.name]: { ...field, value: e.target.value }
-        }));
+  const getCenter = (touch1, touch2) => {
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2
+    };
+  };
+
+  const handleTouchStart = (e) => {
+    const touches = e.touches;
+    
+    if (touches.length === 1) {
+      // Single touch - start dragging
+      setIsDragging(true);
+      setDragStart({
+        x: touches[0].clientX - translateX,
+        y: touches[0].clientY - translateY
       });
+    } else if (touches.length === 2) {
+      // Two touches - prepare for zoom or add text
+      const distance = getDistance(touches[0], touches[1]);
+      const center = getCenter(touches[0], touches[1]);
+      setLastTouchDistance(distance);
+      setLastTouchCenter(center);
+      setIsDragging(false);
+    } else if (touches.length === 3) {
+      // Three touches - delete mode
+      e.preventDefault();
+      setIsDragging(false);
+    }
+  };
 
-      pdfContainerRef.current.appendChild(fieldElement);
-    });
+  const handleTouchMove = (e) => {
+    e.preventDefault();
+    const touches = e.touches;
+    
+    if (touches.length === 1 && isDragging) {
+      // Single touch - pan/drag
+      setTranslateX(touches[0].clientX - dragStart.x);
+      setTranslateY(touches[0].clientY - dragStart.y);
+    } else if (touches.length === 2) {
+      // Two touches - pinch to zoom
+      const distance = getDistance(touches[0], touches[1]);
+      const center = getCenter(touches[0], touches[1]);
+      
+      if (lastTouchDistance > 0) {
+        const scaleChange = distance / lastTouchDistance;
+        const newScale = Math.max(0.5, Math.min(3, scale * scaleChange));
+        setScale(newScale);
+      }
+      
+      setLastTouchDistance(distance);
+      setLastTouchCenter(center);
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    const touches = e.changedTouches;
+    
+    if (touches.length === 1 && e.touches.length === 0) {
+      // Single touch ended
+      setIsDragging(false);
+    } else if (touches.length === 2 && e.touches.length === 0) {
+      // Two touches ended - add text box
+      const rect = pdfContainerRef.current.getBoundingClientRect();
+      const x = (lastTouchCenter.x - rect.left - translateX) / scale;
+      const y = (lastTouchCenter.y - rect.top - translateY) / scale;
+      
+      addTextElement(x, y);
+      setLastTouchDistance(0);
+    } else if (touches.length === 3) {
+      // Three touches ended - delete selected element
+      if (selectedElement) {
+        deleteElement(selectedElement);
+      }
+    }
+  };
+
+  const addTextElement = (x, y) => {
+    const newElement = {
+      id: `element_${Date.now()}`,
+      type: 'text',
+      x: x - 75,
+      y: y - 12,
+      width: 150,
+      height: 25,
+      value: '',
+      fontSize: 12,
+      fontFamily: 'Arial',
+      color: '#000000',
+      created: new Date().toISOString()
+    };
+
+    setEditableElements(prev => [...prev, newElement]);
+    setSelectedElement(newElement.id);
+  };
+
+  const addSignatureElement = () => {
+    const newElement = {
+      id: `element_${Date.now()}`,
+      type: 'signature',
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 80,
+      value: '',
+      fontSize: 12,
+      fontFamily: 'Arial',
+      color: '#000000',
+      created: new Date().toISOString()
+    };
+
+    setEditableElements(prev => [...prev, newElement]);
+    setSelectedElement(newElement.id);
+  };
+
+  const updateElement = (elementId, updates) => {
+    setEditableElements(prev => 
+      prev.map(element => 
+        element.id === elementId ? { ...element, ...updates } : element
+      )
+    );
+  };
+
+  const deleteElement = (elementId) => {
+    setEditableElements(prev => prev.filter(element => element.id !== elementId));
+    setSelectedElement(null);
+  };
+
+  const deleteSelectedElement = () => {
+    if (selectedElement) {
+      deleteElement(selectedElement);
+    }
+  };
+
+  const resetZoom = () => {
+    setScale(1);
+    setTranslateX(0);
+    setTranslateY(0);
   };
 
   const handleSave = () => {
-    // Validate required fields
-    const requiredFields = Object.values(formFields).filter(field => 
-      !field.readonly && !field.value && 
-      (field.name.includes('serial') || field.name.includes('result'))
-    );
-
-    if (requiredFields.length > 0) {
-      alert('Please fill out all required fields');
+    if (editableElements.length === 0) {
+      alert('Please add some content to the PDF before saving');
       return;
     }
 
     onSave({
       pdfId: pdf.id,
-      formFields: formFields,
+      editableElements: editableElements,
+      jobInfo: {
+        jobId: job.id,
+        jobName: job.name,
+        technician: 'Mike Rodriguez',
+        date: new Date().toLocaleDateString()
+      },
       savedAt: new Date().toISOString()
     });
   };
 
-  const nextPage = () => {
-    if (currentPage < totalPages && pdfDocument) {
-      const newPage = currentPage + 1;
-      setCurrentPage(newPage);
-      loadPage(pdfDocument, newPage);
-    }
-  };
+  const renderEditableElement = (element) => {
+    const commonStyle = {
+      position: 'absolute',
+      left: `${element.x}px`,
+      top: `${element.y}px`,
+      width: `${element.width}px`,
+      height: `${element.height}px`,
+      fontSize: `${element.fontSize}px`,
+      fontFamily: element.fontFamily,
+      color: element.color,
+      zIndex: 10,
+      transform: `scale(${1 / scale})`,
+      transformOrigin: 'top left'
+    };
 
-  const prevPage = () => {
-    if (currentPage > 1 && pdfDocument) {
-      const newPage = currentPage - 1;
-      setCurrentPage(newPage);
-      loadPage(pdfDocument, newPage);
-    }
-  };
+    const handleElementClick = (e) => {
+      e.stopPropagation();
+      setSelectedElement(element.id);
+    };
 
-  if (pdfError) {
-    return (
-      <div className="pdf-editor-container">
-        <div className="pdf-editor-header">
-          <div className="header-left">
-            <button onClick={onClose} className="close-btn">
-              ← Back
+    switch (element.type) {
+      case 'text':
+        return (
+          <input
+            key={element.id}
+            type="text"
+            value={element.value}
+            onChange={(e) => updateElement(element.id, { value: e.target.value })}
+            onClick={handleElementClick}
+            className={`editable-element text-element ${selectedElement === element.id ? 'selected' : ''}`}
+            style={{
+              ...commonStyle,
+              background: 'rgba(255, 255, 255, 0.95)',
+              border: selectedElement === element.id ? '2px solid #007bff' : '1px solid #ddd',
+              borderRadius: '3px',
+              padding: '2px 5px'
+            }}
+            placeholder="Tap to type..."
+          />
+        );
+
+      case 'signature':
+        return (
+          <div
+            key={element.id}
+            onClick={handleElementClick}
+            className={`editable-element signature-element ${selectedElement === element.id ? 'selected' : ''}`}
+            style={{
+              ...commonStyle,
+              background: 'rgba(255, 255, 255, 0.95)',
+              border: selectedElement === element.id ? '2px solid #007bff' : '2px dashed #ddd',
+              borderRadius: '5px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '5px'
+            }}
+          >
+            <SignatureCanvas
+              elementId={element.id}
+              value={element.value}
+              onUpdate={(signatureData) => updateElement(element.id, { value: signatureData })}
+              width={element.width - 10}
+              height={element.height - 30}
+              scale={scale}
+            />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                updateElement(element.id, { value: '' });
+              }}
+              style={{
+                fontSize: '10px',
+                padding: '2px 5px',
+                background: '#dc3545',
+                color: 'white',
+                border: 'none',
+                borderRadius: '2px',
+                cursor: 'pointer',
+                marginTop: '2px'
+              }}
+            >
+              Clear
             </button>
-            <div className="pdf-info">
-              <h2>{pdf.name}</h2>
-              <p>PDF Loading Error</p>
-            </div>
           </div>
-        </div>
-        <div className="pdf-error-message">
-          <h3>PDF Could Not Be Loaded</h3>
-          <p>Please ensure the PDF file exists at: <code>/assets/sample.pdf</code></p>
-          <p>The PDF should contain fillable form fields for automatic detection.</p>
-        </div>
-      </div>
-    );
-  }
+        );
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="pdf-editor-container">
       <div className="pdf-editor-header">
         <div className="header-left">
-          <button onClick={onClose} className="close-btn">
-            ← Back
-          </button>
+          <button onClick={onClose} className="close-btn">← Back</button>
           <div className="pdf-info">
             <h2>{pdf.name}</h2>
-            <p>{job.id} - Interactive PDF Form</p>
+            <p>{job.id} - Touch PDF Editor</p>
           </div>
         </div>
         
         <div className="header-right">
-          {totalPages > 1 && (
-            <div className="page-controls">
-              <button onClick={prevPage} disabled={currentPage === 1} className="page-btn">
-                ← Prev
+          <div className="simple-controls">
+            <button 
+              onClick={addSignatureElement}
+              className="control-btn signature-btn"
+            >
+              ✍️ Add Signature
+            </button>
+            
+            {selectedElement && (
+              <button
+                onClick={deleteSelectedElement}
+                className="control-btn delete-btn"
+              >
+                🗑️ Delete Selected
               </button>
-              <span className="page-info">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button onClick={nextPage} disabled={currentPage === totalPages} className="page-btn">
-                Next →
-              </button>
-            </div>
-          )}
+            )}
+
+            <button 
+              onClick={resetZoom}
+              className="control-btn zoom-btn"
+            >
+              🔍 Reset Zoom
+            </button>
+
+            <button 
+              onClick={() => setShowInstructions(!showInstructions)}
+              className="control-btn help-btn"
+            >
+              ❓ Help
+            </button>
+          </div>
           
-          <button onClick={handleSave} className="save-btn">
-            Save Form
-          </button>
+          <button onClick={handleSave} className="save-btn">Save PDF</button>
         </div>
       </div>
 
-      <div className="pdf-editor-content">
-        {!pdfLoaded ? (
-          <div className="pdf-loading">
-            <div className="loading-spinner"></div>
-            <p>Loading PDF and detecting form fields...</p>
-          </div>
-        ) : (
-          <div className="pdf-viewer-container">
-            <div className="pdf-canvas-container" ref={pdfContainerRef}>
-              {/* PDF canvas and form fields will be rendered here */}
+      {showInstructions && (
+        <div className="touch-instructions">
+          <div className="instructions-content">
+            <h4>📱 Touch Controls</h4>
+            <div className="instruction-grid">
+              <div className="instruction-item">
+                <span className="gesture">👆 1 Touch</span>
+                <span className="action">Move & pan around document</span>
+              </div>
+              <div className="instruction-item">
+                <span className="gesture">✌️ 2 Touches</span>
+                <span className="action">Pinch to zoom / Tap to add text</span>
+              </div>
+              <div className="instruction-item">
+                <span className="gesture">👌 3 Touches</span>
+                <span className="action">Delete selected element</span>
+              </div>
             </div>
-            
-            <div className="form-fields-info">
-              <h4>Detected Form Fields:</h4>
-              <div className="fields-list">
-                {Object.values(formFields).map(field => (
-                  <div key={field.name} className={`field-info ${field.readonly ? 'auto-filled' : 'editable'}`}>
-                    <span className="field-name">{field.name}</span>
-                    <span className="field-status">
-                      {field.readonly ? '✓ Auto-filled' : field.value ? '✓ Completed' : '⚠ Required'}
-                    </span>
+            <button onClick={() => setShowInstructions(false)} className="close-instructions">
+              Got it! ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="pdf-editor-content">
+        <div className="pdf-editor-workspace">
+          
+          <div className="zoom-info">
+            <span>Zoom: {Math.round(scale * 100)}%</span>
+            <span>Elements: {editableElements.length}</span>
+          </div>
+
+          <div className="pdf-container">
+            <div 
+              ref={pdfContainerRef}
+              className="pdf-viewer-main"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              style={{ 
+                cursor: 'grab',
+                overflow: 'hidden',
+                touchAction: 'none'
+              }}
+            >
+              <div 
+                className="pdf-content-wrapper"
+                style={{
+                  transform: `translate(${translateX}px, ${translateY}px) scale(${scale})`,
+                  transformOrigin: '0 0',
+                  transition: isDragging ? 'none' : 'transform 0.1s ease'
+                }}
+              >
+                {pdfLoaded ? (
+                  <div className="pdf-content">
+                    <embed
+                      src="/assets/sample.pdf"
+                      type="application/pdf"
+                      width="800px"
+                      height="1000px"
+                      style={{ 
+                        pointerEvents: 'none',
+                        display: 'block'
+                      }}
+                    />
                   </div>
-                ))}
+                ) : (
+                  <div className="pdf-placeholder">
+                    <div className="placeholder-content">
+                      <h3>📋 Backflow Prevention Device Test Report</h3>
+                      <p>Use touch gestures to navigate and add content</p>
+                      <div className="placeholder-form">
+                        <div className="placeholder-section">Job Information Section</div>
+                        <div className="placeholder-section">Testing Details Section</div>
+                        <div className="placeholder-section">Results & Signature Section</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Render all editable elements */}
+                {editableElements.map(element => renderEditableElement(element))}
               </div>
             </div>
           </div>
-        )}
+
+        </div>
       </div>
     </div>
+  );
+}
+
+// Signature Canvas Component
+function SignatureCanvas({ elementId, value, onUpdate, width, height, scale }) {
+  const canvasRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  useEffect(() => {
+    if (value && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0);
+      img.src = value;
+    }
+  }, [value]);
+
+  const startDrawing = (e) => {
+    setIsDrawing(true);
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    
+    let x, y;
+    if (e.touches) {
+      x = (e.touches[0].clientX - rect.left) / scale;
+      y = (e.touches[0].clientY - rect.top) / scale;
+    } else {
+      x = (e.clientX - rect.left) / scale;
+      y = (e.clientY - rect.top) / scale;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2 / scale;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const draw = (e) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    
+    let x, y;
+    if (e.touches) {
+      x = (e.touches[0].clientX - rect.left) / scale;
+      y = (e.touches[0].clientY - rect.top) / scale;
+    } else {
+      x = (e.clientX - rect.left) / scale;
+      y = (e.clientY - rect.top) / scale;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    const signatureData = canvas.toDataURL();
+    onUpdate(signatureData);
+  };
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={width}
+      height={height}
+      onMouseDown={startDrawing}
+      onMouseMove={draw}
+      onMouseUp={stopDrawing}
+      onMouseLeave={stopDrawing}
+      onTouchStart={startDrawing}
+      onTouchMove={draw}
+      onTouchEnd={stopDrawing}
+      style={{
+        border: '1px solid #ddd',
+        borderRadius: '3px',
+        background: 'white',
+        cursor: 'crosshair',
+        touchAction: 'none'
+      }}
+    />
   );
 }
 
