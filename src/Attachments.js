@@ -12,20 +12,14 @@ function Attachments({ job, onBack }) {
       name: "Backflow Test Report Form",
       type: "Test Report",
       status: "Required",
-      size: "2.3 MB",
-      lastModified: "2025-06-04",
-      description: "Standard backflow prevention device test report",
       active: true,
       pdfPath: "/assets/sample.pdf"
     },
     {
       id: 2,
       name: "USC Foundation Safety Report",
-      type: "Safety Form",
+      type: "Safety Form", 
       status: "Required",
-      size: "1.8 MB",
-      lastModified: "2025-06-04",
-      description: "University of Southern California Foundation safety compliance form",
       active: false
     },
     {
@@ -33,9 +27,6 @@ function Attachments({ job, onBack }) {
       name: "City Compliance Certificate",
       type: "Certificate",
       status: "Optional",
-      size: "1.2 MB",
-      lastModified: "2025-06-03",
-      description: "Municipal water department compliance certificate",
       active: false
     }
   ]);
@@ -108,32 +99,15 @@ function Attachments({ job, onBack }) {
             className={`attachment-card ${!attachment.active ? 'disabled' : ''}`}
             onClick={() => handleOpenPDF(attachment)}
           >
-            <div className="attachment-header">
-              <div className="attachment-info">
-                <span className="file-icon">{getFileIcon(attachment.type)}</span>
-                <div>
-                  <h3 className="attachment-name">{attachment.name}</h3>
-                  <p className="attachment-type">{attachment.type}</p>
-                </div>
+            <div className="attachment-content">
+              <div className="attachment-icon">
+                {getFileIcon(attachment.type)}
               </div>
+              <h3 className="attachment-name">{attachment.name}</h3>
+              <p className="attachment-type">{attachment.type}</p>
               <span className={`status-badge ${getStatusColor(attachment.status)}`}>
                 {attachment.status}
               </span>
-            </div>
-
-            <div className="attachment-description">
-              <p>{attachment.description}</p>
-            </div>
-
-            <div className="attachment-details">
-              <div className="detail-row">
-                <span className="detail-label">Size:</span>
-                <span className="detail-value">{attachment.size}</span>
-              </div>
-              <div className="detail-row">
-                <span className="detail-label">Last Modified:</span>
-                <span className="detail-value">{attachment.lastModified}</span>
-              </div>
             </div>
 
             <div className="attachment-footer">

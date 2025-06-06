@@ -50,7 +50,7 @@
 
 .attachments-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
@@ -63,6 +63,7 @@
   border: 1px solid #e9ecef;
   cursor: pointer;
   transition: all 0.3s ease;
+  text-align: center;
 }
 
 .attachment-card:hover:not(.disabled) {
@@ -78,54 +79,42 @@
 }
 
 .attachment-card.disabled .attachment-name,
-.attachment-card.disabled .attachment-type,
-.attachment-card.disabled .attachment-description p {
+.attachment-card.disabled .attachment-type {
   color: #6c757d;
 }
 
-.attachment-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  gap: 1rem;
+.attachment-content {
+  margin-bottom: 1.5rem;
 }
 
-.attachment-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.file-icon {
-  font-size: 1.5rem;
-  background: #f8f9fa;
-  padding: 0.5rem;
-  border-radius: 8px;
-  border: 2px solid #e9ecef;
+.attachment-icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
 }
 
 .attachment-name {
   color: #333;
   font-size: 1rem;
-  font-weight: 700;
-  margin: 0 0 0.25rem 0;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.3;
 }
 
 .attachment-type {
   color: #666;
-  font-size: 0.85rem;
-  margin: 0;
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem 0;
   font-weight: 500;
 }
 
 .status-badge {
+  display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 600;
-  text-align: center;
-  min-width: 80px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .status-required {
@@ -139,52 +128,13 @@
 }
 
 .status-completed {
-  background: #1a1a1a;
+  background: #e8f5e8;
   color: #2ecc71;
 }
 
 .status-default {
   background: #f5f5f5;
   color: #666;
-}
-
-.attachment-description {
-  margin-bottom: 1rem;
-}
-
-.attachment-description p {
-  color: #666;
-  font-size: 0.9rem;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.attachment-details {
-  margin-bottom: 1rem;
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid #f8f9fa;
-}
-
-.detail-row:last-child {
-  border-bottom: none;
-}
-
-.detail-label {
-  color: #666;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.detail-value {
-  color: #333;
-  font-size: 0.85rem;
-  text-align: right;
 }
 
 .attachment-footer {
@@ -262,11 +212,5 @@
   
   .attachments-grid {
     grid-template-columns: 1fr;
-  }
-  
-  .attachment-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
   }
 }
