@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import PDFEditor from './PDFEditor';
+import PDFEditor from '../PDFEditor/PDFEditor';
 import './Attachments.css';
 
 function Attachments({ job, onBack }) {
