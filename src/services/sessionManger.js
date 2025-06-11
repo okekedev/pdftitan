@@ -1,4 +1,4 @@
-// src/services/sessionManager.js
+// src/services/sessionManager.js - Optimized Session Manager
 // Session storage for user authentication
 
 class SessionManager {
@@ -21,7 +21,7 @@ class SessionManager {
     };
     
     sessionStorage.setItem(this.sessionKey, JSON.stringify(sessionData));
-    console.log('✅ User auth session saved for:', userData.employee?.name || 'Unknown');
+    console.log('✅ User session saved for:', userData.employee?.name || 'Unknown');
   }
 
   // Get current user session
@@ -104,7 +104,7 @@ class SessionManager {
     return session && session.authLayers && session.authLayers.adminSuper;
   }
 
-  // Enable admin super access (after third layer validation)
+  // Enable admin super access (after validation)
   enableAdminSuperAccess() {
     const session = this.getUserSession();
     if (session && this.isAdmin()) {
@@ -117,7 +117,7 @@ class SessionManager {
     return false;
   }
 
-  // Validate admin super access via server
+  // Validate admin super access via ApiClient
   async validateAdminSuperAccess(adminPassword) {
     const session = this.getUserSession();
     if (!session || !this.isAdmin()) {
@@ -128,18 +128,10 @@ class SessionManager {
     }
 
     try {
-      const response = await fetch('http://localhost:3005/api/admin/validate-super-access', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          adminPassword: adminPassword,
-          userRole: session.employee.role
-        })
-      });
-
-      const result = await response.json();
+      // Import apiClient here to avoid circular dependency
+      const apiClient = (await import('./apiClient')).default;
+      
+      const result = await apiClient.validateAdminAccess(adminPassword, session.employee.role);
       
       if (result.success) {
         this.enableAdminSuperAccess();
@@ -177,16 +169,16 @@ class SessionManager {
     return session?.user?.accessToken || null;
   }
 
-  // Get ServiceTitan app key
+  // Get ServiceTitan app key (Note: This is now server-side only)
   getServiceTitanAppKey() {
-    const session = this.getUserSession();
-    return session?.user?.appKey || null;
+    console.warn('⚠️ AppKey is now server-side only. This method is deprecated.');
+    return null;
   }
 
-  // Get tenant ID
+  // Get tenant ID (Note: This is now server-side only)
   getTenantId() {
-    const session = this.getUserSession();
-    return session?.user?.tenantId || null;
+    console.warn('⚠️ TenantId is now server-side only. This method is deprecated.');
+    return null;
   }
 
   // Update session with new data
@@ -292,6 +284,20 @@ class SessionManager {
       adminAccess: isAdmin,
       superAdminAccess: hasAdminSuper
     };
+  }
+
+  // Test server connection (using apiClient)
+  async testServerConnection() {
+    try {
+      const apiClient = (await import('./apiClient')).default;
+      return await apiClient.testConnection();
+    } catch (error) {
+      console.error('❌ Server connection test failed:', error);
+      return {
+        connected: false,
+        error: 'Could not test server connection'
+      };
+    }
   }
 }
 
