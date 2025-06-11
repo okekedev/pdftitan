@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { serviceTitanConfig } from '../../config/serviceTitanConfig';
+import apiClient from '../../services/apiClient';
 import './Login.css';
 
 function Login({ onLogin }) {
@@ -17,7 +18,7 @@ function Login({ onLogin }) {
       if (serviceTitanConfig.isConfigured()) {
         setConfigStatus({
           valid: true,
-          environment: serviceTitanConfig.isIntegrationEnvironment ? 'Integration' : 'Production'
+          environment: serviceTitanConfig.environment.name
         });
       } else {
         setConfigStatus({
@@ -30,7 +31,7 @@ function Login({ onLogin }) {
     checkConfig();
   }, []);
 
-  // User Authentication via Server
+  // User Authentication via ApiClient
   const handleLogin = async () => {
     if (!employeeName.trim() || !employeePhone.trim()) {
       setError('Please enter both your name and phone number');
@@ -41,22 +42,10 @@ function Login({ onLogin }) {
     setError('');
     
     try {
-      console.log('👤 Authenticating user via server...');
+      console.log('👤 Authenticating user via ApiClient...');
       
-      // Call server endpoint for user validation
-      console.log('🔍 Sending request to: http://localhost:3005/api/user/validate');
-      const response = await fetch('http://localhost:3005/api/user/validate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: employeeName,
-          phone: employeePhone
-        })
-      });
-
-      const result = await response.json();
+      // Use ApiClient instead of direct fetch
+      const result = await apiClient.validateUser(employeeName, employeePhone);
       
       if (result.success) {
         // Create user session data
@@ -67,8 +56,8 @@ function Login({ onLogin }) {
           accessToken: result.accessToken,
           appKey: result.company.appKey,
           isServiceTitanConnected: true,
-          environment: configStatus.environment,
-          authMethod: 'simplified_auth',
+          environment: result.environment || configStatus.environment,
+          authMethod: 'api_client',
           authLayers: {
             employee: true,
             adminSuper: false // Will be updated if admin validates
@@ -84,31 +73,62 @@ function Login({ onLogin }) {
         onLogin(userData);
         
       } else {
-        // Show specific error based on what failed
-        switch (result.layer) {
-          case 'validation':
-            setError(`${result.error} (Searched: ${result.searchedIn?.join(', ') || 'employees & technicians'})`);
-            break;
-          case 'servicetitan':
-            setError('Failed to connect to ServiceTitan API. Please try again later.');
-            break;
-          default:
-            setError(result.error || 'Authentication failed');
-        }
+        // This shouldn't happen since ApiClient throws on non-success
+        setError(result.error || 'Authentication failed');
       }
       
     } catch (error) {
       console.error('❌ Authentication error:', error);
-      if (error.message.includes('Failed to fetch')) {
-        setError('Cannot connect to server. Make sure the proxy server is running on localhost:3005');
-      } else {
-        setError(`Authentication failed: ${error.message}`);
+      
+      // Use ApiClient's error handling
+      const errorInfo = apiClient.handleApiError(error);
+      
+      switch (errorInfo.type) {
+        case 'NETWORK':
+          setError('Cannot connect to server. Make sure the server is running on localhost:3005');
+          break;
+        case 'TIMEOUT':
+          setError('Connection timeout. Please try again.');
+          break;
+        case 'AUTH':
+          setError('Authentication failed. Please check your credentials.');
+          break;
+        default:
+          // Parse specific server error messages
+          if (error.message.includes('User not found')) {
+            setError(`User not found. Please check your name and try again.`);
+          } else if (error.message.includes('Phone number does not match')) {
+            setError('Phone number does not match our records for this user.');
+          } else if (error.message.includes('ServiceTitan authentication failed')) {
+            setError('Failed to connect to ServiceTitan API. Please try again later.');
+          } else {
+            setError(errorInfo.userMessage);
+          }
       }
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Test server connection on mount
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        const connectionTest = await apiClient.testConnection();
+        if (!connectionTest.connected) {
+          console.warn('⚠️ Server connection test failed:', connectionTest.error);
+        } else {
+          console.log('✅ Server connection successful:', connectionTest.serverStatus);
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not test server connection:', error);
+      }
+    };
+
+    if (configStatus?.valid) {
+      testConnection();
+    }
+  }, [configStatus]);
 
   if (!configStatus) {
     return (
@@ -199,6 +219,12 @@ function Login({ onLogin }) {
         
         <div className="login-footer">
           <p>Enter your username (or full name) and phone number to login</p>
+          {serviceTitanConfig.app.debugMode && (
+            <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#666' }}>
+              <p>Debug Mode: Environment = {configStatus.environment}</p>
+              <p>Available test users: Christian Okeke, John Smith, Sarah Johnson</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
