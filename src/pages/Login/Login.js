@@ -8,9 +8,9 @@ function Login({ onLogin }) {
   const [error, setError] = useState('');
   const [configStatus, setConfigStatus] = useState(null);
   
-  // Employee authentication form
-  const [employeeName, setEmployeeName] = useState('');
-  const [employeePhone, setEmployeePhone] = useState('');
+  // Updated form labels for clarity
+  const [username, setUsername] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   useEffect(() => {
     // Check configuration on component mount
@@ -31,10 +31,10 @@ function Login({ onLogin }) {
     checkConfig();
   }, []);
 
-  // User Authentication via ApiClient
+  // User Authentication via ApiClient - Updated for role-based auth
   const handleLogin = async () => {
-    if (!employeeName.trim() || !employeePhone.trim()) {
-      setError('Please enter both your name and phone number');
+    if (!username.trim() || !phoneNumber.trim()) {
+      setError('Please enter both your username and phone number');
       return;
     }
 
@@ -44,43 +44,57 @@ function Login({ onLogin }) {
     try {
       console.log('👤 Authenticating user via ApiClient...');
       
-      // Use ApiClient instead of direct fetch
-      const result = await apiClient.validateUser(employeeName, employeePhone);
+      // Use ApiClient with updated field names
+      const result = await apiClient.validateUser(username, phoneNumber);
       
       if (result.success) {
-        // Create user session data
+        console.log('🔍 Server response:', result);
+        
+        // Ensure access object exists
+        const access = result.access || {
+          level: 'unknown',
+          isAdmin: false,
+          isTechnician: false,
+          nextScreen: 'jobs',
+          permissions: {}
+        };
+        
+        // Create user session data with new role-based structure
         const userData = {
           employee: result.user,
-          company: result.company.name,
-          tenantId: result.company.tenantId,
+          access: access, // Role-based access info with fallback
+          company: result.company?.name || 'Unknown Company',
+          tenantId: result.company?.tenantId || '',
           accessToken: result.accessToken,
-          appKey: result.company.appKey,
+          appKey: result.company?.appKey || '',
           isServiceTitanConnected: true,
           environment: result.environment || configStatus.environment,
           authMethod: 'api_client',
           authLayers: {
             employee: true,
-            adminSuper: false // Will be updated if admin validates
+            adminSuper: false
           }
         };
 
         console.log('✅ User authenticated:', {
-          name: result.user.name,
-          type: result.user.userType,
-          role: result.user.role
+          name: result.user?.name || 'Unknown',
+          username: result.user?.loginName || 'Unknown',
+          type: result.user?.userType || 'Unknown',
+          role: result.user?.role || 'Unknown',
+          accessLevel: access.level,
+          nextScreen: access.nextScreen
         });
         
         onLogin(userData);
         
       } else {
-        // This shouldn't happen since ApiClient throws on non-success
         setError(result.error || 'Authentication failed');
       }
       
     } catch (error) {
       console.error('❌ Authentication error:', error);
       
-      // Use ApiClient's error handling
+      // Enhanced error handling for new role-based responses
       const errorInfo = apiClient.handleApiError(error);
       
       switch (errorInfo.type) {
@@ -93,16 +107,25 @@ function Login({ onLogin }) {
         case 'AUTH':
           setError('Authentication failed. Please check your credentials.');
           break;
+        case 'PERMISSION':
+          setError('Access denied. Only administrators and technicians can use this application.');
+          break;
         default:
-          // Parse specific server error messages
-          if (error.message.includes('User not found')) {
-            setError(`User not found. Please check your name and try again.`);
+          // Parse specific server error messages with better error handling
+          console.log('🔍 Full error object:', error);
+          
+          if (error.message.includes('No user found with username')) {
+            setError(`Username "${username}" not found. Please check your username and try again.`);
           } else if (error.message.includes('Phone number does not match')) {
             setError('Phone number does not match our records for this user.');
+          } else if (error.message.includes('Access denied')) {
+            setError('Access denied - Only administrators and technicians can use this application');
           } else if (error.message.includes('ServiceTitan authentication failed')) {
             setError('Failed to connect to ServiceTitan API. Please try again later.');
+          } else if (error.message.includes('404')) {
+            setError('Server endpoint not found. Please make sure the server is running and try again.');
           } else {
-            setError(errorInfo.userMessage);
+            setError(errorInfo.userMessage || error.message || 'An unexpected error occurred');
           }
       }
     } finally {
@@ -149,7 +172,7 @@ function Login({ onLogin }) {
       <div className="login-card">
         <div className="login-header">
           <h1>TitanPDF</h1>
-          <p>User Login</p>
+          <p>MrBackflow TX - User Login</p>
         </div>
         
         {error && (
@@ -183,25 +206,25 @@ function Login({ onLogin }) {
         
         <div className="login-form">
           <div className="form-group">
-            <label htmlFor="employeeName">Username or Full Name</label>
+            <label htmlFor="username">Username</label>
             <input
               type="text"
-              id="employeeName"
-              value={employeeName}
-              onChange={(e) => setEmployeeName(e.target.value)}
-              placeholder="Enter username or full name"
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your ServiceTitan username"
               disabled={isLoading}
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="employeePhone">Phone Number</label>
+            <label htmlFor="phoneNumber">Phone Number</label>
             <input
               type="tel"
-              id="employeePhone"
-              value={employeePhone}
-              onChange={(e) => setEmployeePhone(e.target.value)}
-              placeholder="(555) 123-4567"
+              id="phoneNumber"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="Enter your phone number"
               disabled={isLoading}
               onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
             />
@@ -210,19 +233,22 @@ function Login({ onLogin }) {
           <button 
             type="button" 
             className={`login-btn ${isLoading ? 'loading' : ''} ${!configStatus.valid ? 'disabled' : ''}`}
-            disabled={isLoading || !configStatus.valid || !employeeName.trim() || !employeePhone.trim()}
+            disabled={isLoading || !configStatus.valid || !username.trim() || !phoneNumber.trim()}
             onClick={handleLogin}
           >
-            {isLoading ? 'Authenticating...' : '👤 Login'}
+            {isLoading ? 'Authenticating...' : '🔐 Login'}
           </button>
         </div>
         
         <div className="login-footer">
-          <p>Enter your username (or full name) and phone number to login</p>
+          <p>Enter your ServiceTitan username and phone number to login</p>
+          <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
+            Access is restricted to administrators and technicians only
+          </p>
           {serviceTitanConfig.app.debugMode && (
             <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#666' }}>
               <p>Debug Mode: Environment = {configStatus.environment}</p>
-              <p>Available test users: Christian Okeke, John Smith, Sarah Johnson</p>
+              <p>Test admin: okekec21 | Test technicians: davehofmann, John_cox</p>
             </div>
           )}
         </div>
