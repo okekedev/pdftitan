@@ -1,5 +1,5 @@
 // src/services/sessionManager.js
-// Session storage for three-layer authentication
+// Session storage for user authentication
 
 class SessionManager {
   constructor() {
@@ -13,7 +13,6 @@ class SessionManager {
       employee: userData.employee, // Store employee info separately for easy access
       company: userData.company,
       authLayers: userData.authLayers || {
-        company: true,
         employee: true,
         adminSuper: false
       },
@@ -22,7 +21,7 @@ class SessionManager {
     };
     
     sessionStorage.setItem(this.sessionKey, JSON.stringify(sessionData));
-    console.log('✅ Three-layer auth session saved for:', userData.employee?.name || 'Unknown');
+    console.log('✅ User auth session saved for:', userData.employee?.name || 'Unknown');
   }
 
   // Get current user session
@@ -204,14 +203,13 @@ class SessionManager {
     }
   }
 
-  // Get authentication layer status
+  // Get authentication status
   getAuthStatus() {
     const session = this.getUserSession();
     if (!session) {
       return {
         loggedIn: false,
         layers: {
-          company: false,
           employee: false,
           adminSuper: false
         }
@@ -221,7 +219,6 @@ class SessionManager {
     return {
       loggedIn: true,
       layers: session.authLayers || {
-        company: true,
         employee: true,
         adminSuper: false
       },
@@ -255,7 +252,10 @@ class SessionManager {
       timeRemaining: timeRemaining,
       timeRemainingFormatted: this.formatTime(timeRemaining),
       loginTime: new Date(session.loginTime).toLocaleString(),
-      authLayers: session.authLayers,
+      authStatus: {
+        employee: session.authLayers?.employee || true,
+        adminSuper: session.authLayers?.adminSuper || false
+      },
       isAdmin: this.isAdmin(),
       hasAdminSuper: this.hasAdminSuperAccess()
     };
