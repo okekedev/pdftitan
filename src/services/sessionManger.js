@@ -1,4 +1,4 @@
-// src/services/sessionManager.js - Optimized Session Manager
+// src/services/sessionManager.js - Updated for Role-Based Authentication
 // Session storage for user authentication
 
 class SessionManager {
@@ -6,11 +6,12 @@ class SessionManager {
     this.sessionKey = 'titanpdf_user_session';
   }
 
-  // Save user session after successful login
+  // Save user session after successful login - Updated for role-based auth
   setUserSession(userData) {
     const sessionData = {
       user: userData,
-      employee: userData.employee, // Store employee info separately for easy access
+      employee: userData.employee,
+      access: userData.access, // NEW: Store role-based access info
       company: userData.company,
       authLayers: userData.authLayers || {
         employee: true,
@@ -69,10 +70,22 @@ class SessionManager {
     return session ? session.employee : null;
   }
 
+  // NEW: Get access level data
+  getAccess() {
+    const session = this.getUserSession();
+    return session ? session.access : null;
+  }
+
   // Get employee name for display
   getEmployeeName() {
     const employee = this.getEmployee();
     return employee ? employee.name : 'Unknown User';
+  }
+
+  // Get username for display
+  getUsername() {
+    const employee = this.getEmployee();
+    return employee ? employee.loginName : 'Unknown';
   }
 
   // Get employee role
@@ -87,15 +100,22 @@ class SessionManager {
     return employee ? employee.userType : 'unknown';
   }
 
-  // Check if user has admin role
+  // NEW: Check if user is admin using role-based access
   isAdmin() {
-    const employee = this.getEmployee();
-    if (!employee || !employee.role) return false;
-    
-    const adminRoles = ['Admin', 'Owner', 'FieldManager', 'SalesManager'];
-    return adminRoles.some(role => 
-      employee.role.toLowerCase().includes(role.toLowerCase())
-    );
+    const access = this.getAccess();
+    return access ? access.isAdmin : false;
+  }
+
+  // NEW: Check if user is technician using role-based access
+  isTechnician() {
+    const access = this.getAccess();
+    return access ? access.isTechnician : false;
+  }
+
+  // NEW: Get access level (admin, technician, denied)
+  getAccessLevel() {
+    const access = this.getAccess();
+    return access ? access.level : 'unknown';
   }
 
   // Check if user has admin super access
@@ -195,7 +215,7 @@ class SessionManager {
     }
   }
 
-  // Get authentication status
+  // Get authentication status - Updated for role-based auth
   getAuthStatus() {
     const session = this.getUserSession();
     if (!session) {
@@ -208,6 +228,8 @@ class SessionManager {
       };
     }
 
+    const access = session.access || {};
+    
     return {
       loggedIn: true,
       layers: session.authLayers || {
@@ -215,15 +237,19 @@ class SessionManager {
         adminSuper: false
       },
       employeeName: session.employee?.name || 'Unknown',
+      username: session.employee?.loginName || 'Unknown',
       employeeRole: session.employee?.role || 'Unknown',
       userType: session.employee?.userType || 'unknown',
       company: session.company || 'Unknown',
-      isAdmin: this.isAdmin(),
-      hasAdminSuper: this.hasAdminSuperAccess()
+      accessLevel: access.level || 'unknown',
+      isAdmin: access.isAdmin || false,
+      isTechnician: access.isTechnician || false,
+      hasAdminSuper: this.hasAdminSuperAccess(),
+      nextScreen: access.nextScreen || 'unknown'
     };
   }
 
-  // Get session info for debugging
+  // Get session info for debugging - Updated
   getSessionInfo() {
     const session = this.getUserSession();
     if (!session) {
@@ -234,9 +260,12 @@ class SessionManager {
     }
 
     const timeRemaining = Math.round((session.expiresAt - Date.now()) / 1000);
+    const access = session.access || {};
+    
     return {
       loggedIn: true,
       employeeName: session.employee?.name || 'Unknown',
+      username: session.employee?.loginName || 'Unknown',
       employeeEmail: session.employee?.email || 'Unknown',
       employeeRole: session.employee?.role || 'Unknown',
       userType: session.employee?.userType || 'unknown',
@@ -248,8 +277,11 @@ class SessionManager {
         employee: session.authLayers?.employee || true,
         adminSuper: session.authLayers?.adminSuper || false
       },
-      isAdmin: this.isAdmin(),
-      hasAdminSuper: this.hasAdminSuperAccess()
+      accessLevel: access.level || 'unknown',
+      isAdmin: access.isAdmin || false,
+      isTechnician: access.isTechnician || false,
+      hasAdminSuper: this.hasAdminSuperAccess(),
+      nextScreen: access.nextScreen || 'unknown'
     };
   }
 
@@ -265,17 +297,37 @@ class SessionManager {
     }
   }
 
+  // NEW: Check if user needs company code screen
+  needsCompanyCode() {
+    const access = this.getAccess();
+    return access && access.permissions && access.permissions.needsCompanyCode;
+  }
+
   // Check if user can see all jobs (admin with super access)
   canSeeAllJobs() {
     return this.isAdmin() && this.hasAdminSuperAccess();
   }
 
-  // Get permissions for current user
+  // Get permissions for current user - Updated for role-based auth
   getPermissions() {
+    const access = this.getAccess();
     const isAdmin = this.isAdmin();
     const hasAdminSuper = this.hasAdminSuperAccess();
     
+    if (!access || !access.permissions) {
+      return {
+        viewOwnJobs: false,
+        editPDFs: false,
+        viewAllJobs: false,
+        viewAllProjects: false,
+        viewAllEmployees: false,
+        adminAccess: false,
+        superAdminAccess: false
+      };
+    }
+    
     return {
+      ...access.permissions,
       viewOwnJobs: true,
       editPDFs: true,
       viewAllJobs: isAdmin && hasAdminSuper,
@@ -284,6 +336,12 @@ class SessionManager {
       adminAccess: isAdmin,
       superAdminAccess: hasAdminSuper
     };
+  }
+
+  // NEW: Get next screen user should see
+  getNextScreen() {
+    const access = this.getAccess();
+    return access ? access.nextScreen : 'unknown';
   }
 
   // Test server connection (using apiClient)
