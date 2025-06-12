@@ -296,3 +296,7 @@ out/
 # PDF processing temporary files
 /pdf-temp
 /processed-pdfs
+
+users.env
+
+.users.env
