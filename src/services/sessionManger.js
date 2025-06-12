@@ -9,10 +9,14 @@ class SessionManager {
   // Save user session after successful login - Updated for role-based auth
   setUserSession(userData) {
     const sessionData = {
-      user: userData,
+      user: {
+        ...userData,
+        // Ensure company data is properly nested under user
+        company: userData.company
+      },
       employee: userData.employee,
       access: userData.access, // NEW: Store role-based access info
-      company: userData.company,
+      company: userData.company, // Keep for backward compatibility
       authLayers: userData.authLayers || {
         employee: true,
         adminSuper: false
@@ -74,6 +78,25 @@ class SessionManager {
   getAccess() {
     const session = this.getUserSession();
     return session ? session.access : null;
+  }
+
+  // Get company data
+  getCompany() {
+    const session = this.getUserSession();
+    // Try user.company first, then fall back to top-level company
+    return session?.user?.company || session?.company || null;
+  }
+
+  // Get tenant ID - Updated to use correct path
+  getTenantId() {
+    const company = this.getCompany();
+    return company?.tenantId || null;
+  }
+
+  // Get app key - Updated to use correct path
+  getAppKey() {
+    const company = this.getCompany();
+    return company?.appKey || null;
   }
 
   // Get employee name for display
@@ -189,16 +212,9 @@ class SessionManager {
     return session?.user?.accessToken || null;
   }
 
-  // Get ServiceTitan app key (Note: This is now server-side only)
+  // Get ServiceTitan app key (Updated to use correct path)
   getServiceTitanAppKey() {
-    console.warn('⚠️ AppKey is now server-side only. This method is deprecated.');
-    return null;
-  }
-
-  // Get tenant ID (Note: This is now server-side only)
-  getTenantId() {
-    console.warn('⚠️ TenantId is now server-side only. This method is deprecated.');
-    return null;
+    return this.getAppKey();
   }
 
   // Update session with new data
@@ -229,6 +245,7 @@ class SessionManager {
     }
 
     const access = session.access || {};
+    const company = this.getCompany();
     
     return {
       loggedIn: true,
@@ -240,7 +257,8 @@ class SessionManager {
       username: session.employee?.loginName || 'Unknown',
       employeeRole: session.employee?.role || 'Unknown',
       userType: session.employee?.userType || 'unknown',
-      company: session.company || 'Unknown',
+      company: company?.name || 'Unknown Company',
+      tenantId: company?.tenantId || 'Unknown',
       accessLevel: access.level || 'unknown',
       isAdmin: access.isAdmin || false,
       isTechnician: access.isTechnician || false,
@@ -261,6 +279,7 @@ class SessionManager {
 
     const timeRemaining = Math.round((session.expiresAt - Date.now()) / 1000);
     const access = session.access || {};
+    const company = this.getCompany();
     
     return {
       loggedIn: true,
@@ -269,7 +288,9 @@ class SessionManager {
       employeeEmail: session.employee?.email || 'Unknown',
       employeeRole: session.employee?.role || 'Unknown',
       userType: session.employee?.userType || 'unknown',
-      company: session.company || 'Unknown',
+      company: company?.name || 'Unknown Company',
+      tenantId: company?.tenantId || 'Unknown',
+      appKey: company?.appKey ? 'Present' : 'Missing',
       timeRemaining: timeRemaining,
       timeRemainingFormatted: this.formatTime(timeRemaining),
       loginTime: new Date(session.loginTime).toLocaleString(),

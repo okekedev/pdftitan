@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import sessionManager from './services/sessionManger';
+import apiClient from './services/apiClient';
 import Login from './pages/Login/Login';
-import AdminPassword from './pages/AdminPassword/AdminPassword'; // NEW
+import AdminPassword from './pages/AdminPassword/AdminPassword';
 import Header from './components/layout/Header/Header';
 import Footer from './components/layout/Footer/Footer';
 import Projects from './pages/Projects/Projects';
@@ -25,12 +26,29 @@ function App() {
       console.log('✅ Found existing session:', existingSession.user.employee?.name);
       setUser(existingSession.user);
       
-      // Set appropriate page based on user access level
+      // Set appropriate initial page based on user access level
       const access = existingSession.user.access;
-      if (access && access.nextScreen === 'company_code') {
-        setCurrentPage('admin-password'); // Admin needs password first
-      } else if (access && access.nextScreen === 'jobs') {
-        setCurrentPage('projects'); // Technicians go to projects
+      const userInfo = apiClient.getCurrentUserInfo();
+      
+      console.log('🎯 User access info:', {
+        isAdmin: userInfo.isAdmin,
+        isTechnician: userInfo.isTechnician,
+        nextScreen: access?.nextScreen
+      });
+
+      // Route based on user type and admin access
+      if (userInfo.isAdmin && !sessionManager.hasAdminSuperAccess()) {
+        // Admin needs to authenticate with super password
+        setCurrentPage('admin-password');
+      } else if (userInfo.isAdmin && sessionManager.hasAdminSuperAccess()) {
+        // Admin with super access goes to projects
+        setCurrentPage('projects');
+      } else if (userInfo.isTechnician) {
+        // Technicians go directly to their jobs (no projects view)
+        setCurrentPage('jobs');
+      } else {
+        // Default fallback
+        setCurrentPage('projects');
       }
     } else {
       console.log('❌ No existing session found');
@@ -46,16 +64,17 @@ function App() {
     
     // Save to session storage
     sessionManager.setUserSession(userData);
-    
     setUser(userData);
     
     // Route user based on their access level
-    if (userData.access?.nextScreen === 'company_code') {
+    const userInfo = apiClient.getCurrentUserInfo();
+    
+    if (userInfo.isAdmin) {
       // Admin users need to enter admin password first
       setCurrentPage('admin-password');
-    } else if (userData.access?.nextScreen === 'jobs') {
-      // Technicians go straight to projects/jobs
-      setCurrentPage('projects');
+    } else if (userInfo.isTechnician) {
+      // Technicians go straight to jobs (no projects view)
+      setCurrentPage('jobs');
     } else {
       // Fallback
       setCurrentPage('projects');
@@ -69,7 +88,7 @@ function App() {
     sessionManager.setUserSession(updatedUserData);
     setUser(updatedUserData);
     
-    // Now admin can access projects (company code screen removed for now)
+    // Admin with super access goes to projects
     setCurrentPage('projects');
   };
 
@@ -77,6 +96,8 @@ function App() {
     console.log('🚪 Returning to login');
     setCurrentPage('login');
     setUser(null);
+    setSelectedProject(null);
+    setSelectedJob(null);
     sessionManager.clearSession();
   };
 
@@ -93,6 +114,17 @@ function App() {
   };
 
   const handleNavigate = (page) => {
+    const userInfo = apiClient.getCurrentUserInfo();
+    
+    console.log('🧭 Navigating to:', page, 'User type:', userInfo);
+    
+    // Validate navigation permissions
+    if (page === 'projects' && userInfo.isTechnician) {
+      // Technicians should not access projects page
+      console.log('❌ Technicians cannot access projects page');
+      return;
+    }
+    
     setCurrentPage(page);
     
     // Reset downstream selections when navigating up the hierarchy
@@ -105,13 +137,35 @@ function App() {
   };
 
   const handleSelectProject = (project) => {
+    console.log('📋 Project selected:', project.name);
     setSelectedProject(project);
     setCurrentPage('jobs');
   };
 
   const handleSelectJob = (job) => {
+    console.log('👷 Job selected:', job.number);
     setSelectedJob(job);
     setCurrentPage('attachments');
+  };
+
+  const handleBackToProjects = () => {
+    const userInfo = apiClient.getCurrentUserInfo();
+    
+    if (userInfo.isTechnician) {
+      // Technicians don't have a projects view, so "back" means back to jobs
+      setSelectedJob(null);
+      setCurrentPage('jobs');
+    } else {
+      // Admins go back to projects
+      setSelectedProject(null);
+      setSelectedJob(null);
+      setCurrentPage('projects');
+    }
+  };
+
+  const handleBackToJobs = () => {
+    setSelectedJob(null);
+    setCurrentPage('jobs');
   };
 
   // Show loading spinner while checking session
@@ -142,18 +196,32 @@ function App() {
     );
   }
 
+  // Get current user info for determining available navigation
+  const userInfo = apiClient.getCurrentUserInfo();
+  
   // Render current page content for authenticated users
   const renderPageContent = () => {
     switch (currentPage) {
       case 'projects':
+        // Only admins should see projects
+        if (!userInfo.isAdmin) {
+          return (
+            <div className="page-container">
+              <div className="coming-soon">
+                <h3>Access Denied</h3>
+                <p>You do not have permission to view projects.</p>
+              </div>
+            </div>
+          );
+        }
         return <Projects onSelectProject={handleSelectProject} />;
       
       case 'jobs':
         return (
           <Jobs 
-            project={selectedProject}
+            project={selectedProject} // null for technicians, project object for admins
             onSelectJob={handleSelectJob}
-            onBack={() => handleNavigate('projects')}
+            onBack={userInfo.isAdmin ? handleBackToProjects : null} // Technicians don't have back
           />
         );
       
@@ -161,12 +229,41 @@ function App() {
         return (
           <Attachments 
             job={selectedJob}
-            onBack={() => handleNavigate('jobs')}
+            onBack={handleBackToJobs}
           />
         );
       
       default:
-        return <Projects onSelectProject={handleSelectProject} />;
+        // Default based on user type
+        if (userInfo.isTechnician) {
+          return (
+            <Jobs 
+              project={null}
+              onSelectJob={handleSelectJob}
+              onBack={null}
+            />
+          );
+        } else {
+          return <Projects onSelectProject={handleSelectProject} />;
+        }
+    }
+  };
+
+  // Determine breadcrumb navigation based on user type
+  const getBreadcrumbs = () => {
+    if (userInfo.isTechnician) {
+      // Technicians only see: Jobs -> Attachments
+      return [
+        { id: 'jobs', label: 'My Jobs', active: currentPage === 'jobs' || currentPage === 'attachments' },
+        { id: 'attachments', label: 'Forms', active: currentPage === 'attachments' }
+      ];
+    } else {
+      // Admins see: Projects -> Jobs -> Attachments
+      return [
+        { id: 'projects', label: 'Projects', active: currentPage === 'projects' || currentPage === 'jobs' || currentPage === 'attachments' },
+        { id: 'jobs', label: 'Jobs', active: currentPage === 'jobs' || currentPage === 'attachments' },
+        { id: 'attachments', label: 'Forms', active: currentPage === 'attachments' }
+      ];
     }
   };
 
@@ -177,6 +274,8 @@ function App() {
         onLogout={handleLogout}
         currentPage={currentPage}
         onNavigate={handleNavigate}
+        breadcrumbs={getBreadcrumbs()}
+        userInfo={userInfo}
       />
       
       <main className="main-content">
