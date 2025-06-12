@@ -29,25 +29,23 @@ function Jobs({ project, onSelectJob, onBack }) {
 
         if (userInfo.isAdmin && project) {
           // Admin viewing jobs for a specific project
-          jobsData = await apiClient.getJobsForProject(project.id, {
-            active: 'true'
-          });
+          console.log(`🔧 Admin loading jobs for project: ${project.name}`);
+          jobsData = await apiClient.getJobsForProject(project.id);
         } else if (userInfo.isAdmin && !project) {
           // Admin viewing all jobs (fallback)
+          console.log('🔧 Admin loading all active jobs...');
           jobsData = await apiClient.getAllActiveJobs();
         } else if (userInfo.isTechnician) {
           // Technician viewing their assigned jobs
+          console.log(`🔧 Technician loading assigned jobs for: ${userInfo.name}`);
           jobsData = await apiClient.getJobsForTechnician(userInfo.employeeId);
         } else {
           throw new Error('You do not have permission to view jobs');
         }
 
-        // Filter out non-active jobs
-        const activeJobs = jobsData.filter(job => 
-          apiClient.isJobActive(job.status)
-        );
-
-        setJobs(activeJobs);
+        // ✅ REMOVED: Server now filters out completed jobs, so all returned jobs are active
+        setJobs(jobsData);
+        console.log(`✅ Loaded ${jobsData.length} active jobs`);
         
       } catch (error) {
         console.error('❌ Error loading jobs:', error);
@@ -105,11 +103,11 @@ function Jobs({ project, onSelectJob, onBack }) {
 
   const getPageDescription = () => {
     if (userInfo?.isTechnician) {
-      return 'Your assigned jobs for the next 7 days';
+      return 'Your assigned open jobs';
     } else if (project) {
-      return `Active jobs for project ${project.number}`;
+      return `Open jobs for project ${project.number}`;
     } else {
-      return 'All active jobs in the system';
+      return 'All open jobs in the system';
     }
   };
 
@@ -263,8 +261,8 @@ function Jobs({ project, onSelectJob, onBack }) {
           <h3 style={{ color: '#666', marginBottom: '1rem' }}>No Jobs Found</h3>
           <p style={{ color: '#999' }}>
             {userInfo?.isTechnician 
-              ? 'No jobs assigned to you at this time'
-              : 'No active jobs found for the selected filters'
+              ? 'No open jobs assigned to you at this time'
+              : 'No open jobs found for the selected filters'
             }
           </p>
         </div>

@@ -23,14 +23,15 @@ function Projects({ onSelectProject }) {
         const userInfo = apiClient.getCurrentUserInfo();
         
         if (userInfo.isAdmin) {
-          // Admins see all active projects
-          const projectsData = await apiClient.getProjects({
-            active: 'true'
-          });
+          // ✅ CLEAN: Server handles all authentication and credentials
+          console.log('🔧 Admin loading all active projects...');
+          
+          const projectsData = await apiClient.getProjects();
           setProjects(projectsData);
+          
+          console.log(`✅ Loaded ${projectsData.length} projects`);
         } else if (userInfo.isTechnician) {
           // Technicians go directly to their jobs, no projects view
-          // This should not happen due to routing, but handle gracefully
           setError('Technicians should see jobs directly, not projects');
         } else {
           setError('You do not have permission to view projects');
