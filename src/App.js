@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import sessionManager from './services/sessionManger'; // Add this import
+import sessionManager from './services/sessionManger';
 import Login from './pages/Login/Login';
+import AdminPassword from './pages/AdminPassword/AdminPassword'; // NEW
 import Header from './components/layout/Header/Header';
 import Footer from './components/layout/Footer/Footer';
 import Projects from './pages/Projects/Projects';
@@ -10,19 +11,27 @@ import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // Add loading state
+  const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState('projects');
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
 
-  // Add useEffect to check for existing session
+  // Check for existing session on app load
   useEffect(() => {
     console.log('🔍 Checking for existing user session...');
     
     const existingSession = sessionManager.getUserSession();
     if (existingSession) {
-      console.log('✅ Found existing session:', existingSession.user.email);
+      console.log('✅ Found existing session:', existingSession.user.employee?.name);
       setUser(existingSession.user);
+      
+      // Set appropriate page based on user access level
+      const access = existingSession.user.access;
+      if (access && access.nextScreen === 'company_code') {
+        setCurrentPage('admin-password'); // Admin needs password first
+      } else if (access && access.nextScreen === 'jobs') {
+        setCurrentPage('projects'); // Technicians go to projects
+      }
     } else {
       console.log('❌ No existing session found');
     }
@@ -31,13 +40,44 @@ function App() {
   }, []);
 
   const handleLogin = (userData) => {
-    console.log('👤 User logged in:', userData.email);
+    console.log('👤 User logged in:', userData.employee?.name);
+    console.log('🔑 Access level:', userData.access?.level);
+    console.log('🎯 Next screen:', userData.access?.nextScreen);
     
     // Save to session storage
     sessionManager.setUserSession(userData);
     
     setUser(userData);
+    
+    // Route user based on their access level
+    if (userData.access?.nextScreen === 'company_code') {
+      // Admin users need to enter admin password first
+      setCurrentPage('admin-password');
+    } else if (userData.access?.nextScreen === 'jobs') {
+      // Technicians go straight to projects/jobs
+      setCurrentPage('projects');
+    } else {
+      // Fallback
+      setCurrentPage('projects');
+    }
+  };
+
+  const handleAdminAccessGranted = (updatedUserData) => {
+    console.log('🔑 Admin access granted for:', updatedUserData.employee?.name);
+    
+    // Update session with admin super access
+    sessionManager.setUserSession(updatedUserData);
+    setUser(updatedUserData);
+    
+    // Now admin can access projects (company code screen removed for now)
     setCurrentPage('projects');
+  };
+
+  const handleBackToLogin = () => {
+    console.log('🚪 Returning to login');
+    setCurrentPage('login');
+    setUser(null);
+    sessionManager.clearSession();
   };
 
   const handleLogout = () => {
@@ -49,7 +89,7 @@ function App() {
     setUser(null);
     setSelectedProject(null);
     setSelectedJob(null);
-    setCurrentPage('projects');
+    setCurrentPage('login');
   };
 
   const handleNavigate = (page) => {
@@ -91,7 +131,18 @@ function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  // Render current page content
+  // Show admin password page if admin hasn't authenticated yet
+  if (currentPage === 'admin-password') {
+    return (
+      <AdminPassword 
+        user={user}
+        onAdminAccessGranted={handleAdminAccessGranted}
+        onBack={handleBackToLogin}
+      />
+    );
+  }
+
+  // Render current page content for authenticated users
   const renderPageContent = () => {
     switch (currentPage) {
       case 'projects':
