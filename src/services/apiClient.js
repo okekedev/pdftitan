@@ -1,5 +1,4 @@
-// src/services/apiClient.js - Updated for clean server-side calls
-// No more ServiceTitan credentials needed on frontend!
+// src/services/apiClient.js - Simplified for Technician-Only Portal
 
 import { serviceTitanConfig } from '../config/serviceTitanConfig';
 import sessionManager from './sessionManger';
@@ -7,16 +6,15 @@ import sessionManager from './sessionManger';
 class ApiClient {
   constructor() {
     this.config = serviceTitanConfig;
-    this.baseUrl = 'http://localhost:3005'; // Your server
+    this.baseUrl = 'http://localhost:3005';
   }
 
-  // Generic API call to YOUR server
+  // Generic API call to server
   async apiCall(endpoint, options = {}) {
     try {
       const {
         method = 'GET',
         body = null,
-        requiresAuth = true,
         timeout = 30000
       } = options;
 
@@ -28,10 +26,9 @@ class ApiClient {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        credentials: 'include' // For CORS
+        credentials: 'include'
       };
 
-      // Add body for non-GET requests
       if (body && method !== 'GET') {
         fetchOptions.body = JSON.stringify(body);
       }
@@ -63,126 +60,59 @@ class ApiClient {
     }
   }
 
-  // ================== AUTHENTICATION METHODS ==================
+  // ================== TECHNICIAN AUTHENTICATION ==================
 
-  async validateUser(name, phone) {
-    return this.apiCall('/api/user/validate', {
+  async validateTechnician(username, phone) {
+    return this.apiCall('/api/technician/validate', {
       method: 'POST',
-      body: { name, phone },
-      requiresAuth: false
-    });
-  }
-
-  async validateAdminAccess(adminPassword, userRole) {
-    return this.apiCall('/api/admin/validate-super-access', {
-      method: 'POST',
-      body: { adminPassword, userRole }
+      body: { username, phone }
     });
   }
 
   // Health check
   async getHealth() {
-    return this.apiCall('/health', {
-      requiresAuth: false
-    });
+    return this.apiCall('/health');
   }
 
-  // ================== CLEAN SERVICETITAN METHODS ==================
-  // All ServiceTitan calls now go through our server - no credentials needed!
+  // ================== TECHNICIAN JOBS ==================
 
-  // ✅ CLEAN: Get projects (server handles everything)
-  async getProjects(filters = {}) {
+  // Get jobs for the current technician
+  async getJobsForTechnician(technicianId) {
     try {
-      console.log('📋 Fetching projects via server...');
+      console.log(`👷 Fetching jobs for technician ${technicianId}...`);
       
-      const response = await this.apiCall('/api/projects');
-      
-      console.log(`✅ Projects fetched: ${response.data?.length || 0} projects`);
-      return response.data || [];
-
-    } catch (error) {
-      console.error('❌ Error fetching projects:', error);
-      throw new Error(`Failed to fetch projects: ${error.message}`);
-    }
-  }
-
-  // ✅ CLEAN: Get jobs for a specific project (server handles everything)
-  async getJobsForProject(projectId, filters = {}) {
-    try {
-      console.log(`👷 Fetching jobs for project ${projectId} via server...`);
-      
-      const response = await this.apiCall(`/api/jobs?projectId=${projectId}`);
-      
-      console.log(`✅ Jobs fetched: ${response.data?.length || 0} jobs`);
-      return response.data || [];
-
-    } catch (error) {
-      console.error('❌ Error fetching jobs for project:', error);
-      throw new Error(`Failed to fetch jobs for project: ${error.message}`);
-    }
-  }
-
-  // ✅ CLEAN: Get jobs for a specific technician (server handles everything)
-  async getJobsForTechnician(technicianId, filters = {}) {
-    try {
-      console.log(`👷 Fetching jobs for technician ${technicianId} via server...`);
-      
-      const response = await this.apiCall(`/api/jobs?technicianId=${technicianId}`);
+      const response = await this.apiCall(`/api/technician/${technicianId}/jobs`);
       
       console.log(`✅ Jobs fetched: ${response.data?.length || 0} jobs`);
       return response.data || [];
 
     } catch (error) {
       console.error('❌ Error fetching technician jobs:', error);
-      throw new Error(`Failed to fetch technician jobs: ${error.message}`);
+      throw new Error(`Failed to fetch jobs: ${error.message}`);
     }
   }
 
-  // ✅ CLEAN: Get all active jobs (server handles everything)
-  async getAllActiveJobs(filters = {}) {
-    try {
-      console.log('👷 Fetching all active jobs via server...');
-      
-      const response = await this.apiCall('/api/jobs');
-      
-      console.log(`✅ Jobs fetched: ${response.data?.length || 0} jobs`);
-      return response.data || [];
-
-    } catch (error) {
-      console.error('❌ Error fetching all active jobs:', error);
-      throw new Error(`Failed to fetch active jobs: ${error.message}`);
+  // Get current technician's jobs
+  async getMyJobs() {
+    const session = sessionManager.getTechnicianSession();
+    if (!session || !session.technician) {
+      throw new Error('No technician session found');
     }
+
+    return this.getJobsForTechnician(session.technician.id);
   }
 
-  // ================== HELPER METHODS ==================
+  // ================== UTILITY METHODS ==================
 
-  // Get current user info for job filtering
-  getCurrentUserInfo() {
-    const session = sessionManager.getUserSession();
-    const access = sessionManager.getAccess();
-    
-    return {
-      isAdmin: access?.isAdmin || false,
-      isTechnician: access?.isTechnician || false,
-      userId: session?.user?.userId,
-      employeeId: session?.user?.id,
-      name: session?.user?.name
-    };
-  }
-
-  // Get jobs based on current user's role
-  async getJobsForCurrentUser(filters = {}) {
-    const userInfo = this.getCurrentUserInfo();
-    
-    if (userInfo.isAdmin) {
-      // Admins see all active jobs
-      return await this.getAllActiveJobs(filters);
-    } else if (userInfo.isTechnician) {
-      // Technicians see only their assigned jobs
-      return await this.getJobsForTechnician(userInfo.employeeId, filters);
-    } else {
-      throw new Error('User does not have permission to view jobs');
-    }
+  // Get current technician info
+  getCurrentTechnician() {
+    const session = sessionManager.getTechnicianSession();
+    return session ? {
+      id: session.technician?.id,
+      name: session.technician?.name,
+      email: session.technician?.email,
+      phone: session.technician?.phoneNumber
+    } : null;
   }
 
   // Job status helper methods
@@ -206,12 +136,6 @@ class ApiClient {
       case 'low': return 'priority-low';
       default: return 'priority-default';
     }
-  }
-
-  // ✅ UPDATED: Server now filters out completed jobs, so all returned jobs are active
-  isJobActive(status) {
-    // Since server filters out completed jobs, all jobs returned are considered active
-    return true;
   }
 
   formatJobDate(dateString) {
@@ -249,11 +173,9 @@ class ApiClient {
 
   // ================== ERROR HANDLING ==================
 
-  // Error handling helper
   handleApiError(error) {
     console.error('API Error:', error);
 
-    // Handle specific error types
     if (error.message.includes('timeout')) {
       return {
         type: 'TIMEOUT',

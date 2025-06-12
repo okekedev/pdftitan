@@ -1,63 +1,43 @@
+// src/pages/Jobs/Jobs.js - Simplified for Technician-Only Portal
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../services/apiClient';
 import sessionManager from '../../services/sessionManger';
 import './Jobs.css';
 
-function Jobs({ project, onSelectJob, onBack }) {
+function Jobs({ technician, onSelectJob }) {
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [userInfo, setUserInfo] = useState(null);
   const [filters, setFilters] = useState({
     status: 'all',
     priority: 'all'
   });
 
   useEffect(() => {
-    const loadUserInfo = () => {
-      const user = apiClient.getCurrentUserInfo();
-      setUserInfo(user);
-    };
-
     const loadJobs = async () => {
       try {
         setIsLoading(true);
         setError('');
         
-        const userInfo = apiClient.getCurrentUserInfo();
-        let jobsData = [];
-
-        if (userInfo.isAdmin && project) {
-          // Admin viewing jobs for a specific project
-          console.log(`🔧 Admin loading jobs for project: ${project.name}`);
-          jobsData = await apiClient.getJobsForProject(project.id);
-        } else if (userInfo.isAdmin && !project) {
-          // Admin viewing all jobs (fallback)
-          console.log('🔧 Admin loading all active jobs...');
-          jobsData = await apiClient.getAllActiveJobs();
-        } else if (userInfo.isTechnician) {
-          // Technician viewing their assigned jobs
-          console.log(`🔧 Technician loading assigned jobs for: ${userInfo.name}`);
-          jobsData = await apiClient.getJobsForTechnician(userInfo.employeeId);
-        } else {
-          throw new Error('You do not have permission to view jobs');
-        }
-
-        // ✅ REMOVED: Server now filters out completed jobs, so all returned jobs are active
+        console.log(`🔧 Loading jobs for technician: ${technician?.name}`);
+        
+        const jobsData = await apiClient.getMyJobs();
         setJobs(jobsData);
-        console.log(`✅ Loaded ${jobsData.length} active jobs`);
+        
+        console.log(`✅ Loaded ${jobsData.length} jobs for technician`);
         
       } catch (error) {
         console.error('❌ Error loading jobs:', error);
-        setError(`Failed to load jobs: ${error.message}`);
+        setError(`Failed to load your jobs: ${error.message}`);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadUserInfo();
-    loadJobs();
-  }, [project]);
+    if (technician) {
+      loadJobs();
+    }
+  }, [technician]);
 
   const getStatusColor = (status) => {
     return apiClient.getJobStatusColor(status);
@@ -91,41 +71,12 @@ function Jobs({ project, onSelectJob, onBack }) {
     return true;
   });
 
-  const getPageTitle = () => {
-    if (userInfo?.isTechnician) {
-      return 'My Jobs';
-    } else if (project) {
-      return `Jobs - ${project.name}`;
-    } else {
-      return 'All Active Jobs';
-    }
-  };
-
-  const getPageDescription = () => {
-    if (userInfo?.isTechnician) {
-      return 'Your assigned open jobs';
-    } else if (project) {
-      return `Open jobs for project ${project.number}`;
-    } else {
-      return 'All open jobs in the system';
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="jobs-container">
         <div className="jobs-header">
-          <div className="header-top">
-            {onBack && (
-              <button onClick={onBack} className="back-button">
-                ← Back
-              </button>
-            )}
-            <div className="project-info">
-              <h2>Loading Jobs...</h2>
-              <p>Fetching jobs from ServiceTitan</p>
-            </div>
-          </div>
+          <h2>Loading Your Jobs...</h2>
+          <p>Fetching your assigned jobs from ServiceTitan</p>
         </div>
         <div className="loading-spinner" style={{
           display: 'flex',
@@ -150,17 +101,8 @@ function Jobs({ project, onSelectJob, onBack }) {
     return (
       <div className="jobs-container">
         <div className="jobs-header">
-          <div className="header-top">
-            {onBack && (
-              <button onClick={onBack} className="back-button">
-                ← Back
-              </button>
-            )}
-            <div className="project-info">
-              <h2>Error Loading Jobs</h2>
-              <p style={{ color: '#e74c3c' }}>{error}</p>
-            </div>
-          </div>
+          <h2>Error Loading Jobs</h2>
+          <p style={{ color: '#e74c3c' }}>{error}</p>
         </div>
         <div style={{
           background: '#fff',
@@ -190,16 +132,9 @@ function Jobs({ project, onSelectJob, onBack }) {
   return (
     <div className="jobs-container">
       <div className="jobs-header">
-        <div className="header-top">
-          {onBack && (
-            <button onClick={onBack} className="back-button">
-              ← Back to Projects
-            </button>
-          )}
-          <div className="project-info">
-            <h2>{getPageTitle()}</h2>
-            <p>{getPageDescription()}</p>
-          </div>
+        <div className="project-info">
+          <h2>My Jobs</h2>
+          <p>Your assigned jobs • {technician?.name}</p>
         </div>
 
         {/* Job Filters */}
@@ -260,9 +195,9 @@ function Jobs({ project, onSelectJob, onBack }) {
         }}>
           <h3 style={{ color: '#666', marginBottom: '1rem' }}>No Jobs Found</h3>
           <p style={{ color: '#999' }}>
-            {userInfo?.isTechnician 
-              ? 'No open jobs assigned to you at this time'
-              : 'No open jobs found for the selected filters'
+            {jobs.length === 0 
+              ? 'No jobs assigned to you at this time'
+              : 'No jobs match the selected filters'
             }
           </p>
         </div>
@@ -322,20 +257,10 @@ function Jobs({ project, onSelectJob, onBack }) {
                       {apiClient.formatJobDate(job.scheduledDate)}
                     </span>
                   </div>
-                  {job.assignedTechnicians.length > 0 && (
-                    <div className="detail-row">
-                      <span className="detail-label">Technician</span>
-                      <span className="detail-value">
-                        {job.assignedTechnicians.map(tech => tech.name).join(', ')}
-                      </span>
-                    </div>
-                  )}
-                  {userInfo?.isAdmin && job.project && (
-                    <div className="detail-row">
-                      <span className="detail-label">Project</span>
-                      <span className="detail-value">{job.project.name}</span>
-                    </div>
-                  )}
+                  <div className="detail-row">
+                    <span className="detail-label">Business Unit</span>
+                    <span className="detail-value">{job.businessUnit}</span>
+                  </div>
                 </div>
               </div>
 
