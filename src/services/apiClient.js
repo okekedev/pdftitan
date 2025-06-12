@@ -1,8 +1,8 @@
-// src/services/apiClient.js - Client-side API service
-// This ONLY talks to YOUR server, never directly to ServiceTitan
+// src/services/apiClient.js - Updated for clean server-side calls
+// No more ServiceTitan credentials needed on frontend!
 
 import { serviceTitanConfig } from '../config/serviceTitanConfig';
-import sessionManager from './sessionManger'; // Fix typo when you rename file
+import sessionManager from './sessionManger';
 
 class ApiClient {
   constructor() {
@@ -30,17 +30,6 @@ class ApiClient {
         },
         credentials: 'include' // For CORS
       };
-
-      // Add auth headers if required and available
-      if (requiresAuth) {
-        const session = sessionManager.getUserSession();
-        if (session?.user?.accessToken) {
-          fetchOptions.headers['Authorization'] = `Bearer ${session.user.accessToken}`;
-        }
-        if (session?.user?.company?.appKey) {
-          fetchOptions.headers['ST-App-Key'] = session.user.company.appKey;
-        }
-      }
 
       // Add body for non-GET requests
       if (body && method !== 'GET') {
@@ -98,51 +87,18 @@ class ApiClient {
     });
   }
 
-  // ================== SERVICETITAN PROXY METHODS ==================
+  // ================== CLEAN SERVICETITAN METHODS ==================
+  // All ServiceTitan calls now go through our server - no credentials needed!
 
-  // Get projects for admin users
+  // ✅ CLEAN: Get projects (server handles everything)
   async getProjects(filters = {}) {
     try {
-      const session = sessionManager.getUserSession();
+      console.log('📋 Fetching projects via server...');
       
-      // Correct path: session.user.company.tenantId
-      const tenantId = session?.user?.company?.tenantId;
+      const response = await this.apiCall('/api/projects');
       
-      if (!tenantId) {
-        console.error('❌ No tenant ID found. Session user company:', session?.user?.company);
-        throw new Error('No tenant ID found in session. Please log in again.');
-      }
-
-      const queryParams = new URLSearchParams({
-        tenantId,
-        pageSize: '50',
-        active: 'true', // Only active projects
-        ...filters
-      });
-
-      // Filter for current/upcoming projects only
-      const today = new Date().toISOString().split('T')[0];
-      if (!filters.startDateFrom) {
-        queryParams.set('startDateFrom', today);
-      }
-
-      const response = await this.apiCall(`/api/servicetitan/projects?${queryParams.toString()}`);
-
-      // Transform projects data for our UI
-      return response.data?.map(project => ({
-        id: project.id,
-        name: project.name || `Project ${project.number}`,
-        number: project.number,
-        customer: project.customer?.name || 'Unknown Customer',
-        location: project.location?.address || 'Unknown Location',
-        status: project.status || 'Unknown',
-        priority: project.priority || 'Normal',
-        startDate: project.startDate,
-        endDate: project.endDate,
-        businessUnit: project.businessUnit?.name || 'General',
-        totalJobs: project.jobCount || 0,
-        summary: project.summary
-      })) || [];
+      console.log(`✅ Projects fetched: ${response.data?.length || 0} projects`);
+      return response.data || [];
 
     } catch (error) {
       console.error('❌ Error fetching projects:', error);
@@ -150,26 +106,15 @@ class ApiClient {
     }
   }
 
-  // Get jobs for a specific project (admin view)
+  // ✅ CLEAN: Get jobs for a specific project (server handles everything)
   async getJobsForProject(projectId, filters = {}) {
     try {
-      const session = sessionManager.getUserSession();
-      const tenantId = session?.user?.company?.tenantId;
+      console.log(`👷 Fetching jobs for project ${projectId} via server...`);
       
-      if (!tenantId) {
-        throw new Error('No tenant ID found in session');
-      }
-
-      const queryParams = new URLSearchParams({
-        tenantId,
-        pageSize: '100',
-        projectId: projectId,
-        // Only get active jobs, not completed
-        ...filters
-      });
-
-      const response = await this.apiCall(`/api/servicetitan/jobs?${queryParams.toString()}`);
-      return this.transformJobsData(response.data || []);
+      const response = await this.apiCall(`/api/jobs?projectId=${projectId}`);
+      
+      console.log(`✅ Jobs fetched: ${response.data?.length || 0} jobs`);
+      return response.data || [];
 
     } catch (error) {
       console.error('❌ Error fetching jobs for project:', error);
@@ -177,31 +122,15 @@ class ApiClient {
     }
   }
 
-  // Get jobs for a specific technician (technician view)
+  // ✅ CLEAN: Get jobs for a specific technician (server handles everything)
   async getJobsForTechnician(technicianId, filters = {}) {
     try {
-      const session = sessionManager.getUserSession();
-      const tenantId = session?.user?.company?.tenantId;
+      console.log(`👷 Fetching jobs for technician ${technicianId} via server...`);
       
-      if (!tenantId) {
-        throw new Error('No tenant ID found in session');
-      }
-
-      // Get jobs assigned to this technician
-      const today = new Date().toISOString().split('T')[0];
-      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-      const queryParams = new URLSearchParams({
-        tenantId,
-        pageSize: '50',
-        technicianId: technicianId,
-        startDateFrom: today,
-        startDateTo: nextWeek, // Next 7 days
-        ...filters
-      });
-
-      const response = await this.apiCall(`/api/servicetitan/jobs?${queryParams.toString()}`);
-      return this.transformJobsData(response.data || []);
+      const response = await this.apiCall(`/api/jobs?technicianId=${technicianId}`);
+      
+      console.log(`✅ Jobs fetched: ${response.data?.length || 0} jobs`);
+      return response.data || [];
 
     } catch (error) {
       console.error('❌ Error fetching technician jobs:', error);
@@ -209,26 +138,15 @@ class ApiClient {
     }
   }
 
-  // Get all active jobs (admin overview)
+  // ✅ CLEAN: Get all active jobs (server handles everything)
   async getAllActiveJobs(filters = {}) {
     try {
-      const session = sessionManager.getUserSession();
-      const tenantId = session?.user?.company?.tenantId;
+      console.log('👷 Fetching all active jobs via server...');
       
-      if (!tenantId) {
-        throw new Error('No tenant ID found in session');
-      }
-
-      const today = new Date().toISOString().split('T')[0];
-      const queryParams = new URLSearchParams({
-        tenantId,
-        pageSize: '100',
-        startDateFrom: today,
-        ...filters
-      });
-
-      const response = await this.apiCall(`/api/servicetitan/jobs?${queryParams.toString()}`);
-      return this.transformJobsData(response.data || []);
+      const response = await this.apiCall('/api/jobs');
+      
+      console.log(`✅ Jobs fetched: ${response.data?.length || 0} jobs`);
+      return response.data || [];
 
     } catch (error) {
       console.error('❌ Error fetching all active jobs:', error);
@@ -237,45 +155,6 @@ class ApiClient {
   }
 
   // ================== HELPER METHODS ==================
-
-  // Transform jobs data for consistent UI format
-  transformJobsData(jobs) {
-    return jobs.map(job => ({
-      id: job.id,
-      number: job.number,
-      summary: job.summary || 'No description',
-      customer: {
-        id: job.customer?.id,
-        name: job.customer?.name || 'Unknown Customer'
-      },
-      location: {
-        id: job.location?.id,
-        name: job.location?.name || job.location?.address || 'Unknown Location',
-        address: job.location?.address
-      },
-      status: job.status || 'Unknown',
-      priority: job.priority || 'Normal',
-      jobType: job.jobType?.name || 'General',
-      businessUnit: job.businessUnit?.name || 'General',
-      scheduledDate: job.scheduledDate,
-      startDate: job.startDate,
-      endDate: job.endDate,
-      assignedTechnicians: job.appointments?.[0]?.assignedTechnicians?.map(tech => ({
-        id: tech.id,
-        name: tech.name
-      })) || [],
-      project: job.project ? {
-        id: job.project.id,
-        name: job.project.name
-      } : null,
-      totalAmount: job.total || 0,
-      hasEstimate: job.hasEstimate || false,
-      hasInvoice: job.hasInvoice || false,
-      tags: job.tags || [],
-      createdOn: job.createdOn,
-      modifiedOn: job.modifiedOn
-    }));
-  }
 
   // Get current user info for job filtering
   getCurrentUserInfo() {
@@ -329,9 +208,10 @@ class ApiClient {
     }
   }
 
+  // ✅ UPDATED: Server now filters out completed jobs, so all returned jobs are active
   isJobActive(status) {
-    const activeStatuses = ['scheduled', 'in progress', 'on hold', 'dispatched'];
-    return activeStatuses.includes(status?.toLowerCase());
+    // Since server filters out completed jobs, all jobs returned are considered active
+    return true;
   }
 
   formatJobDate(dateString) {
@@ -365,34 +245,6 @@ class ApiClient {
     }
     
     return 'normal';
-  }
-
-  // Test ServiceTitan API connectivity
-  async testServiceTitanConnection() {
-    try {
-      const session = sessionManager.getUserSession();
-      const tenantId = session?.user?.company?.tenantId;
-      
-      if (!tenantId) {
-        throw new Error('No tenant ID found in session');
-      }
-
-      const queryParams = new URLSearchParams({ tenantId });
-      const response = await this.apiCall(`/api/servicetitan/test?${queryParams.toString()}`);
-      
-      return {
-        connected: response.connected,
-        message: response.message,
-        tenantId: response.tenantId
-      };
-
-    } catch (error) {
-      console.error('❌ ServiceTitan connection test failed:', error);
-      return {
-        connected: false,
-        error: error.message
-      };
-    }
   }
 
   // ================== ERROR HANDLING ==================

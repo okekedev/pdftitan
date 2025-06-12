@@ -149,6 +149,25 @@ app.post('/api/user/validate', async (req, res) => {
     
     console.log(`👤 Authenticating user: ${name}`);
     
+    // Check server configuration before proceeding
+    if (!SERVER_CONFIG.serviceTitan.tenantId) {
+      console.error('❌ CRITICAL: Tenant ID not configured on server!');
+      return res.status(500).json({
+        success: false,
+        error: 'Server configuration error: Tenant ID not set',
+        layer: 'server_config'
+      });
+    }
+    
+    if (!SERVER_CONFIG.serviceTitan.appKey) {
+      console.error('❌ CRITICAL: App Key not configured on server!');
+      return res.status(500).json({
+        success: false,
+        error: 'Server configuration error: App Key not set',
+        layer: 'server_config'
+      });
+    }
+    
     // Get ServiceTitan token
     const tokenResult = await authenticateServiceTitan();
     if (!tokenResult.success) {
@@ -234,16 +253,21 @@ app.post('/api/user/validate', async (req, res) => {
     
     console.log(`✅ Authentication successful for: ${validatedUser.loginName} (${userAccess.level})`);
     
+    // Ensure company object structure is correct
+    const companyData = {
+      name: SERVER_CONFIG.company.name,
+      tenantId: SERVER_CONFIG.serviceTitan.tenantId,
+      appKey: SERVER_CONFIG.serviceTitan.appKey
+    };
+    
+    console.log('📤 Sending company data to frontend:', companyData);
+    
     // Return successful validation with role-based access info
     res.json({
       success: true,
       user: validatedUser,
       access: userAccess,
-      company: {
-        name: SERVER_CONFIG.company.name,
-        tenantId: SERVER_CONFIG.serviceTitan.tenantId,
-        appKey: SERVER_CONFIG.serviceTitan.appKey
-      },
+      company: companyData,
       accessToken: accessToken,
       expiresIn: tokenResult.expiresIn,
       environment: SERVER_CONFIG.serviceTitan.isIntegration ? 'Integration' : 'Production'
@@ -312,32 +336,40 @@ app.post('/api/admin/validate-super-access', async (req, res) => {
   }
 });
 
-// ================== SERVICETITAN API PROXY ENDPOINTS ==================
-
-// ServiceTitan Projects API Proxy
-app.get('/api/servicetitan/projects', async (req, res) => {
+// ✅ CLEAN: Server-side projects endpoint
+app.get('/api/projects', async (req, res) => {
   try {
-    const { tenantId, ...queryParams } = req.query;
-    const { authorization, 'st-app-key': appKey } = req.headers;
+    console.log('📋 Fetching projects server-side...');
     
-    if (!authorization || !appKey || !tenantId) {
-      return res.status(400).json({ 
+    // Get fresh ServiceTitan token
+    const tokenResult = await authenticateServiceTitan();
+    if (!tokenResult.success) {
+      return res.status(500).json({
         success: false,
-        error: 'Missing required headers or tenant ID',
-        layer: 'validation'
+        error: 'ServiceTitan authentication failed',
+        layer: 'servicetitan'
       });
     }
-
-    console.log(`📋 Fetching projects for tenant: ${tenantId}`);
-
-    const fetch = (await import('node-fetch')).default;
     
-    // Build ServiceTitan API URL for projects
-    const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/projects?${new URLSearchParams(queryParams)}`;
+    const fetch = (await import('node-fetch')).default;
+    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
+    const appKey = SERVER_CONFIG.serviceTitan.appKey;
+    const accessToken = tokenResult.accessToken;
+    
+    // Build query parameters - get active projects only
+    const queryParams = new URLSearchParams({
+      pageSize: '100',
+      active: 'true'
+    });
+    
+    // ✅ REMOVED: Restrictive date filter - get all active projects
+    const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/projects?${queryParams}`;
+    
+    console.log('📋 Making ServiceTitan API call:', url);
     
     const response = await fetch(url, {
       headers: {
-        'Authorization': authorization,
+        'Authorization': `Bearer ${accessToken}`,
         'ST-App-Key': appKey,
         'Content-Type': 'application/json'
       }
@@ -354,44 +386,87 @@ app.get('/api/servicetitan/projects', async (req, res) => {
     }
 
     const data = await response.json();
-    console.log(`✅ Projects fetched: ${data.data?.length || 0} projects`);
+    console.log(`✅ Projects fetched server-side: ${data.data?.length || 0} projects`);
     
-    res.json(data);
+    // Transform projects data for frontend
+    const transformedProjects = data.data?.map(project => ({
+      id: project.id,
+      name: project.name || `Project ${project.number}`,
+      number: project.number,
+      customer: project.customer?.name || 'Unknown Customer',
+      location: project.location?.address || 'Unknown Location', 
+      status: project.status || 'Unknown',
+      priority: project.priority || 'Normal',
+      startDate: project.startDate,
+      endDate: project.endDate,
+      businessUnit: project.businessUnit?.name || 'General',
+      totalJobs: project.jobCount || 0,
+      summary: project.summary
+    })) || [];
+    
+    res.json({
+      success: true,
+      data: transformedProjects,
+      count: transformedProjects.length
+    });
     
   } catch (error) {
-    console.error('❌ Projects proxy error:', error);
+    console.error('❌ Server-side projects error:', error);
     res.status(500).json({ 
       success: false,
       error: 'Server error fetching projects',
-      layer: 'proxy'
+      layer: 'server'
     });
   }
 });
 
-// ServiceTitan Jobs API Proxy
-app.get('/api/servicetitan/jobs', async (req, res) => {
+// ✅ CLEAN: Server-side jobs endpoint - Get all non-completed jobs
+app.get('/api/jobs', async (req, res) => {
   try {
-    const { tenantId, ...queryParams } = req.query;
-    const { authorization, 'st-app-key': appKey } = req.headers;
+    const { projectId, technicianId } = req.query;
     
-    if (!authorization || !appKey || !tenantId) {
-      return res.status(400).json({ 
+    console.log('👷 Fetching jobs server-side...', { projectId, technicianId });
+    
+    // Get fresh ServiceTitan token
+    const tokenResult = await authenticateServiceTitan();
+    if (!tokenResult.success) {
+      return res.status(500).json({
         success: false,
-        error: 'Missing required headers or tenant ID',
-        layer: 'validation'
+        error: 'ServiceTitan authentication failed',
+        layer: 'servicetitan'
       });
     }
-
-    console.log(`👷 Fetching jobs for tenant: ${tenantId}`, queryParams);
-
-    const fetch = (await import('node-fetch')).default;
     
-    // Build ServiceTitan API URL for jobs
-    const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs?${new URLSearchParams(queryParams)}`;
+    const fetch = (await import('node-fetch')).default;
+    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
+    const appKey = SERVER_CONFIG.serviceTitan.appKey;
+    const accessToken = tokenResult.accessToken;
+    
+    // Build query parameters
+    const queryParams = new URLSearchParams({
+      pageSize: '200' // Increased to get more jobs
+    });
+    
+    if (projectId) {
+      queryParams.set('projectId', projectId);
+    }
+    
+    if (technicianId) {
+      queryParams.set('technicianId', technicianId);
+    }
+    
+    // ✅ FIXED: Remove restrictive date filters - get all jobs regardless of date
+    // Only filter by modification date to get recently updated jobs
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    queryParams.set('modifiedOnOrAfter', thirtyDaysAgo);
+    
+    const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs?${queryParams}`;
+    
+    console.log('👷 Making ServiceTitan API call:', url);
     
     const response = await fetch(url, {
       headers: {
-        'Authorization': authorization,
+        'Authorization': `Bearer ${accessToken}`,
         'ST-App-Key': appKey,
         'Content-Type': 'application/json'
       }
@@ -408,158 +483,66 @@ app.get('/api/servicetitan/jobs', async (req, res) => {
     }
 
     const data = await response.json();
-    console.log(`✅ Jobs fetched: ${data.data?.length || 0} jobs`);
+    console.log(`✅ Raw jobs fetched: ${data.data?.length || 0} jobs`);
     
-    res.json(data);
+    // ✅ FIXED: Filter out completed jobs on the server side
+    const completedStatuses = ['completed', 'done', 'finished', 'closed'];
+    const activeJobs = data.data?.filter(job => {
+      const status = (job.status || '').toLowerCase();
+      return !completedStatuses.includes(status);
+    }) || [];
     
-  } catch (error) {
-    console.error('❌ Jobs proxy error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Server error fetching jobs',
-      layer: 'proxy'
-    });
-  }
-});
-
-// ServiceTitan Appointments API Proxy (for detailed job scheduling info)
-app.get('/api/servicetitan/appointments', async (req, res) => {
-  try {
-    const { tenantId, ...queryParams } = req.query;
-    const { authorization, 'st-app-key': appKey } = req.headers;
+    console.log(`✅ Active (non-completed) jobs: ${activeJobs.length} jobs`);
     
-    if (!authorization || !appKey || !tenantId) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Missing required headers or tenant ID',
-        layer: 'validation'
-      });
-    }
-
-    console.log(`📅 Fetching appointments for tenant: ${tenantId}`);
-
-    const fetch = (await import('node-fetch')).default;
-    
-    // Build ServiceTitan API URL for appointments
-    const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/appointments?${new URLSearchParams(queryParams)}`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': authorization,
-        'ST-App-Key': appKey,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ ServiceTitan Appointments API error: ${response.status} - ${errorText}`);
-      return res.status(response.status).json({
-        success: false,
-        error: `ServiceTitan API error: ${response.statusText}`,
-        layer: 'servicetitan'
-      });
-    }
-
-    const data = await response.json();
-    console.log(`✅ Appointments fetched: ${data.data?.length || 0} appointments`);
-    
-    res.json(data);
-    
-  } catch (error) {
-    console.error('❌ Appointments proxy error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Server error fetching appointments',
-      layer: 'proxy'
-    });
-  }
-});
-
-// Test endpoint to validate ServiceTitan API connectivity
-app.get('/api/servicetitan/test', async (req, res) => {
-  try {
-    const { tenantId } = req.query;
-    const { authorization, 'st-app-key': appKey } = req.headers;
-    
-    if (!authorization || !appKey || !tenantId) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Missing required headers or tenant ID for test',
-        layer: 'validation'
-      });
-    }
-
-    console.log(`🧪 Testing ServiceTitan API connectivity for tenant: ${tenantId}`);
-
-    const fetch = (await import('node-fetch')).default;
-    
-    // Simple test call to business units (lightweight endpoint)
-    const url = `https://api-integration.servicetitan.io/settings/v2/tenant/${tenantId}/business-units?pageSize=1`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': authorization,
-        'ST-App-Key': appKey,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ ServiceTitan API test failed: ${response.status} - ${errorText}`);
-      return res.json({
-        success: false,
-        connected: false,
-        error: `ServiceTitan API test failed: ${response.statusText}`,
-        status: response.status
-      });
-    }
-
-    const data = await response.json();
-    console.log(`✅ ServiceTitan API test successful`);
+    // Transform jobs data for frontend
+    const transformedJobs = activeJobs.map(job => ({
+      id: job.id,
+      number: job.number,
+      summary: job.summary || 'No description',
+      customer: {
+        id: job.customer?.id,
+        name: job.customer?.name || 'Unknown Customer'
+      },
+      location: {
+        id: job.location?.id,
+        name: job.location?.name || job.location?.address || 'Unknown Location',
+        address: job.location?.address
+      },
+      status: job.status || 'Unknown',
+      priority: job.priority || 'Normal',
+      jobType: job.jobType?.name || 'General',
+      businessUnit: job.businessUnit?.name || 'General',
+      scheduledDate: job.scheduledDate,
+      startDate: job.startDate,
+      endDate: job.endDate,
+      assignedTechnicians: job.appointments?.[0]?.assignedTechnicians?.map(tech => ({
+        id: tech.id,
+        name: tech.name
+      })) || [],
+      project: job.project ? {
+        id: job.project.id,
+        name: job.project.name
+      } : null,
+      totalAmount: job.total || 0,
+      hasEstimate: job.hasEstimate || false,
+      hasInvoice: job.hasInvoice || false,
+      tags: job.tags || [],
+      createdOn: job.createdOn,
+      modifiedOn: job.modifiedOn
+    }));
     
     res.json({
       success: true,
-      connected: true,
-      message: 'ServiceTitan API connectivity verified',
-      tenantId: tenantId,
-      businessUnitsFound: data.data?.length || 0
+      data: transformedJobs,
+      count: transformedJobs.length
     });
     
   } catch (error) {
-    console.error('❌ ServiceTitan API test error:', error);
-    res.json({ 
-      success: false,
-      connected: false,
-      error: 'Network error testing ServiceTitan API connectivity'
-    });
-  }
-});
-
-// Legacy ServiceTitan OAuth Proxy
-app.post('/api/servicetitan/auth', async (req, res) => {
-  try {
-    const authResult = await authenticateServiceTitan();
-    
-    if (authResult.success) {
-      res.json({
-        access_token: authResult.accessToken,
-        expires_in: authResult.expiresIn,
-        token_type: authResult.tokenType,
-        scope: authResult.scope
-      });
-    } else {
-      res.status(authResult.status || 500).json({
-        error: authResult.error,
-        error_description: authResult.details
-      });
-    }
-    
-  } catch (error) {
+    console.error('❌ Server-side jobs error:', error);
     res.status(500).json({ 
-      error: 'proxy_server_error', 
-      error_description: error.message 
+      success: false,
+      error: 'Server error fetching jobs',
+      layer: 'server'
     });
   }
 });
@@ -683,7 +666,7 @@ function normalizePhone(phone) {
     : digitsOnly;
 }
 
-// Determine user access level - THE KEY FUNCTION
+// Determine user access level
 function determineUserAccess(user) {
   const username = user.loginName || '';
   const role = user.role || '';
@@ -795,22 +778,30 @@ app.use((req, res) => {
       'GET /health',
       'POST /api/user/validate', 
       'POST /api/admin/validate-super-access',
-      'POST /api/servicetitan/auth',
-      'GET /api/servicetitan/projects',
-      'GET /api/servicetitan/jobs',
-      'GET /api/servicetitan/appointments',
-      'GET /api/servicetitan/test'
+      'GET /api/projects',
+      'GET /api/jobs'
     ]
   });
 });
 
-// Start server
+// Start server with enhanced logging
 app.listen(PORT, () => {
   console.log('🚀 TitanPDF Auth Server Started');
   console.log(`📡 Server: http://localhost:${PORT}`);
   console.log(`🌍 Environment: ${SERVER_CONFIG.serviceTitan.isIntegration ? 'Integration' : 'Production'}`);
   console.log(`🏢 Company: ${SERVER_CONFIG.company.name}`);
   console.log(`🔑 Auth Configured: ${SERVER_CONFIG.auth.adminSuperPassword ? 'Yes' : 'No'}`);
+  
+  // Debug ServiceTitan configuration
+  console.log('');
+  console.log('🔧 ServiceTitan Configuration:');
+  console.log(`   Client ID: ${SERVER_CONFIG.serviceTitan.clientId ? 'Present' : '❌ MISSING'}`);
+  console.log(`   Client Secret: ${SERVER_CONFIG.serviceTitan.clientSecret ? 'Present' : '❌ MISSING'}`);
+  console.log(`   App Key: ${SERVER_CONFIG.serviceTitan.appKey ? 'Present' : '❌ MISSING'}`);
+  console.log(`   Tenant ID: ${SERVER_CONFIG.serviceTitan.tenantId || '❌ MISSING'}`);
+  console.log(`   Auth URL: ${SERVER_CONFIG.serviceTitan.authUrl || '❌ MISSING'}`);
+  console.log(`   API Base URL: ${SERVER_CONFIG.serviceTitan.apiBaseUrl || '❌ MISSING'}`);
+  
   console.log('');
   console.log('🔐 Access Levels:');
   console.log('   👤 ADMIN: okekec21, mrbackflowllc → Company Code Screen');
@@ -821,11 +812,10 @@ app.listen(PORT, () => {
   console.log('   GET  /health - Server health check');
   console.log('   POST /api/user/validate - Username + phone authentication');
   console.log('   POST /api/admin/validate-super-access - Admin validation');
-  console.log('   POST /api/servicetitan/auth - OAuth proxy');
-  console.log('   GET  /api/servicetitan/projects - Fetch projects');
-  console.log('   GET  /api/servicetitan/jobs - Fetch jobs');
-  console.log('   GET  /api/servicetitan/appointments - Fetch appointments');
-  console.log('   GET  /api/servicetitan/test - Test API connectivity');
+  console.log('   GET  /api/projects - Get all active projects');
+  console.log('   GET  /api/jobs - Get all non-completed jobs (no date restriction)');
+  console.log('   GET  /api/jobs?projectId=123 - Get jobs for specific project');
+  console.log('   GET  /api/jobs?technicianId=456 - Get jobs for specific technician');
 });
 
 // Graceful shutdown
