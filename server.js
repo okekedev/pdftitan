@@ -73,7 +73,7 @@ app.use(cors({
   origin: SERVER_CONFIG.cors.origins,
   credentials: SERVER_CONFIG.cors.credentials,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'ST-App-Key']
 }));
 app.use(express.json());
 
@@ -308,6 +308,231 @@ app.post('/api/admin/validate-super-access', async (req, res) => {
       success: false,
       error: 'Server error during admin validation',
       layer: 'server'
+    });
+  }
+});
+
+// ================== SERVICETITAN API PROXY ENDPOINTS ==================
+
+// ServiceTitan Projects API Proxy
+app.get('/api/servicetitan/projects', async (req, res) => {
+  try {
+    const { tenantId, ...queryParams } = req.query;
+    const { authorization, 'st-app-key': appKey } = req.headers;
+    
+    if (!authorization || !appKey || !tenantId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required headers or tenant ID',
+        layer: 'validation'
+      });
+    }
+
+    console.log(`📋 Fetching projects for tenant: ${tenantId}`);
+
+    const fetch = (await import('node-fetch')).default;
+    
+    // Build ServiceTitan API URL for projects
+    const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/projects?${new URLSearchParams(queryParams)}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': authorization,
+        'ST-App-Key': appKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ ServiceTitan Projects API error: ${response.status} - ${errorText}`);
+      return res.status(response.status).json({
+        success: false,
+        error: `ServiceTitan API error: ${response.statusText}`,
+        layer: 'servicetitan'
+      });
+    }
+
+    const data = await response.json();
+    console.log(`✅ Projects fetched: ${data.data?.length || 0} projects`);
+    
+    res.json(data);
+    
+  } catch (error) {
+    console.error('❌ Projects proxy error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error fetching projects',
+      layer: 'proxy'
+    });
+  }
+});
+
+// ServiceTitan Jobs API Proxy
+app.get('/api/servicetitan/jobs', async (req, res) => {
+  try {
+    const { tenantId, ...queryParams } = req.query;
+    const { authorization, 'st-app-key': appKey } = req.headers;
+    
+    if (!authorization || !appKey || !tenantId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required headers or tenant ID',
+        layer: 'validation'
+      });
+    }
+
+    console.log(`👷 Fetching jobs for tenant: ${tenantId}`, queryParams);
+
+    const fetch = (await import('node-fetch')).default;
+    
+    // Build ServiceTitan API URL for jobs
+    const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs?${new URLSearchParams(queryParams)}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': authorization,
+        'ST-App-Key': appKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ ServiceTitan Jobs API error: ${response.status} - ${errorText}`);
+      return res.status(response.status).json({
+        success: false,
+        error: `ServiceTitan API error: ${response.statusText}`,
+        layer: 'servicetitan'
+      });
+    }
+
+    const data = await response.json();
+    console.log(`✅ Jobs fetched: ${data.data?.length || 0} jobs`);
+    
+    res.json(data);
+    
+  } catch (error) {
+    console.error('❌ Jobs proxy error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error fetching jobs',
+      layer: 'proxy'
+    });
+  }
+});
+
+// ServiceTitan Appointments API Proxy (for detailed job scheduling info)
+app.get('/api/servicetitan/appointments', async (req, res) => {
+  try {
+    const { tenantId, ...queryParams } = req.query;
+    const { authorization, 'st-app-key': appKey } = req.headers;
+    
+    if (!authorization || !appKey || !tenantId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required headers or tenant ID',
+        layer: 'validation'
+      });
+    }
+
+    console.log(`📅 Fetching appointments for tenant: ${tenantId}`);
+
+    const fetch = (await import('node-fetch')).default;
+    
+    // Build ServiceTitan API URL for appointments
+    const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/appointments?${new URLSearchParams(queryParams)}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': authorization,
+        'ST-App-Key': appKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ ServiceTitan Appointments API error: ${response.status} - ${errorText}`);
+      return res.status(response.status).json({
+        success: false,
+        error: `ServiceTitan API error: ${response.statusText}`,
+        layer: 'servicetitan'
+      });
+    }
+
+    const data = await response.json();
+    console.log(`✅ Appointments fetched: ${data.data?.length || 0} appointments`);
+    
+    res.json(data);
+    
+  } catch (error) {
+    console.error('❌ Appointments proxy error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error fetching appointments',
+      layer: 'proxy'
+    });
+  }
+});
+
+// Test endpoint to validate ServiceTitan API connectivity
+app.get('/api/servicetitan/test', async (req, res) => {
+  try {
+    const { tenantId } = req.query;
+    const { authorization, 'st-app-key': appKey } = req.headers;
+    
+    if (!authorization || !appKey || !tenantId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required headers or tenant ID for test',
+        layer: 'validation'
+      });
+    }
+
+    console.log(`🧪 Testing ServiceTitan API connectivity for tenant: ${tenantId}`);
+
+    const fetch = (await import('node-fetch')).default;
+    
+    // Simple test call to business units (lightweight endpoint)
+    const url = `https://api-integration.servicetitan.io/settings/v2/tenant/${tenantId}/business-units?pageSize=1`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': authorization,
+        'ST-App-Key': appKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ ServiceTitan API test failed: ${response.status} - ${errorText}`);
+      return res.json({
+        success: false,
+        connected: false,
+        error: `ServiceTitan API test failed: ${response.statusText}`,
+        status: response.status
+      });
+    }
+
+    const data = await response.json();
+    console.log(`✅ ServiceTitan API test successful`);
+    
+    res.json({
+      success: true,
+      connected: true,
+      message: 'ServiceTitan API connectivity verified',
+      tenantId: tenantId,
+      businessUnitsFound: data.data?.length || 0
+    });
+    
+  } catch (error) {
+    console.error('❌ ServiceTitan API test error:', error);
+    res.json({ 
+      success: false,
+      connected: false,
+      error: 'Network error testing ServiceTitan API connectivity'
     });
   }
 });
@@ -570,7 +795,11 @@ app.use((req, res) => {
       'GET /health',
       'POST /api/user/validate', 
       'POST /api/admin/validate-super-access',
-      'POST /api/servicetitan/auth'
+      'POST /api/servicetitan/auth',
+      'GET /api/servicetitan/projects',
+      'GET /api/servicetitan/jobs',
+      'GET /api/servicetitan/appointments',
+      'GET /api/servicetitan/test'
     ]
   });
 });
@@ -593,6 +822,10 @@ app.listen(PORT, () => {
   console.log('   POST /api/user/validate - Username + phone authentication');
   console.log('   POST /api/admin/validate-super-access - Admin validation');
   console.log('   POST /api/servicetitan/auth - OAuth proxy');
+  console.log('   GET  /api/servicetitan/projects - Fetch projects');
+  console.log('   GET  /api/servicetitan/jobs - Fetch jobs');
+  console.log('   GET  /api/servicetitan/appointments - Fetch appointments');
+  console.log('   GET  /api/servicetitan/test - Test API connectivity');
 });
 
 // Graceful shutdown
