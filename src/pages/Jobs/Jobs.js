@@ -1,4 +1,4 @@
-// src/pages/Jobs/Jobs.js - FINAL VERSION: Customer Names in Headers, No Time Display, Fixed Addresses
+// src/pages/Jobs/Jobs.js - FIXED: Correct Job ID Passing
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../services/apiClient';
 import './Jobs.css';
@@ -93,6 +93,51 @@ function Jobs({ technician, onSelectJob }) {
 
   const formatDate = (dateString) => {
     return apiClient.formatAppointmentDate(dateString);
+  };
+
+  // ✅ FIXED: Handle job selection with correct job ID
+  const handleJobSelection = (appointment) => {
+    console.log('🔧 DEBUG - Raw appointment data:', {
+      appointmentId: appointment.id,
+      appointmentNumber: appointment.appointmentNumber,
+      jobId: appointment.jobId,
+      customerName: appointment.customer?.name,
+      allKeys: Object.keys(appointment)
+    });
+
+    // ✅ CRITICAL: Make sure we're using appointment.jobId, not appointment.id
+    const correctJobId = appointment.jobId;
+    
+    if (!correctJobId) {
+      console.error('❌ ERROR: No jobId found in appointment!', appointment);
+      alert('Error: This appointment has no associated job ID. Cannot load forms.');
+      return;
+    }
+
+    const jobData = {
+      id: correctJobId, // ✅ MUST be appointment.jobId
+      number: appointment.appointmentNumber,
+      title: appointment.customer?.name || 'Unknown Customer',
+      
+      // Keep appointment data for reference
+      appointmentId: appointment.id,
+      appointmentNumber: appointment.appointmentNumber,
+      
+      // Include other needed data
+      start: appointment.start,
+      status: appointment.status,
+      customer: appointment.customer
+    };
+
+    console.log('🔧 FINAL CHECK - Data being passed to Attachments:', {
+      correctJobId: correctJobId,
+      jobDataId: jobData.id,
+      appointmentId: jobData.appointmentId,
+      title: jobData.title,
+      shouldMatch: correctJobId === jobData.id ? '✅ MATCH' : '❌ MISMATCH'
+    });
+
+    onSelectJob(jobData);
   };
 
   if (isLoading) {
@@ -245,13 +290,7 @@ function Jobs({ technician, onSelectJob }) {
             <div
               key={appointment.id}
               className="job-card"
-              onClick={() => onSelectJob({
-                id: appointment.jobId, // Pass jobId for attachments
-                number: appointment.appointmentNumber,
-                title: `Appointment ${appointment.appointmentNumber}`,
-                appointmentId: appointment.id,
-                ...appointment
-              })}
+              onClick={() => handleJobSelection(appointment)} // ✅ FIXED: Use new handler
             >
               <div className="job-content">
                 <div className="job-header">

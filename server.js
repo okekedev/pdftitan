@@ -1,4 +1,4 @@
-// server.js - FINAL COMPLETE VERSION: Customer Names, Fixed Addresses, No Time Display, All Records
+// server.js - COMPLETE VERSION WITH DEBUG ENDPOINTS: Correct ServiceTitan Forms API + Job ID Analysis
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -34,7 +34,7 @@ const SERVER_CONFIG = {
     name: 'MrBackflow TX'
   },
   
-  // ✅ THE 4 TARGET APPOINTMENT STATUSES (What technicians actually need to see)
+  // Target appointment statuses
   targetAppointmentStatuses: ['Scheduled', 'Dispatched', 'Enroute', 'Working'],
   
   validate() {
@@ -71,16 +71,17 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy', 
-    message: 'TitanPDF Technician Portal - RATE LIMIT OPTIMIZED',
+    message: 'TitanPDF Technician Portal - FIXED ATTACHMENTS API + DEBUG ENDPOINTS',
     environment: SERVER_CONFIG.serviceTitan.isIntegration ? 'Integration' : 'Production',
     company: SERVER_CONFIG.company.name,
     targetStatuses: SERVER_CONFIG.targetAppointmentStatuses,
-    apiStrategy: 'Customer names, fixed addresses, no time display, all records',
-    rateLimitOptimizations: {
-      dateRange: '2 weeks back (was 30 days)',
-      appointmentDelay: '200ms between pages',
-      customerDelay: '100ms between customer requests',
-      debugPageSize: '50 (was 100)'
+    apiStrategy: 'Using correct ServiceTitan Forms API endpoint',
+    fixes: {
+      attachmentsEndpoint: 'forms/v2/tenant/{tenant}/jobs/{jobId}/attachments',
+      previousEndpoint: 'forms/v2/tenant/{tenant}/job-attachments (incorrect)',
+      enhancedLogging: true,
+      comprehensiveDebug: true,
+      jobIdAnalysis: true
     }
   });
 });
@@ -199,12 +200,12 @@ app.post('/api/technician/validate', async (req, res) => {
   }
 });
 
-// ✅ FINAL: GET APPOINTMENTS WITH CUSTOMER NAMES & FIXED ADDRESSES
+// ✅ GET APPOINTMENTS WITH CUSTOMER NAMES & ADDRESSES
 app.get('/api/technician/:technicianId/appointments', async (req, res) => {
   try {
     const { technicianId } = req.params;
     
-    console.log(`📅 FINAL VERSION: Fetching appointments for technician ID: ${technicianId} with customer names & fixed addresses`);
+    console.log(`📅 Fetching appointments for technician ID: ${technicianId} with customer data`);
     
     // Get fresh ServiceTitan token
     const tokenResult = await authenticateServiceTitan();
@@ -220,16 +221,16 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
     const appKey = SERVER_CONFIG.serviceTitan.appKey;
     const accessToken = tokenResult.accessToken;
     
-    // Date range: 2 weeks back to 30 days forward (reduced from 30 days back)
+    // Date range: 2 weeks back to 30 days forward
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 14); // ✅ REDUCED: Only 2 weeks back instead of 30 days
+    startDate.setDate(startDate.getDate() - 14);
     startDate.setHours(0, 0, 0, 0);
     
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 30);
     endDate.setHours(23, 59, 59, 999);
     
-    // ✅ USE APPOINTMENTS API WITH technicianIds FILTER - TRUST THE FILTER!
+    // Use appointments API with technicianIds filter
     console.log(`🎯 Using appointments API with technicianIds=${technicianId} filter`);
     
     let allAppointments = [];
@@ -241,7 +242,7 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
       const queryParams = new URLSearchParams({
         page: page.toString(),
         pageSize: pageSize.toString(),
-        technicianIds: technicianId,  // ✅ This DOES filter correctly - trust it!
+        technicianIds: technicianId,
         startsOnOrAfter: startDate.toISOString(),
         startsOnOrBefore: endDate.toISOString()
       });
@@ -249,7 +250,6 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
       const appointmentsUrl = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/appointments?${queryParams}`;
       
       console.log(`🔍 API Request: ${appointmentsUrl}`);
-      console.log(`🎯 Query: technicianIds=${technicianId}, page=${page}, dateRange=${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]} (2 weeks back, 30 days forward)`);
       
       try {
         const appointmentsResponse = await fetch(appointmentsUrl, {
@@ -269,16 +269,10 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
         const appointmentsData = await appointmentsResponse.json();
         const pageAppointments = appointmentsData.data || [];
         
-        console.log(`📊 Page ${page}: Found ${pageAppointments.length} appointments (ServiceTitan filtered by technicianIds)`);
+        console.log(`📊 Page ${page}: Found ${pageAppointments.length} appointments`);
         
-        // ✅ TRUST THE FILTER: If ServiceTitan returns appointments, they ARE assigned to this technician
-        // No need to verify assignedTechnicianIds because the technicianIds filter already did that
-        console.log(`✅ All ${pageAppointments.length} appointments on page ${page} are pre-filtered by ServiceTitan for technician ${technicianId}`);
-        
-        // Add appointments to our collection
         allAppointments = allAppointments.concat(pageAppointments);
         
-        // Check if we have more pages
         const hasMore = appointmentsData.hasMore || (pageAppointments.length === pageSize);
         
         if (!hasMore || pageAppointments.length === 0) {
@@ -286,13 +280,11 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
         } else {
           page++;
           
-          // Safety check: Don't go beyond reasonable limits
           if (page > 20) {
             hasMorePages = false;
           }
           
-          // Increased delay between requests to avoid rate limits (ServiceTitan: 60 calls/second)
-          await new Promise(resolve => setTimeout(resolve, 200)); // ✅ INCREASED: 200ms delay (5 calls/second)
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
         
       } catch (error) {
@@ -301,10 +293,9 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
       }
     }
     
-    console.log(`📊 TOTAL: ServiceTitan returned ${allAppointments.length} appointments filtered for technician ${technicianId}`);
+    console.log(`📊 TOTAL: ${allAppointments.length} appointments for technician ${technicianId}`);
     
     if (allAppointments.length === 0) {
-      console.log(`ℹ️ No appointments found for technician ${technicianId} in the specified date range`);
       return res.json({
         success: true,
         data: [],
@@ -314,7 +305,7 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
       });
     }
     
-    // ✅ ENRICH WITH CUSTOMER DATA (ALL APPOINTMENTS - NO LIMIT)
+    // Enrich with customer data
     console.log(`👥 Enriching ALL ${allAppointments.length} appointments with customer data`);
     
     const enrichedAppointments = await Promise.all(
@@ -322,11 +313,8 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
         let customerData = null;
         
         try {
-          // Get customer data using customer ID from appointment
           if (appointment.customerId) {
             const customerUrl = `https://api-integration.servicetitan.io/crm/v2/tenant/${tenantId}/customers/${appointment.customerId}`;
-            
-            console.log(`👤 Fetching customer ${appointment.customerId} for appointment ${appointment.appointmentNumber}`);
             
             const customerResponse = await fetch(customerUrl, {
               headers: {
@@ -354,22 +342,16 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
                   ].filter(Boolean).join(' | ') || 'Address not available'
                 } : null
               };
-              
-              console.log(`✅ Got customer: ${customerData.name} for appointment ${appointment.appointmentNumber}`);
-            } else {
-              console.warn(`⚠️ Failed to fetch customer ${appointment.customerId}: ${customerResponse.status}`);
             }
           }
           
-          // Increased delay to be respectful to the API and avoid rate limits
-          await new Promise(resolve => setTimeout(resolve, 100)); // ✅ INCREASED: 100ms delay for customer requests
+          await new Promise(resolve => setTimeout(resolve, 100));
           
         } catch (error) {
           console.error(`❌ Error fetching customer data for appointment ${appointment.id}:`, error);
         }
         
         return {
-          // Core ServiceTitan fields
           jobId: appointment.jobId,
           appointmentNumber: appointment.appointmentNumber || appointment.number,
           start: appointment.start,
@@ -379,18 +361,15 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
           status: appointment.status,
           specialInstructions: appointment.specialInstructions || null,
           
-          // Additional fields for functionality
           id: appointment.id,
           customerId: appointment.customerId,
           locationId: appointment.locationId,
           createdOn: appointment.createdOn,
           modifiedOn: appointment.modifiedOn,
           
-          // ✅ TRUST: ServiceTitan already filtered these appointments for our technician
-          assignedToTechnician: true, // We trust the technicianIds filter worked
+          assignedToTechnician: true,
           technicianId: parseInt(technicianId),
           
-          // ✅ ENRICHED CUSTOMER DATA
           customer: customerData || {
             id: appointment.customerId,
             name: `Customer #${appointment.customerId}`,
@@ -401,24 +380,16 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
       })
     );
     
-    // Sort by start time (most recent first)
     const sortedAppointments = enrichedAppointments.sort((a, b) => new Date(a.start) - new Date(b.start));
     
-    console.log(`✅ FINAL RESULT: Returning ${sortedAppointments.length} appointments for technician ${technicianId} (ALL with customer data)`);
-    console.log(`🎯 Method: Trusted ServiceTitan's technicianIds filter - no manual verification needed`);
+    console.log(`✅ Returning ${sortedAppointments.length} appointments for technician ${technicianId}`);
     
     res.json({
       success: true,
       data: sortedAppointments,
       count: sortedAppointments.length,
       technicianId: parseInt(technicianId),
-      method: 'appointments-api-with-technician-filter',
-      message: 'Trusted ServiceTitan technicianIds filter',
-      debug: {
-        totalFromServiceTitan: allAppointments.length,
-        enrichedAndReturned: sortedAppointments.length,
-        filterTrusted: true
-      }
+      method: 'appointments-api-with-technician-filter'
     });
     
   } catch (error) {
@@ -430,12 +401,12 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
   }
 });
 
-// ✅ GET JOB ATTACHMENTS/DOCUMENTS - FIXED: Using Forms API instead of JMP API
+// ✅ FIXED: GET JOB ATTACHMENTS - Using Correct ServiceTitan Forms API Endpoint
 app.get('/api/job/:jobId/attachments', async (req, res) => {
   try {
     const { jobId } = req.params;
     
-    console.log(`📎 Fetching attachments for job: ${jobId} using Forms API`);
+    console.log(`📎 Fetching attachments for job: ${jobId} using CORRECT Forms API endpoint`);
     
     // Get fresh ServiceTitan token
     const tokenResult = await authenticateServiceTitan();
@@ -451,10 +422,10 @@ app.get('/api/job/:jobId/attachments', async (req, res) => {
     const appKey = SERVER_CONFIG.serviceTitan.appKey;
     const accessToken = tokenResult.accessToken;
     
-    // ✅ FIXED: Use Forms API instead of JMP API for attachments
-    const attachmentsUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/job-attachments?jobId=${jobId}`;
+    // ✅ CORRECT: Use the proper Forms API endpoint from ServiceTitan documentation
+    const attachmentsUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
     
-    console.log(`🔍 Forms API Request: ${attachmentsUrl}`);
+    console.log(`🔍 CORRECT Forms API Request: ${attachmentsUrl}`);
     
     const response = await fetch(attachmentsUrl, {
       headers: {
@@ -469,7 +440,6 @@ app.get('/api/job/:jobId/attachments', async (req, res) => {
       console.error(`❌ ServiceTitan Forms API error: ${response.status} - ${errorText}`);
       
       if (response.status === 404) {
-        // Job not found or no attachments - this is normal
         console.log(`ℹ️ No attachments found for job ${jobId} in Forms API`);
         return res.json({
           success: true,
@@ -483,17 +453,29 @@ app.get('/api/job/:jobId/attachments', async (req, res) => {
     }
 
     const attachmentsData = await response.json();
-    const attachments = attachmentsData.data || attachmentsData || [];
+    console.log(`📊 Raw attachments response:`, {
+      hasData: !!attachmentsData.data,
+      isArray: Array.isArray(attachmentsData.data),
+      dataLength: attachmentsData.data?.length,
+      totalCount: attachmentsData.totalCount,
+      hasMore: attachmentsData.hasMore
+    });
+    
+    const attachments = attachmentsData.data || [];
     
     console.log(`📊 Forms API returned ${attachments.length} total attachments for job ${jobId}`);
     
-    // ✅ FILTER FOR PDF FILES ONLY
+    // ✅ FILTER FOR PDF FILES ONLY and log each file type found
     const pdfAttachments = attachments.filter(attachment => {
       const fileName = attachment.fileName || attachment.name || '';
-      const isPdf = fileName.toLowerCase().endsWith('.pdf');
-      if (isPdf) {
-        console.log(`📄 Found PDF: ${fileName}`);
-      }
+      const mimeType = attachment.mimeType || attachment.contentType || '';
+      const fileExtension = fileName.toLowerCase().split('.').pop();
+      
+      // Check both filename and mime type for PDFs
+      const isPdf = fileExtension === 'pdf' || mimeType.includes('pdf');
+      
+      console.log(`📄 File: ${fileName} | Type: ${mimeType} | Extension: ${fileExtension} | Is PDF: ${isPdf}`);
+      
       return isPdf;
     });
     
@@ -512,21 +494,32 @@ app.get('/api/job/:jobId/attachments', async (req, res) => {
         status: 'Available',
         active: true,
         size: attachment.size || attachment.fileSize || 0,
-        createdOn: attachment.createdOn || attachment.dateCreated || new Date().toISOString(),
+        createdOn: attachment.createdOn || attachment.dateCreated || attachment.modifiedOn || new Date().toISOString(),
         downloadUrl: attachment.downloadUrl || attachment.url || null,
         serviceTitanId: attachment.id,
-        jobId: jobId
+        jobId: jobId,
+        mimeType: attachment.mimeType || attachment.contentType || 'application/pdf'
       };
     });
     
     console.log(`✅ Transformed ${transformedAttachments.length} PDF attachments for job ${jobId}`);
+    
+    if (transformedAttachments.length > 0) {
+      console.log(`📋 Sample attachment:`, {
+        name: transformedAttachments[0].name,
+        fileName: transformedAttachments[0].fileName,
+        size: transformedAttachments[0].size,
+        hasDownloadUrl: !!transformedAttachments[0].downloadUrl
+      });
+    }
     
     res.json({
       success: true,
       data: transformedAttachments,
       count: transformedAttachments.length,
       jobId: jobId,
-      apiUsed: 'forms/v2'
+      apiUsed: 'forms/v2/jobs/{jobId}/attachments',
+      apiFixed: true
     });
     
   } catch (error) {
@@ -539,14 +532,13 @@ app.get('/api/job/:jobId/attachments', async (req, res) => {
   }
 });
 
-// ✅ GET SPECIFIC JOB DETAILS - ENHANCED DEBUGGING
+// ✅ GET SPECIFIC JOB DETAILS
 app.get('/api/job/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
     
     console.log(`📋 Fetching job details: ${jobId}`);
     
-    // Get fresh ServiceTitan token
     const tokenResult = await authenticateServiceTitan();
     if (!tokenResult.success) {
       return res.status(500).json({
@@ -560,10 +552,7 @@ app.get('/api/job/:jobId', async (req, res) => {
     const appKey = SERVER_CONFIG.serviceTitan.appKey;
     const accessToken = tokenResult.accessToken;
     
-    // ServiceTitan Job Details API endpoint
     const jobUrl = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs/${jobId}`;
-    
-    console.log(`🔍 Job API Request: ${jobUrl}`);
     
     const response = await fetch(jobUrl, {
       headers: {
@@ -578,12 +567,10 @@ app.get('/api/job/:jobId', async (req, res) => {
       console.error(`❌ ServiceTitan Job API error: ${response.status} - ${errorText}`);
       
       if (response.status === 404) {
-        console.warn(`⚠️ Job ${jobId} not found in ServiceTitan`);
         return res.status(404).json({
           success: false,
           error: 'Job not found',
-          jobId: jobId,
-          details: 'This job ID does not exist in ServiceTitan or may have been deleted'
+          jobId: jobId
         });
       }
       
@@ -592,15 +579,6 @@ app.get('/api/job/:jobId', async (req, res) => {
 
     const jobData = await response.json();
     
-    console.log(`📊 Raw job data received:`, {
-      id: jobData.id,
-      jobNumber: jobData.jobNumber,
-      summary: jobData.summary ? jobData.summary.substring(0, 50) + '...' : 'No summary',
-      customerId: jobData.customerId,
-      locationId: jobData.locationId
-    });
-    
-    // Transform job data
     let title = jobData.summary || 'Service Call';
     title = title.replace(/<[^>]*>/g, ' ')
                  .replace(/&[^;]+;/g, ' ')
@@ -651,7 +629,454 @@ app.get('/api/job/:jobId', async (req, res) => {
   }
 });
 
-// ✅ QUICK DEBUG: Test the regular appointments endpoint with technicianIds filter
+// ✅ COMPREHENSIVE DEBUG: Job ID Extraction and Validation
+app.get('/debug/job-analysis/:technicianId', async (req, res) => {
+  try {
+    const { technicianId } = req.params;
+    
+    console.log(`🔍 DEBUGGING: Job ID extraction for technician ${technicianId}`);
+    
+    const tokenResult = await authenticateServiceTitan();
+    if (!tokenResult.success) {
+      return res.status(500).json({ success: false, error: 'Auth failed' });
+    }
+    
+    const fetch = (await import('node-fetch')).default;
+    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
+    const appKey = SERVER_CONFIG.serviceTitan.appKey;
+    const accessToken = tokenResult.accessToken;
+    
+    // Get first 10 appointments for this technician
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    
+    const oneMonthFromNow = new Date();
+    oneMonthFromNow.setDate(oneMonthFromNow.getDate() + 30);
+    
+    const queryParams = new URLSearchParams({
+      pageSize: '10', // Just first 10 for debugging
+      technicianIds: technicianId,
+      startsOnOrAfter: twoWeeksAgo.toISOString(),
+      startsOnOrBefore: oneMonthFromNow.toISOString()
+    });
+    
+    const appointmentsUrl = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/appointments?${queryParams}`;
+    
+    const appointmentsResponse = await fetch(appointmentsUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'ST-App-Key': appKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!appointmentsResponse.ok) {
+      throw new Error(`Appointments API failed: ${appointmentsResponse.status}`);
+    }
+
+    const appointmentsData = await appointmentsResponse.json();
+    const appointments = appointmentsData.data || [];
+    
+    console.log(`📊 Found ${appointments.length} appointments for analysis`);
+    
+    // Analyze each appointment's job ID
+    const analysis = [];
+    
+    for (const appointment of appointments.slice(0, 5)) { // Test first 5
+      const appointmentAnalysis = {
+        appointmentId: appointment.id,
+        appointmentNumber: appointment.appointmentNumber || appointment.number,
+        jobIdFromAppointment: appointment.jobId,
+        rawAppointmentData: {
+          id: appointment.id,
+          jobId: appointment.jobId,
+          appointmentNumber: appointment.appointmentNumber,
+          number: appointment.number,
+          start: appointment.start,
+          customerId: appointment.customerId,
+          locationId: appointment.locationId
+        }
+      };
+      
+      // Test if this job ID exists in Jobs API
+      if (appointment.jobId) {
+        try {
+          console.log(`🧪 Testing job ID ${appointment.jobId} from appointment ${appointment.id}`);
+          
+          const jobUrl = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs/${appointment.jobId}`;
+          
+          const jobResponse = await fetch(jobUrl, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'ST-App-Key': appKey,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          appointmentAnalysis.jobApiTest = {
+            url: jobUrl,
+            status: jobResponse.status,
+            success: jobResponse.ok,
+            error: jobResponse.ok ? null : await jobResponse.text()
+          };
+          
+          if (jobResponse.ok) {
+            const jobData = await jobResponse.json();
+            appointmentAnalysis.jobDetails = {
+              jobNumber: jobData.jobNumber,
+              summary: jobData.summary?.substring(0, 100) + '...',
+              customerId: jobData.customerId,
+              locationId: jobData.locationId,
+              createdOn: jobData.createdOn
+            };
+            console.log(`✅ Job ${appointment.jobId} EXISTS: ${jobData.jobNumber}`);
+          } else {
+            console.log(`❌ Job ${appointment.jobId} NOT FOUND: ${jobResponse.status}`);
+          }
+          
+        } catch (error) {
+          appointmentAnalysis.jobApiTest = {
+            error: error.message
+          };
+          console.log(`❌ Error testing job ${appointment.jobId}: ${error.message}`);
+        }
+        
+        // Test attachments for this job ID
+        try {
+          console.log(`📎 Testing attachments for job ID ${appointment.jobId}`);
+          
+          const attachmentsUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${appointment.jobId}/attachments`;
+          
+          const attachmentsResponse = await fetch(attachmentsUrl, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'ST-App-Key': appKey,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          appointmentAnalysis.attachmentsApiTest = {
+            url: attachmentsUrl,
+            status: attachmentsResponse.status,
+            success: attachmentsResponse.ok
+          };
+          
+          if (attachmentsResponse.ok) {
+            const attachmentsData = await attachmentsResponse.json();
+            appointmentAnalysis.attachmentsApiTest.attachmentCount = attachmentsData.data?.length || 0;
+            appointmentAnalysis.attachmentsApiTest.hasAttachments = (attachmentsData.data?.length || 0) > 0;
+            
+            if (attachmentsData.data?.length > 0) {
+              appointmentAnalysis.attachmentsApiTest.sampleAttachments = attachmentsData.data.slice(0, 3).map(att => ({
+                id: att.id,
+                fileName: att.fileName || att.name,
+                mimeType: att.mimeType || att.contentType,
+                size: att.size || att.fileSize
+              }));
+              console.log(`✅ Job ${appointment.jobId} has ${attachmentsData.data.length} attachments`);
+            } else {
+              console.log(`⚠️ Job ${appointment.jobId} has 0 attachments`);
+            }
+          } else {
+            appointmentAnalysis.attachmentsApiTest.error = await attachmentsResponse.text();
+            console.log(`❌ Attachments API failed for job ${appointment.jobId}: ${attachmentsResponse.status}`);
+          }
+          
+        } catch (error) {
+          appointmentAnalysis.attachmentsApiTest = {
+            error: error.message
+          };
+          console.log(`❌ Error testing attachments for job ${appointment.jobId}: ${error.message}`);
+        }
+        
+      } else {
+        appointmentAnalysis.jobApiTest = {
+          error: 'No jobId found in appointment'
+        };
+        console.log(`❌ Appointment ${appointment.id} has no jobId`);
+      }
+      
+      analysis.push(appointmentAnalysis);
+      
+      // Small delay between requests
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    // Summary analysis
+    const summary = {
+      totalAppointmentsAnalyzed: analysis.length,
+      appointmentsWithJobId: analysis.filter(a => a.jobIdFromAppointment).length,
+      appointmentsWithoutJobId: analysis.filter(a => !a.jobIdFromAppointment).length,
+      validJobIds: analysis.filter(a => a.jobApiTest?.success).length,
+      invalidJobIds: analysis.filter(a => a.jobApiTest && !a.jobApiTest.success).length,
+      jobsWithAttachments: analysis.filter(a => a.attachmentsApiTest?.hasAttachments).length,
+      jobsWithoutAttachments: analysis.filter(a => a.attachmentsApiTest?.success && !a.attachmentsApiTest?.hasAttachments).length,
+      attachmentErrors: analysis.filter(a => a.attachmentsApiTest && !a.attachmentsApiTest.success).length
+    };
+    
+    // Recommendations
+    const recommendations = [];
+    
+    if (summary.appointmentsWithoutJobId > 0) {
+      recommendations.push(`⚠️ ${summary.appointmentsWithoutJobId} appointments have no jobId - this is unusual`);
+    }
+    
+    if (summary.invalidJobIds > 0) {
+      recommendations.push(`❌ ${summary.invalidJobIds} job IDs from appointments don't exist in Jobs API - data inconsistency`);
+    }
+    
+    if (summary.validJobIds > 0 && summary.jobsWithAttachments === 0) {
+      recommendations.push(`📎 All ${summary.validJobIds} valid jobs have 0 attachments - jobs may not have PDF documents`);
+    }
+    
+    if (summary.jobsWithAttachments > 0) {
+      recommendations.push(`✅ Found ${summary.jobsWithAttachments} jobs with attachments - system is working!`);
+    }
+    
+    if (summary.attachmentErrors > 0) {
+      recommendations.push(`❌ ${summary.attachmentErrors} attachment API calls failed - check permissions`);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Job ID extraction and validation analysis',
+      technicianId: technicianId,
+      summary: summary,
+      recommendations: recommendations,
+      analysis: analysis,
+      conclusion: {
+        jobIdExtractionWorking: summary.appointmentsWithJobId > 0,
+        jobApiWorking: summary.validJobIds > 0,
+        attachmentsApiWorking: summary.jobsWithAttachments > 0 || summary.jobsWithoutAttachments > 0,
+        mainIssue: summary.invalidJobIds > 0 ? 'Job IDs from appointments dont exist in Jobs API' :
+                   summary.jobsWithAttachments === 0 ? 'Jobs exist but have no attachments' :
+                   'System working correctly'
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Debug analysis failed:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// ✅ SIMPLE DEBUG: Quick appointment data check
+app.get('/debug/appointment-raw/:technicianId', async (req, res) => {
+  try {
+    const { technicianId } = req.params;
+    
+    const tokenResult = await authenticateServiceTitan();
+    if (!tokenResult.success) {
+      return res.status(500).json({ success: false, error: 'Auth failed' });
+    }
+    
+    const fetch = (await import('node-fetch')).default;
+    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
+    const appKey = SERVER_CONFIG.serviceTitan.appKey;
+    const accessToken = tokenResult.accessToken;
+    
+    const queryParams = new URLSearchParams({
+      pageSize: '5',
+      technicianIds: technicianId
+    });
+    
+    const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/appointments?${queryParams}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'ST-App-Key': appKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const appointments = data.data || [];
+    
+    res.json({
+      success: true,
+      message: 'Raw appointment data (first 5)',
+      technicianId: technicianId,
+      count: appointments.length,
+      rawAppointments: appointments.map(appointment => ({
+        id: appointment.id,
+        appointmentNumber: appointment.appointmentNumber,
+        number: appointment.number,
+        jobId: appointment.jobId,
+        customerId: appointment.customerId,
+        locationId: appointment.locationId,
+        start: appointment.start,
+        status: appointment.status,
+        assignedTechnicianIds: appointment.assignedTechnicianIds,
+        allFields: Object.keys(appointment)
+      })),
+      fieldAnalysis: {
+        hasJobId: appointments.filter(a => a.jobId).length,
+        missingJobId: appointments.filter(a => !a.jobId).length,
+        uniqueJobIds: [...new Set(appointments.map(a => a.jobId).filter(Boolean))],
+        commonFields: appointments.length > 0 ? Object.keys(appointments[0]) : []
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ✅ ENHANCED DEBUG: Test ALL possible attachment endpoints
+app.get('/debug/attachments-comprehensive/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    
+    const tokenResult = await authenticateServiceTitan();
+    if (!tokenResult.success) {
+      return res.status(500).json({ success: false, error: 'Auth failed' });
+    }
+    
+    const fetch = (await import('node-fetch')).default;
+    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
+    const appKey = SERVER_CONFIG.serviceTitan.appKey;
+    const accessToken = tokenResult.accessToken;
+    
+    const results = {};
+    
+    // Test all known attachment endpoints
+    const endpoints = [
+      // Forms API endpoints
+      {
+        name: 'forms_jobs_attachments',
+        url: `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`,
+        description: '✅ CORRECT: Official Forms API endpoint (from documentation)'
+      },
+      {
+        name: 'forms_job_attachments_query',
+        url: `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/job-attachments?jobId=${jobId}`,
+        description: '❌ WRONG: Alternative Forms API with query parameter (was being used)'
+      },
+      {
+        name: 'forms_attachments_query',
+        url: `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/attachments?jobId=${jobId}`,
+        description: 'Forms API attachments with query'
+      },
+      
+      // JMP API endpoints
+      {
+        name: 'jmp_jobs_attachments',
+        url: `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs/${jobId}/attachments`,
+        description: 'JMP API jobs attachments'
+      },
+      
+      // Other possible endpoints
+      {
+        name: 'files_api',
+        url: `https://api-integration.servicetitan.io/files/v2/tenant/${tenantId}/jobs/${jobId}/attachments`,
+        description: 'Files API (if it exists)'
+      }
+    ];
+    
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`🧪 Testing: ${endpoint.description}`);
+        console.log(`📡 URL: ${endpoint.url}`);
+        
+        const response = await fetch(endpoint.url, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'ST-App-Key': appKey,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const responseText = await response.text();
+        let responseData;
+        
+        try {
+          responseData = JSON.parse(responseText);
+        } catch {
+          responseData = responseText;
+        }
+        
+        results[endpoint.name] = {
+          url: endpoint.url,
+          description: endpoint.description,
+          status: response.status,
+          success: response.ok,
+          hasData: response.ok && responseData?.data?.length > 0,
+          dataCount: responseData?.data?.length || 0,
+          totalCount: responseData?.totalCount,
+          hasMore: responseData?.hasMore,
+          sampleData: response.ok && responseData?.data?.length > 0 ? {
+            firstItem: responseData.data[0],
+            allItems: responseData.data.map(item => ({
+              id: item.id,
+              name: item.fileName || item.name,
+              type: item.mimeType || item.contentType,
+              size: item.size || item.fileSize
+            }))
+          } : null,
+          rawResponse: typeof responseData === 'string' ? responseData.substring(0, 500) : null
+        };
+        
+        if (response.ok && responseData?.data?.length > 0) {
+          console.log(`✅ SUCCESS: ${endpoint.name} found ${responseData.data.length} attachments`);
+        } else if (response.ok) {
+          console.log(`⚠️ EMPTY: ${endpoint.name} - Status ${response.status} but no data`);
+        } else {
+          console.log(`❌ FAILED: ${endpoint.name} - Status ${response.status}`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+      } catch (error) {
+        results[endpoint.name] = { 
+          url: endpoint.url,
+          description: endpoint.description,
+          error: error.message 
+        };
+        console.log(`❌ ERROR: ${endpoint.name} - ${error.message}`);
+      }
+    }
+    
+    // Summary
+    const workingEndpoints = Object.keys(results).filter(key => results[key]?.success && results[key]?.hasData);
+    const partialEndpoints = Object.keys(results).filter(key => results[key]?.success && !results[key]?.hasData);
+    const failedEndpoints = Object.keys(results).filter(key => !results[key]?.success);
+    
+    res.json({
+      success: true,
+      message: 'Comprehensive attachment API endpoint test results',
+      jobId: jobId,
+      fix: {
+        status: 'APPLIED',
+        correctEndpoint: 'forms/v2/tenant/{tenant}/jobs/{jobId}/attachments',
+        previousWrongEndpoint: 'forms/v2/tenant/{tenant}/job-attachments?jobId={jobId}'
+      },
+      summary: {
+        workingWithData: workingEndpoints,
+        workingButEmpty: partialEndpoints,
+        failed: failedEndpoints,
+        recommendation: workingEndpoints.length > 0 ? 
+          `✅ SUCCESS: ${workingEndpoints[0]} returned ${results[workingEndpoints[0]]?.dataCount} attachments` :
+          partialEndpoints.length > 0 ?
+          `⚠️ ENDPOINTS WORK BUT NO DATA: Job ${jobId} may have no attachments` :
+          '❌ NO WORKING ENDPOINTS: Check job ID or API permissions'
+      },
+      results: results
+    });
+    
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ✅ QUICK DEBUG: Test the appointments endpoint
 app.get('/debug/appointments-filter/:technicianId', async (req, res) => {
   try {
     const { technicianId } = req.params;
@@ -666,9 +1091,8 @@ app.get('/debug/appointments-filter/:technicianId', async (req, res) => {
     const appKey = SERVER_CONFIG.serviceTitan.appKey;
     const accessToken = tokenResult.accessToken;
     
-    // Test appointments endpoint with technicianIds filter for just the last 2 weeks to next month
     const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14); // ✅ REDUCED: 2 weeks instead of 1 week
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
     twoWeeksAgo.setHours(0, 0, 0, 0);
     
     const oneMonthFromNow = new Date();
@@ -676,7 +1100,7 @@ app.get('/debug/appointments-filter/:technicianId', async (req, res) => {
     oneMonthFromNow.setHours(23, 59, 59, 999);
     
     const queryParams = new URLSearchParams({
-      pageSize: '50', // ✅ REDUCED: Smaller page size to reduce load
+      pageSize: '50',
       technicianIds: technicianId,
       startsOnOrAfter: twoWeeksAgo.toISOString(),
       startsOnOrBefore: oneMonthFromNow.toISOString()
@@ -704,7 +1128,6 @@ app.get('/debug/appointments-filter/:technicianId', async (req, res) => {
     const data = await response.json();
     const appointments = data.data || [];
     
-    // Quick analysis
     const statusCounts = {};
     appointments.forEach(appointment => {
       const status = appointment.status?.name || appointment.status || 'Unknown';
@@ -728,12 +1151,9 @@ app.get('/debug/appointments-filter/:technicianId', async (req, res) => {
           number: a.appointmentNumber || a.number,
           status: a.status?.name || a.status,
           jobId: a.jobId,
-          start: a.start,
-          // Note: assignedTechnicianIds might be undefined, but the filter still works
-          assignedTechnicianIds: a.assignedTechnicianIds
+          start: a.start
         }))
-      },
-      note: 'If this returns appointments, then technicianIds filter IS working correctly'
+      }
     });
     
   } catch (error) {
@@ -815,133 +1235,34 @@ app.use((req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log('🚀 TitanPDF Technician Portal - FINAL VERSION');
+  console.log('🚀 TitanPDF Technician Portal - COMPLETE WITH DEBUG ENDPOINTS');
   console.log(`📡 Server: http://localhost:${PORT}`);
   console.log(`🌍 Environment: ${SERVER_CONFIG.serviceTitan.isIntegration ? 'Integration' : 'Production'}`);
   console.log(`🏢 Company: ${SERVER_CONFIG.company.name}`);
-  console.log(`🎯 Target Appointment Statuses: ${SERVER_CONFIG.targetAppointmentStatuses.join(', ')}`);
-  console.log(`🔧 FINAL FEATURES: Customer names in headers, fixed address formatting, no time display, all records processed, RATE LIMIT OPTIMIZED (2 weeks back only, increased delays)`);
+  console.log(`🎯 Target Statuses: ${SERVER_CONFIG.targetAppointmentStatuses.join(', ')}`);
   console.log('');
-  console.log('📋 Endpoints:');
+  console.log('🔧 FIXES APPLIED:');
+  console.log('   ✅ CORRECT: /forms/v2/tenant/{tenant}/jobs/{jobId}/attachments');
+  console.log('   ❌ WRONG:   /forms/v2/tenant/{tenant}/job-attachments?jobId={jobId}');
+  console.log('');
+  console.log('📋 Production Endpoints:');
   console.log('   GET  /health');
   console.log('   POST /api/technician/validate');
-  console.log('   GET  /api/technician/:id/appointments  (OPTIMIZED - 2 weeks back, rate limit safe)');
+  console.log('   GET  /api/technician/:id/appointments');
   console.log('   GET  /api/job/:jobId');
-  console.log('   GET  /api/job/:jobId/attachments');
-// ✅ DEBUG: Test different attachment API endpoints
-app.get('/debug/attachments/:jobId', async (req, res) => {
-  try {
-    const { jobId } = req.params;
-    
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({ success: false, error: 'Auth failed' });
-    }
-    
-    const fetch = (await import('node-fetch')).default;
-    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
-    const appKey = SERVER_CONFIG.serviceTitan.appKey;
-    const accessToken = tokenResult.accessToken;
-    
-    const results = {};
-    
-    // Test JMP API (old method)
-    try {
-      const jmpUrl = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
-      console.log(`🧪 Testing JMP API: ${jmpUrl}`);
-      
-      const jmpResponse = await fetch(jmpUrl, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'ST-App-Key': appKey,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      results.jmpApi = {
-        url: jmpUrl,
-        status: jmpResponse.status,
-        success: jmpResponse.ok,
-        data: jmpResponse.ok ? await jmpResponse.json() : await jmpResponse.text()
-      };
-    } catch (error) {
-      results.jmpApi = { error: error.message };
-    }
-    
-    // Test Forms API (new method)
-    try {
-      const formsUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/job-attachments?jobId=${jobId}`;
-      console.log(`🧪 Testing Forms API: ${formsUrl}`);
-      
-      const formsResponse = await fetch(formsUrl, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'ST-App-Key': appKey,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      results.formsApi = {
-        url: formsUrl,
-        status: formsResponse.status,
-        success: formsResponse.ok,
-        data: formsResponse.ok ? await formsResponse.json() : await formsResponse.text()
-      };
-    } catch (error) {
-      results.formsApi = { error: error.message };
-    }
-    
-    // Test alternative Forms API endpoints
-    const alternativeEndpoints = [
-      `/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`,
-      `/forms/v2/tenant/${tenantId}/attachments?jobId=${jobId}`,
-      `/forms/v2/tenant/${tenantId}/job/${jobId}/attachments`
-    ];
-    
-    for (const endpoint of alternativeEndpoints) {
-      try {
-        const altUrl = `https://api-integration.servicetitan.io${endpoint}`;
-        console.log(`🧪 Testing alternative: ${altUrl}`);
-        
-        const altResponse = await fetch(altUrl, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'ST-App-Key': appKey,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        results[`forms_alt_${endpoint.split('/').pop()}`] = {
-          url: altUrl,
-          status: altResponse.status,
-          success: altResponse.ok,
-          data: altResponse.ok ? await altResponse.json() : await altResponse.text()
-        };
-        
-        // Small delay between requests
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-      } catch (error) {
-        results[`forms_alt_${endpoint.split('/').pop()}`] = { error: error.message };
-      }
-    }
-    
-    res.json({
-      success: true,
-      message: 'Attachment API endpoint test results',
-      jobId: jobId,
-      results: results,
-      summary: {
-        jmpApiWorked: results.jmpApi?.success || false,
-        formsApiWorked: results.formsApi?.success || false,
-        workingEndpoints: Object.keys(results).filter(key => results[key]?.success)
-      }
-    });
-    
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+  console.log('   GET  /api/job/:jobId/attachments  (🔧 FIXED)');
+  console.log('');
+  console.log('🧪 Debug Endpoints:');
+  console.log('   GET  /debug/appointment-raw/:technicianId          (📊 Raw appointment data)');
+  console.log('   GET  /debug/job-analysis/:technicianId             (🔍 Complete job ID analysis)');
+  console.log('   GET  /debug/attachments-comprehensive/:jobId       (📎 Test all attachment endpoints)');
+  console.log('   GET  /debug/appointments-filter/:technicianId      (📅 Test appointment filtering)');
+  console.log('');
+  console.log('🧪 TO DEBUG JOB ID ISSUE:');
+  console.log('   1. Test: /debug/appointment-raw/2817');
+  console.log('   2. Test: /debug/job-analysis/2817');
+  console.log('   3. This will show if job IDs are extracted correctly');
+  console.log('   4. And whether those job IDs exist in ServiceTitan');
 });
 
 process.on('SIGINT', () => {
