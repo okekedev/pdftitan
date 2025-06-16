@@ -1,4 +1,4 @@
-// server.js - Simplified TitanPDF Technician-Only Portal
+// server.js - Complete TitanPDF Technician Portal with Pagination
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -33,6 +33,9 @@ const SERVER_CONFIG = {
   company: {
     name: 'MrBackflow TX'
   },
+  
+  // ✅ THE 4 TARGET JOB STATUSES (Exact names from ServiceTitan API)
+  targetJobStatuses: ['Dispatched', 'InProgress', 'Working', 'OnHold'],
   
   validate() {
     const required = [
@@ -70,7 +73,8 @@ app.get('/health', (req, res) => {
     status: 'healthy', 
     message: 'TitanPDF Technician Portal',
     environment: SERVER_CONFIG.serviceTitan.isIntegration ? 'Integration' : 'Production',
-    company: SERVER_CONFIG.company.name
+    company: SERVER_CONFIG.company.name,
+    targetStatuses: SERVER_CONFIG.targetJobStatuses
   });
 });
 
@@ -119,7 +123,7 @@ async function authenticateServiceTitan() {
   }
 }
 
-// ✅ TECHNICIAN-ONLY Validation Endpoint
+// ✅ TECHNICIAN VALIDATION
 app.post('/api/technician/validate', async (req, res) => {
   try {
     const { username, phone } = req.body;
@@ -167,7 +171,6 @@ app.post('/api/technician/validate', async (req, res) => {
     
     console.log(`✅ Technician authenticated: ${technician.name}`);
     
-    // Return successful validation with simple structure
     res.json({
       success: true,
       technician: technician,
@@ -189,13 +192,10 @@ app.post('/api/technician/validate', async (req, res) => {
   }
 });
 
-// ✅ SIMPLIFIED: Get Jobs for Technician - Essential Data Only
+// ✅ GET ALL JOBS FOR TECHNICIAN WITH PAGINATION
 app.get('/api/technician/:technicianId/jobs', async (req, res) => {
   try {
     const { technicianId } = req.params;
-    const { dateFilter = 'recent' } = req.query; // recent, today, future, all
-    
-    console.log(`👷 Fetching simplified jobs for technician ${technicianId} (filter: ${dateFilter})...`);
     
     // Get fresh ServiceTitan token
     const tokenResult = await authenticateServiceTitan();
@@ -211,145 +211,119 @@ app.get('/api/technician/:technicianId/jobs', async (req, res) => {
     const appKey = SERVER_CONFIG.serviceTitan.appKey;
     const accessToken = tokenResult.accessToken;
     
-    // ✅ DATE FILTERING
-    const now = new Date();
-    let dateParams = {};
+    // Date range: Past month
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+    oneMonthAgo.setHours(0, 0, 0, 0);
     
-    switch (dateFilter) {
-      case 'today':
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        const todayEnd = new Date();
-        todayEnd.setHours(23, 59, 59, 999);
-        dateParams.modifiedOnOrAfter = todayStart.toISOString();
-        dateParams.modifiedOnOrBefore = todayEnd.toISOString();
-        break;
-        
-      case 'future':
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(0, 0, 0, 0);
-        dateParams.modifiedOnOrAfter = tomorrow.toISOString();
-        break;
-        
-      case 'recent':
-      default:
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        dateParams.modifiedOnOrAfter = oneWeekAgo.toISOString();
-        break;
-    }
+    // ✅ PAGINATION: Get all jobs in batches of 500
+    let allJobs = [];
+    let page = 1;
+    let hasMorePages = true;
+    const pageSize = 500;
     
-    // Build query
-    const queryParams = new URLSearchParams({
-      pageSize: '100',
-      technicianIds: technicianId,
-      ...dateParams
-    });
-    
-    const jobsUrl = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs?${queryParams}`;
-    console.log('👷 API call:', jobsUrl);
-    
-    const jobsResponse = await fetch(jobsUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'ST-App-Key': appKey,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!jobsResponse.ok) {
-      const errorText = await jobsResponse.text();
-      console.error(`❌ ServiceTitan Jobs API error: ${jobsResponse.status} - ${errorText}`);
-      return res.status(jobsResponse.status).json({
-        success: false,
-        error: `ServiceTitan API error: ${jobsResponse.statusText}`
+    while (hasMorePages) {
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+        technicianIds: technicianId,
+        createdOnOrAfter: oneMonthAgo.toISOString(),
+        modifiedOnOrAfter: oneMonthAgo.toISOString()
       });
-    }
+      
+      const jobsUrl = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs?${queryParams}`;
+      
+      try {
+        const jobsResponse = await fetch(jobsUrl, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'ST-App-Key': appKey,
+            'Content-Type': 'application/json'
+          }
+        });
 
-    const jobsData = await jobsResponse.json();
-    console.log(`✅ Raw jobs fetched: ${jobsData.data?.length || 0} jobs`);
+        if (!jobsResponse.ok) {
+          const errorText = await jobsResponse.text();
+          console.error(`❌ ServiceTitan Jobs API error on page ${page}: ${jobsResponse.status} - ${errorText}`);
+          throw new Error(`API error: ${jobsResponse.statusText}`);
+        }
+
+        const jobsData = await jobsResponse.json();
+        const pageJobs = jobsData.data || [];
+        
+        // Add jobs to our collection
+        allJobs = allJobs.concat(pageJobs);
+        
+        // Check if we have more pages
+        const hasMore = jobsData.hasMore || (pageJobs.length === pageSize);
+        
+        if (!hasMore || pageJobs.length === 0) {
+          hasMorePages = false;
+        } else {
+          page++;
+          
+          // Safety check: Don't go beyond reasonable limits
+          if (page > 20) {
+            hasMorePages = false;
+          }
+          
+          // Small delay between requests to be respectful to the API
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error fetching page ${page}:`, error);
+        hasMorePages = false;
+      }
+    }
     
-    // ✅ FILTER: Only include specific active statuses
-    const activeStatuses = ['dispatched', 'in progress', 'working', 'on hold'];
-    const activeJobs = jobsData.data?.filter(job => {
-      const status = (job.jobStatus || '').toLowerCase();
-      return activeStatuses.includes(status);
-    }) || [];
+    // ✅ FILTER FOR TARGET STATUSES
+    const activeJobs = allJobs.filter(job => {
+      return SERVER_CONFIG.targetJobStatuses.includes(job.jobStatus);
+    });
     
-    console.log(`✅ Active jobs: ${activeJobs.length} jobs`);
-    
-    // ✅ SIMPLIFIED TRANSFORMATION: Essential fields only
+    // ✅ TRANSFORM JOBS
     const transformedJobs = activeJobs.map(job => {
-      // ✅ AGGRESSIVE TEXT CLEANING for job title
       let title = job.summary || 'Service Call';
+      title = title.replace(/<[^>]*>/g, ' ')
+                   .replace(/&[^;]+;/g, ' ')
+                   .replace(/\s+/g, ' ')
+                   .trim();
       
-      // Remove ALL HTML tags and content between them
-      title = title.replace(/<[^>]*>/g, ' ');
-      
-      // Remove HTML entities
-      title = title
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-        .replace(/&quot;/g, '"')
-        .replace(/&#x27;/g, "'")
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&apos;/g, "'");
-      
-      // Remove extra whitespace and newlines
-      title = title
-        .replace(/\s+/g, ' ')  // Multiple spaces to single space
-        .replace(/\n+/g, ' ')  // Newlines to space
-        .trim();
-      
-      // Limit title length
       if (title.length > 100) {
         title = title.substring(0, 100) + '...';
       }
       
-      // Fallback if title is empty or just weird characters
-      if (!title || title.length < 3 || /^[^a-zA-Z0-9]*$/.test(title)) {
+      if (!title || title.length < 3) {
         title = 'Service Call';
       }
       
       return {
-        // ✅ ESSENTIAL DATA ONLY
         id: job.id,
         number: job.jobNumber,
         title: title,
+        status: job.jobStatus,
         customer: {
           id: job.customerId,
           name: `Customer #${job.customerId}`
         },
-        status: job.jobStatus || 'Unknown',
-        scheduledDate: job.createdOn,
-        createdOn: job.createdOn,
         location: {
           id: job.locationId,
           name: `Location #${job.locationId}`
         },
+        scheduledDate: job.createdOn,
         businessUnit: job.businessUnitId ? `Business Unit #${job.businessUnitId}` : 'General'
       };
-    });
-    
-    // ✅ SORT by creation date (newest first)
-    transformedJobs.sort((a, b) => new Date(b.createdOn) - new Date(a.createdOn));
-    
-    console.log(`✅ Active jobs with required statuses: ${transformedJobs.length} jobs`);
+    }).sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate));
     
     res.json({
       success: true,
       data: transformedJobs,
-      count: transformedJobs.length,
-      filter: {
-        type: dateFilter,
-        description: getFilterDescription(dateFilter)
-      }
+      count: transformedJobs.length
     });
     
   } catch (error) {
-    console.error('❌ Server-side technician jobs error:', error);
+    console.error('❌ Error fetching technician jobs:', error);
     res.status(500).json({ 
       success: false,
       error: 'Server error fetching technician jobs'
@@ -357,27 +331,14 @@ app.get('/api/technician/:technicianId/jobs', async (req, res) => {
   }
 });
 
-// Helper function for filter descriptions
-function getFilterDescription(filter) {
-  switch (filter) {
-    case 'today': return 'Jobs scheduled for today';
-    case 'future': return 'Future scheduled jobs';
-    case 'recent': 
-    default: return 'Recent jobs (last 7 days)';
-  }
-}
-
-// ✅ DEBUG ENDPOINT: Get all possible job statuses
-app.get('/debug/job-statuses', async (req, res) => {
+// ✅ QUICK DEBUG: Check what jobs we're actually getting
+app.get('/debug/quick-check/:technicianId', async (req, res) => {
   try {
-    console.log('🔍 DEBUG: Getting all job statuses...');
+    const { technicianId } = req.params;
     
     const tokenResult = await authenticateServiceTitan();
     if (!tokenResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: 'ServiceTitan authentication failed'
-      });
+      return res.status(500).json({ success: false, error: 'Auth failed' });
     }
     
     const fetch = (await import('node-fetch')).default;
@@ -385,10 +346,16 @@ app.get('/debug/job-statuses', async (req, res) => {
     const appKey = SERVER_CONFIG.serviceTitan.appKey;
     const accessToken = tokenResult.accessToken;
     
-    // Get a large sample of jobs to see all status types
+    // Same query as main endpoint but for 30 days
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+    oneMonthAgo.setHours(0, 0, 0, 0);
+    
     const queryParams = new URLSearchParams({
-      pageSize: '200',
-      modifiedOnOrAfter: '2024-01-01T00:00:00Z'
+      pageSize: '100',
+      technicianIds: technicianId,
+      createdOnOrAfter: oneMonthAgo.toISOString(),
+      modifiedOnOrAfter: oneMonthAgo.toISOString()
     });
     
     const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs?${queryParams}`;
@@ -402,51 +369,42 @@ app.get('/debug/job-statuses', async (req, res) => {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      return res.status(response.status).json({
-        success: false,
-        error: `ServiceTitan API error: ${response.statusText}`,
-        details: errorText
-      });
+      return res.status(500).json({ success: false, error: 'API call failed' });
     }
 
     const data = await response.json();
+    const jobs = data.data || [];
     
-    // Collect all unique job statuses
-    const statusSet = new Set();
-    const prioritySet = new Set();
-    
-    data.data?.forEach(job => {
-      if (job.jobStatus) statusSet.add(job.jobStatus);
-      if (job.priority) prioritySet.add(job.priority);
+    // Quick analysis
+    const statusCounts = {};
+    jobs.forEach(job => {
+      const status = job.jobStatus || 'Unknown';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
     });
     
-    const statuses = Array.from(statusSet).sort();
-    const priorities = Array.from(prioritySet).sort();
+    const targetJobs = jobs.filter(job => 
+      SERVER_CONFIG.targetJobStatuses.includes(job.jobStatus)
+    );
     
     res.json({
       success: true,
-      message: 'Available job statuses and priorities',
-      totalJobs: data.data?.length || 0,
-      statuses: statuses,
-      priorities: priorities,
-      statusCounts: statuses.map(status => ({
-        status,
-        count: data.data?.filter(job => job.jobStatus === status).length || 0
-      })),
-      priorityCounts: priorities.map(priority => ({
-        priority,
-        count: data.data?.filter(job => job.priority === priority).length || 0
-      }))
+      message: 'Quick job check',
+      query: {
+        technicianId,
+        dateFrom: oneMonthAgo.toISOString(),
+        pageSize: 100
+      },
+      results: {
+        totalJobs: jobs.length,
+        statusBreakdown: statusCounts,
+        targetStatuses: SERVER_CONFIG.targetJobStatuses,
+        targetJobsFound: targetJobs.length,
+        targetJobIds: targetJobs.map(j => ({ id: j.id, number: j.jobNumber, status: j.jobStatus }))
+      }
     });
     
   } catch (error) {
-    console.error('❌ DEBUG: Error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Debug endpoint error',
-      details: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -472,7 +430,6 @@ async function searchTechnicianByUsername(username, accessToken, tenantId, appKe
   const data = await response.json();
   const technicians = data.data || [];
   
-  // Find technician by username
   const usernameMatch = username.toLowerCase();
   const matchedTechnician = technicians.find(tech => {
     const loginName = tech.loginName || tech.username || '';
@@ -483,7 +440,6 @@ async function searchTechnicianByUsername(username, accessToken, tenantId, appKe
   
   return {
     id: matchedTechnician.id,
-    userId: matchedTechnician.userId || matchedTechnician.id,
     name: matchedTechnician.name,
     email: matchedTechnician.email,
     phoneNumber: matchedTechnician.phoneNumber,
@@ -508,60 +464,38 @@ function normalizePhone(phone) {
     : digitsOnly;
 }
 
-// Error handling middleware
+// Error handling
 app.use((error, req, res, next) => {
-  console.error('❌ Unhandled server error:', error);
+  console.error('❌ Server error:', error);
   res.status(500).json({
     success: false,
     error: 'Internal server error'
   });
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    error: 'Endpoint not found',
-    availableEndpoints: [
-      'GET /health',
-      'POST /api/technician/validate', 
-      'GET /api/technician/:technicianId/jobs',
-      'GET /debug/job-statuses'
-    ]
+    error: 'Endpoint not found'
   });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log('🚀 TitanPDF Technician Portal Started');
+  console.log('🚀 TitanPDF Technician Portal');
   console.log(`📡 Server: http://localhost:${PORT}`);
   console.log(`🌍 Environment: ${SERVER_CONFIG.serviceTitan.isIntegration ? 'Integration' : 'Production'}`);
   console.log(`🏢 Company: ${SERVER_CONFIG.company.name}`);
-  
+  console.log(`🎯 Target Job Statuses: ${SERVER_CONFIG.targetJobStatuses.join(', ')}`);
   console.log('');
-  console.log('🔧 ServiceTitan Configuration:');
-  console.log(`   Client ID: ${SERVER_CONFIG.serviceTitan.clientId ? 'Present' : '❌ MISSING'}`);
-  console.log(`   Client Secret: ${SERVER_CONFIG.serviceTitan.clientSecret ? 'Present' : '❌ MISSING'}`);
-  console.log(`   App Key: ${SERVER_CONFIG.serviceTitan.appKey ? 'Present' : '❌ MISSING'}`);
-  console.log(`   Tenant ID: ${SERVER_CONFIG.serviceTitan.tenantId || '❌ MISSING'}`);
-  
-  console.log('');
-  console.log('🔧 Portal Access:');
-  console.log('   👤 TECHNICIANS ONLY: Log in with ServiceTitan username + phone');
-  console.log('   📋 JOBS: Technicians see only their assigned jobs');
-  console.log('   📄 FORMS: Access PDF forms for each job');
-  
-  console.log('');
-  console.log('📋 Available Endpoints:');
-  console.log('   GET  /health - Server health check');
-  console.log('   POST /api/technician/validate - Technician authentication');
-  console.log('   GET  /api/technician/:id/jobs - Get jobs for specific technician');
-  console.log('   GET  /debug/job-statuses - Debug job statuses');
+  console.log('📋 Endpoints:');
+  console.log('   GET  /health');
+  console.log('   POST /api/technician/validate');
+  console.log('   GET  /api/technician/:id/jobs');
 });
 
-// Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down TitanPDF Technician Portal...');
+  console.log('\n🛑 Shutting down...');
   process.exit(0);
 });
 

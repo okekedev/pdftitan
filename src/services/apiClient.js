@@ -1,4 +1,4 @@
-// src/services/apiClient.js - Optimized for Technician-Only Portal
+// src/services/apiClient.js - Final Simplified API Client
 
 import { serviceTitanConfig } from '../config/serviceTitanConfig';
 import sessionManager from './sessionManger';
@@ -59,7 +59,7 @@ class ApiClient {
     }
   }
 
-  // ================== TECHNICIAN AUTHENTICATION ==================
+  // ================== AUTHENTICATION ==================
 
   async validateTechnician(username, phone) {
     return this.apiCall('/api/technician/validate', {
@@ -68,37 +68,32 @@ class ApiClient {
     });
   }
 
-  // Health check
   async getHealth() {
     return this.apiCall('/health');
   }
 
-  // ================== TECHNICIAN JOBS ==================
+  // ================== JOBS ==================
 
-  // Get jobs for a specific technician with date filtering
-  async getJobsForTechnician(technicianId, dateFilter = 'recent') {
+  // Get active jobs for current technician
+  async getMyJobs() {
+    const session = sessionManager.getTechnicianSession();
+    if (!session || !session.technician) {
+      throw new Error('No technician session found');
+    }
+
     try {
-      console.log(`👷 Fetching jobs for technician ${technicianId} (filter: ${dateFilter})...`);
+      console.log(`👷 Fetching active jobs for technician ${session.technician.id}...`);
       
-      const response = await this.apiCall(`/api/technician/${technicianId}/jobs?dateFilter=${dateFilter}`);
+      const response = await this.apiCall(`/api/technician/${session.technician.id}/jobs`);
       
-      console.log(`✅ Jobs fetched: ${response.data?.length || 0} jobs`);
+      console.log(`✅ Active jobs fetched: ${response.data?.length || 0} jobs`);
+      
       return response.data || [];
 
     } catch (error) {
       console.error('❌ Error fetching technician jobs:', error);
       throw new Error(`Failed to fetch jobs: ${error.message}`);
     }
-  }
-
-  // Get current technician's jobs - optimized to work with simplified server response
-  async getMyJobs(dateFilter = 'recent') {
-    const session = sessionManager.getTechnicianSession();
-    if (!session || !session.technician) {
-      throw new Error('No technician session found');
-    }
-
-    return this.getJobsForTechnician(session.technician.id, dateFilter);
   }
 
   // ================== UTILITY METHODS ==================
@@ -115,44 +110,13 @@ class ApiClient {
     } : null;
   }
 
-  // Job status helper methods - optimized for server's simplified response
-  getJobStatusColor(status) {
-    if (!status) return 'status-default';
-    
-    const normalizedStatus = status.toLowerCase();
-    switch (normalizedStatus) {
-      case 'scheduled': return 'status-scheduled';
-      case 'in progress': 
-      case 'dispatched': return 'status-progress';
-      case 'on hold': return 'status-hold';
-      case 'completed': return 'status-completed';
-      case 'canceled': 
-      case 'cancelled': return 'status-canceled';
-      default: return 'status-default';
-    }
-  }
-
-  getPriorityColor(priority) {
-    if (!priority) return 'priority-default';
-    
-    const normalizedPriority = priority.toLowerCase();
-    switch (normalizedPriority) {
-      case 'high': 
-      case 'urgent': return 'priority-high';
-      case 'medium': return 'priority-medium';
-      case 'low': return 'priority-low';
-      default: return 'priority-default';
-    }
-  }
-
-  // Optimized for server's simplified date format
+  // Format job date for display
   formatJobDate(dateString) {
     if (!dateString) return 'Not scheduled';
     
     try {
       const date = new Date(dateString);
       
-      // Check if date is valid
       if (isNaN(date.getTime())) {
         return 'Invalid date';
       }
@@ -161,9 +125,7 @@ class ApiClient {
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const jobDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       
-      // Calculate difference in days
-      const diffTime = jobDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffDays = Math.ceil((jobDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       
       if (diffDays === 0) {
         return `Today, ${date.toLocaleTimeString('en-US', { 
@@ -178,25 +140,12 @@ class ApiClient {
           hour12: true 
         })}`;
       } else if (diffDays === -1) {
-        return `Yesterday, ${date.toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          hour12: true 
-        })}`;
-      } else if (diffDays > 1 && diffDays <= 7) {
-        return date.toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
+        return `Yesterday`;
       } else {
         return date.toLocaleDateString('en-US', {
           weekday: 'short',
           month: 'short',
           day: 'numeric',
-          year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
           hour: '2-digit',
           minute: '2-digit'
         });
@@ -204,63 +153,6 @@ class ApiClient {
     } catch (error) {
       console.error('Error formatting date:', error);
       return 'Invalid date';
-    }
-  }
-
-  // Optimized for server's simplified job structure
-  getJobUrgency(job) {
-    if (!job) return 'normal';
-    
-    // Check priority first
-    const priority = (job.priority || '').toLowerCase();
-    if (priority === 'urgent' || priority === 'high') {
-      return 'urgent';
-    }
-    
-    // Check status
-    const status = (job.status || '').toLowerCase();
-    if (status === 'on hold') {
-      return 'hold';
-    }
-    
-    // Check if scheduled for today or overdue
-    if (job.scheduledDate || job.createdOn) {
-      try {
-        const scheduledDate = new Date(job.scheduledDate || job.createdOn);
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-        
-        if (scheduledDate <= tomorrow) {
-          return 'today';
-        }
-      } catch (error) {
-        console.warn('Error parsing scheduled date:', error);
-      }
-    }
-    
-    return 'normal';
-  }
-
-  // Get job urgency icon based on simplified server data
-  getJobUrgencyIcon(job) {
-    const urgency = this.getJobUrgency(job);
-    switch (urgency) {
-      case 'urgent': return '🚨';
-      case 'today': return '⏰';
-      case 'hold': return '⏸️';
-      default: return '📋';
-    }
-  }
-
-  // Debug method to check job status variety
-  async getJobStatuses() {
-    try {
-      const response = await this.apiCall('/debug/job-statuses');
-      return response;
-    } catch (error) {
-      console.error('❌ Error fetching job statuses:', error);
-      throw new Error(`Failed to fetch job statuses: ${error.message}`);
     }
   }
 
@@ -332,7 +224,8 @@ class ApiClient {
         connected: true,
         serverStatus: health.status,
         environment: health.environment,
-        message: health.message
+        message: health.message,
+        targetStatuses: health.targetStatuses
       };
     } catch (error) {
       const errorInfo = this.handleApiError(error);

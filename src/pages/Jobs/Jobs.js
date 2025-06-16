@@ -1,4 +1,4 @@
-// src/pages/Jobs/Jobs.js - Optimized for Technician-Only Portal
+// src/pages/Jobs/Jobs.js - Final Simplified Jobs Page
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../services/apiClient';
 import './Jobs.css';
@@ -7,10 +7,6 @@ function Jobs({ technician, onSelectJob }) {
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filters, setFilters] = useState({
-    status: 'all',
-    dateFilter: 'recent' // recent, today, future, all
-  });
 
   useEffect(() => {
     const loadJobs = async () => {
@@ -18,12 +14,12 @@ function Jobs({ technician, onSelectJob }) {
         setIsLoading(true);
         setError('');
         
-        console.log(`🔧 Loading jobs for technician: ${technician?.name} (filter: ${filters.dateFilter})`);
+        console.log(`🔧 Loading active jobs for technician: ${technician?.name}`);
         
-        const jobsData = await apiClient.getMyJobs(filters.dateFilter);
+        const jobsData = await apiClient.getMyJobs();
         setJobs(jobsData);
         
-        console.log(`✅ Loaded ${jobsData.length} jobs for technician`);
+        console.log(`✅ Loaded ${jobsData.length} active jobs`);
         
       } catch (error) {
         console.error('❌ Error loading jobs:', error);
@@ -37,38 +33,74 @@ function Jobs({ technician, onSelectJob }) {
     if (technician) {
       loadJobs();
     }
-  }, [technician, filters.dateFilter]);
+  }, [technician]);
 
   const getStatusColor = (status) => {
-    return apiClient.getJobStatusColor(status);
-  };
-
-  const getJobUrgencyIcon = (job) => {
-    return apiClient.getJobUrgencyIcon(job);
-  };
-
-  const handleSelectJob = (job) => {
-    onSelectJob(job);
-  };
-
-  const handleDateFilterChange = (newDateFilter) => {
-    setFilters(prev => ({ ...prev, dateFilter: newDateFilter }));
-  };
-
-  const filteredJobs = jobs.filter(job => {
-    if (filters.status !== 'all' && job.status?.toLowerCase() !== filters.status) {
-      return false;
+    switch (status) {
+      case 'Dispatched': return 'status-dispatched';
+      case 'InProgress': return 'status-progress'; // ServiceTitan uses "InProgress" (one word)
+      case 'Working': return 'status-working';
+      case 'OnHold': return 'status-hold'; // ServiceTitan uses "OnHold" (one word)
+      default: return 'status-default';
     }
-    return true;
-  });
+  };
 
-  // Get filter description
-  const getFilterDescription = (filter) => {
-    switch (filter) {
-      case 'today': return 'Jobs for today';
-      case 'future': return 'Future scheduled jobs';
-      case 'recent': 
-      default: return 'Recent jobs (last 7 days)';
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'Dispatched': return '🚚';
+      case 'InProgress': return '🔧'; // ServiceTitan uses "InProgress" (one word)
+      case 'Working': return '⚙️';
+      case 'OnHold': return '⏸️'; // ServiceTitan uses "OnHold" (one word)
+      default: return '📋';
+    }
+  };
+
+  const getStatusDisplayName = (status) => {
+    switch (status) {
+      case 'InProgress': return 'In Progress'; // Display with space for users
+      case 'OnHold': return 'On Hold'; // Display with space for users
+      case 'Dispatched': return 'Dispatched';
+      case 'Working': return 'Working';
+      default: return status;
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not scheduled';
+    
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const jobDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      
+      const diffDays = Math.ceil((jobDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) {
+        return `Today, ${date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        })}`;
+      } else if (diffDays === 1) {
+        return `Tomorrow, ${date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        })}`;
+      } else if (diffDays === -1) {
+        return `Yesterday`;
+      } else {
+        return date.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+    } catch (error) {
+      return 'Invalid date';
     }
   };
 
@@ -76,10 +108,10 @@ function Jobs({ technician, onSelectJob }) {
     return (
       <div className="jobs-container">
         <div className="jobs-header">
-          <h2>Loading Your Jobs...</h2>
-          <p>Fetching your assigned jobs from ServiceTitan</p>
+          <h2>Loading Your Active Jobs...</h2>
+          <p>Fetching your active jobs...</p>
         </div>
-        <div className="loading-spinner" style={{
+        <div style={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -134,70 +166,12 @@ function Jobs({ technician, onSelectJob }) {
     <div className="jobs-container">
       <div className="jobs-header">
         <div className="project-info">
-          <h2>My Jobs</h2>
-          <p>Your assigned jobs • {technician?.name}</p>
-          <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
-            {getFilterDescription(filters.dateFilter)}
-          </p>
-        </div>
-
-        {/* Enhanced Filters */}
-        <div className="jobs-filters" style={{
-          display: 'flex',
-          gap: '1rem',
-          marginTop: '1rem',
-          padding: '1rem',
-          background: '#f8f9fa',
-          borderRadius: '6px',
-          flexWrap: 'wrap'
-        }}>
-          {/* Date Filter */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#333' }}>Time Period</label>
-            <select 
-              value={filters.dateFilter} 
-              onChange={(e) => handleDateFilterChange(e.target.value)}
-              style={{
-                padding: '0.5rem',
-                borderRadius: '4px',
-                border: '1px solid #ddd',
-                fontSize: '0.9rem'
-              }}
-            >
-              <option value="recent">Recent (7 days)</option>
-              <option value="today">Today</option>
-              <option value="future">Future</option>
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#333' }}>Status</label>
-            <select 
-              value={filters.status} 
-              onChange={(e) => setFilters({...filters, status: e.target.value})}
-              style={{
-                padding: '0.5rem',
-                borderRadius: '4px',
-                border: '1px solid #ddd',
-                fontSize: '0.9rem'
-              }}
-            >
-              <option value="all">All Statuses</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="in progress">In Progress</option>
-              <option value="on hold">On Hold</option>
-              <option value="dispatched">Dispatched</option>
-            </select>
-          </div>
-
-          <div style={{ marginLeft: 'auto', alignSelf: 'flex-end', color: '#666', fontSize: '0.9rem' }}>
-            {filteredJobs.length} of {jobs.length} jobs
-          </div>
+          <h2>My Active Jobs</h2>
+          <p>Technician: {technician?.name}</p>
         </div>
       </div>
 
-      {filteredJobs.length === 0 ? (
+      {jobs.length === 0 ? (
         <div style={{
           background: '#fff',
           padding: '3rem',
@@ -206,96 +180,63 @@ function Jobs({ technician, onSelectJob }) {
           border: '2px dashed #e9ecef',
           marginTop: '1rem'
         }}>
-          <h3 style={{ color: '#666', marginBottom: '1rem' }}>No Jobs Found</h3>
+          <h3 style={{ color: '#666', marginBottom: '1rem' }}>No Active Jobs</h3>
           <p style={{ color: '#999' }}>
-            {jobs.length === 0 
-              ? `No jobs found for ${getFilterDescription(filters.dateFilter).toLowerCase()}`
-              : 'No jobs match the selected filters'
-            }
+            You currently have no active jobs assigned.
           </p>
-          {filters.dateFilter !== 'recent' && (
-            <button
-              onClick={() => handleDateFilterChange('recent')}
-              style={{
-                background: '#2ecc71',
-                color: 'white',
-                border: 'none',
-                padding: '0.5rem 1rem',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                marginTop: '1rem'
-              }}
-            >
-              Show Recent Jobs
-            </button>
-          )}
         </div>
       ) : (
         <div className="jobs-grid">
-          {filteredJobs.map((job) => (
+          {jobs.map((job) => (
             <div
               key={job.id}
               className="job-card"
-              onClick={() => handleSelectJob(job)}
+              onClick={() => onSelectJob(job)}
             >
               <div className="job-content">
-                <div className="job-header" style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: '1rem'
-                }}>
+                <div className="job-header">
                   <div style={{ flex: 1 }}>
                     <h3 className="job-id" style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
                       gap: '0.5rem',
-                      margin: '0 0 0.5rem 0'
+                      margin: '0 0 0.5rem 0',
+                      fontSize: '1.1rem',
+                      fontWeight: '700',
+                      color: '#2ecc71'
                     }}>
-                      {getJobUrgencyIcon(job)} {job.number}
+                      {getStatusIcon(job.status)} {job.number}
                     </h3>
                     <h4 className="job-name" style={{ 
-                      margin: '0',
+                      margin: '0 0 1rem 0',
                       fontSize: '1rem',
                       fontWeight: '600',
                       color: '#333',
                       lineHeight: '1.3'
                     }}>
-                      {job.title || 'Service Call'}
+                      {job.title}
                     </h4>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div>
                     <span className={`status-badge ${getStatusColor(job.status)}`}>
-                      {job.status || 'Unknown'}
+                      {getStatusDisplayName(job.status)}
                     </span>
                   </div>
                 </div>
 
-                <div className="job-details">
-                  <div className="detail-row">
-                    <span className="detail-label">Customer</span>
-                    <span className="detail-value">{job.customer?.name || 'Unknown Customer'}</span>
+                <div className="job-details" style={{
+                  display: 'grid',
+                  gap: '0.5rem',
+                  fontSize: '0.9rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#666', fontWeight: '500' }}>Customer:</span>
+                    <span style={{ color: '#333' }}>{job.customer?.name}</span>
                   </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Location</span>
-                    <span className="detail-value">{job.location?.name || 'Unknown Location'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#666', fontWeight: '500' }}>Scheduled:</span>
+                    <span style={{ color: '#333' }}>{formatDate(job.scheduledDate)}</span>
                   </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Job Type</span>
-                    <span className="detail-value">{job.jobType || 'Service Call'}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Scheduled</span>
-                    <span className="detail-value">
-                      {apiClient.formatJobDate(job.scheduledDate)}
-                    </span>
-                  </div>
-                  {job.businessUnit && (
-                    <div className="detail-row">
-                      <span className="detail-label">Department</span>
-                      <span className="detail-value">{job.businessUnit}</span>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -309,24 +250,6 @@ function Jobs({ technician, onSelectJob }) {
         </div>
       )}
 
-      {/* Debug Info for Development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div style={{
-          marginTop: '2rem',
-          padding: '1rem',
-          background: '#f8f9fa',
-          borderRadius: '6px',
-          fontSize: '0.8rem',
-          color: '#666'
-        }}>
-          <strong>Debug Info:</strong>
-          <br />
-          Total Jobs: {jobs.length} | Filtered: {filteredJobs.length} | 
-          Date Filter: {filters.dateFilter} | Status Filter: {filters.status}
-          <br />
-          Technician: {technician?.name} (ID: {technician?.id})
-        </div>
-      )}
     </div>
   );
 }
