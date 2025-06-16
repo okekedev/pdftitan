@@ -251,3 +251,118 @@
     padding: 1rem;
   }
 }
+
+/* Status Badges - Updated for Appointment Statuses */
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* Scheduled - Blue */
+.status-scheduled {
+  background: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #2196f3;
+}
+
+/* Dispatched - Orange */
+.status-dispatched {
+  background: #fff8e1;
+  color: #f57c00;
+  border: 1px solid #ffcc02;
+}
+
+/* Enroute - Purple */
+.status-enroute {
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border: 1px solid #9c27b0;
+}
+
+/* Working - Green */
+.status-working {
+  background: #e8f5e8;
+  color: #2ecc71;
+  border: 1px solid #27ae60;
+}
+
+/* Default (fallback) */
+.status-default {
+  background: #f5f5f5;
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+/* Status Badges - All Appointment Statuses */
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* Scheduled - Blue */
+.status-scheduled {
+  background: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #2196f3;
+}
+
+/* Dispatched - Orange */
+.status-dispatched {
+  background: #fff8e1;
+  color: #f57c00;
+  border: 1px solid #ffcc02;
+}
+
+/* Enroute - Purple */
+.status-enroute {
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border: 1px solid #9c27b0;
+}
+
+/* Working - Green */
+.status-working {
+  background: #e8f5e8;
+  color: #2ecc71;
+  border: 1px solid #27ae60;
+}
+
+/* Hold - Yellow */
+.status-hold {
+  background: #fffde7;
+  color: #f57f17;
+  border: 1px solid #ffeb3b;
+}
+
+/* Done - Success Green */
+.status-done {
+  background: #e0f2f1;
+  color: #00695c;
+  border: 1px solid #26a69a;
+}
+
+/* Canceled - Red */
+.status-canceled {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #e74c3c;
+}
+
+/* Default (fallback) */
+.status-default {
+  background: #f5f5f5;
+  color: #666;
+  border: 1px solid #ddd;
+}
