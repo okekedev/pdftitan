@@ -1,6 +1,7 @@
 // src/App.js - Simplified for Technician-Only Portal
 import React, { useState, useEffect } from 'react';
 import sessionManager from './services/sessionManger';
+import apiClient from './services/apiClient';
 import Login from './pages/Login/Login';
 import Header from './components/layout/Header/Header';
 import Footer from './components/layout/Footer/Footer';
@@ -9,7 +10,7 @@ import Attachments from './pages/Attachments/Attachments';
 import './App.css';
 
 function App() {
-  const [user, setUser] = useState(null);
+  const [technician, setTechnician] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState('jobs');
   const [selectedJob, setSelectedJob] = useState(null);
@@ -21,10 +22,10 @@ function App() {
     const existingSession = sessionManager.getTechnicianSession();
     if (existingSession) {
       console.log('✅ Found existing technician session:', existingSession.technician?.name);
-      setUser(existingSession);
+      setTechnician(existingSession.technician);
       setCurrentPage('jobs'); // Technicians always start with jobs
     } else {
-      console.log('❌ No existing session found');
+      console.log('❌ No existing technician session found');
     }
     
     setIsLoading(false);
@@ -35,15 +36,19 @@ function App() {
     
     // Save to session storage
     sessionManager.setTechnicianSession(userData);
-    setUser(userData);
-    setCurrentPage('jobs'); // Technicians go straight to their jobs
+    setTechnician(userData.technician);
+    
+    // Technicians always go to jobs page
+    setCurrentPage('jobs');
   };
 
   const handleLogout = () => {
     console.log('🚪 Logging out technician');
     
+    // Clear session storage
     sessionManager.clearTechnicianSession();
-    setUser(null);
+    
+    setTechnician(null);
     setSelectedJob(null);
     setCurrentPage('jobs');
   };
@@ -72,7 +77,7 @@ function App() {
   }
 
   // Show login page if technician is not logged in
-  if (!user) {
+  if (!technician) {
     return <Login onLogin={handleLogin} />;
   }
 
@@ -82,7 +87,7 @@ function App() {
       case 'jobs':
         return (
           <Jobs 
-            technician={user.technician}
+            technician={technician}
             onSelectJob={handleSelectJob}
           />
         );
@@ -98,7 +103,7 @@ function App() {
       default:
         return (
           <Jobs 
-            technician={user.technician}
+            technician={technician}
             onSelectJob={handleSelectJob}
           />
         );
@@ -114,21 +119,24 @@ function App() {
   };
 
   const handleNavigate = (page) => {
+    console.log('🧭 Navigating to:', page);
+    
     if (page === 'jobs') {
-      setCurrentPage('jobs');
       setSelectedJob(null);
+      setCurrentPage('jobs');
     }
-    // Only allow navigation to jobs page
+    // Technicians can't navigate to attachments without selecting a job first
   };
 
   return (
     <div className="App">
       <Header 
-        user={user} 
+        user={technician} 
         onLogout={handleLogout}
         currentPage={currentPage}
         onNavigate={handleNavigate}
         breadcrumbs={getBreadcrumbs()}
+        userType="technician"
       />
       
       <main className="main-content">

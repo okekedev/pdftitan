@@ -31,6 +31,26 @@ function Login({ onLogin }) {
     checkConfig();
   }, []);
 
+  // Test server connection on mount
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        const connectionTest = await apiClient.testConnection();
+        if (!connectionTest.connected) {
+          console.warn('⚠️ Server connection test failed:', connectionTest.error);
+        } else {
+          console.log('✅ Server connection successful:', connectionTest.serverStatus);
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not test server connection:', error);
+      }
+    };
+
+    if (configStatus?.valid) {
+      testConnection();
+    }
+  }, [configStatus]);
+
   // Simplified Technician Authentication
   const handleLogin = async () => {
     if (!username.trim() || !phoneNumber.trim()) {
@@ -54,11 +74,19 @@ function Login({ onLogin }) {
           technician: result.technician,
           company: result.company,
           accessToken: result.accessToken,
-          appKey: result.company?.appKey || '',
           environment: result.environment || configStatus.environment,
           loginTime: Date.now(),
           userType: 'technician'
         };
+
+        console.log('🔧 Session data structure:', {
+          technicianName: userData.technician.name,
+          technicianId: userData.technician.id,
+          companyName: userData.company.name,
+          tenantId: userData.company.tenantId,
+          hasAppKey: !!userData.company.appKey,
+          hasAccessToken: !!userData.accessToken
+        });
 
         onLogin(userData);
         
@@ -69,16 +97,49 @@ function Login({ onLogin }) {
     } catch (error) {
       console.error('❌ Authentication error:', error);
       
-      if (error.message.includes('No technician found')) {
-        setError(`Technician "${username}" not found. Please check your username.`);
-      } else if (error.message.includes('Phone number does not match')) {
-        setError('Phone number does not match our records for this technician.');
-      } else if (error.message.includes('Only technicians')) {
-        setError('This portal is for technicians only. Please contact your administrator if you need access.');
-      } else if (error.message.includes('404')) {
-        setError('Server not found. Please make sure the server is running.');
-      } else {
-        setError(error.message || 'An unexpected error occurred');
+      // Enhanced error handling for technician-specific responses
+      const errorInfo = apiClient.handleApiError(error);
+      
+      switch (errorInfo.type) {
+        case 'NETWORK':
+          setError('Cannot connect to server. Make sure the server is running on localhost:3005');
+          break;
+        case 'TIMEOUT':
+          setError('Connection timeout. Please try again.');
+          break;
+        case 'AUTH':
+          setError('Authentication failed. Please check your credentials.');
+          break;
+        case 'NOT_FOUND':
+          if (error.message.includes('No technician found')) {
+            setError(`Technician "${username}" not found. Please check your username.`);
+          } else if (error.message.includes('Endpoint not found')) {
+            setError('Server endpoint not found. Please make sure the server is running.');
+          } else {
+            setError('Resource not found. Please try again.');
+          }
+          break;
+        case 'PERMISSION':
+          setError('This portal is for technicians only. Please contact your administrator if you need access.');
+          break;
+        case 'SERVER_ERROR':
+          setError('Server error occurred. Please try again later.');
+          break;
+        default:
+          // Parse specific server error messages
+          if (error.message.includes('No technician found')) {
+            setError(`Technician "${username}" not found. Please check your username and try again.`);
+          } else if (error.message.includes('Phone number does not match')) {
+            setError('Phone number does not match our records for this technician.');
+          } else if (error.message.includes('ServiceTitan authentication failed')) {
+            setError('Failed to connect to ServiceTitan API. Please try again later.');
+          } else if (error.message.includes('404')) {
+            setError('Server endpoint not found. Please make sure the server is running and try again.');
+          } else if (error.message.includes('Both username and phone number are required')) {
+            setError('Please enter both your username and phone number.');
+          } else {
+            setError(errorInfo.userMessage || error.message || 'An unexpected error occurred');
+          }
       }
     } finally {
       setIsLoading(false);
@@ -152,6 +213,7 @@ function Login({ onLogin }) {
               placeholder="Enter your ServiceTitan username"
               disabled={isLoading}
               onKeyPress={handleKeyPress}
+              autoComplete="username"
             />
           </div>
 
@@ -165,6 +227,7 @@ function Login({ onLogin }) {
               placeholder="Enter your phone number"
               disabled={isLoading}
               onKeyPress={handleKeyPress}
+              autoComplete="tel"
             />
           </div>
           
@@ -180,6 +243,9 @@ function Login({ onLogin }) {
         
         <div className="login-footer">
           <p>Enter your ServiceTitan technician credentials to access your jobs</p>
+          <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
+            Only technicians can access this portal
+          </p>
           {serviceTitanConfig.app.debugMode && (
             <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#666' }}>
               <p>Debug Mode: Environment = {configStatus.environment}</p>
