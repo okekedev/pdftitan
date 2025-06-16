@@ -1,4 +1,4 @@
-// src/pages/Jobs/Jobs.js - Simplified with Customer Names and All Statuses
+// src/pages/Jobs/Jobs.js - FINAL VERSION: Customer Names in Headers, No Time Display, Fixed Addresses
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../services/apiClient';
 import './Jobs.css';
@@ -9,9 +9,9 @@ function Jobs({ technician, onSelectJob }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // Filter states
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [dateRangeFilter, setDateRangeFilter] = useState('today-tomorrow'); // Default to today + tomorrow
+  // Filter states - DEFAULT TO WORKING STATUS WITH ALL DATES
+  const [statusFilter, setStatusFilter] = useState('Working');
+  const [dateRangeFilter, setDateRangeFilter] = useState('all'); // Default to all dates
   const [availableStatuses, setAvailableStatuses] = useState([]);
 
   useEffect(() => {
@@ -93,32 +93,6 @@ function Jobs({ technician, onSelectJob }) {
 
   const formatDate = (dateString) => {
     return apiClient.formatAppointmentDate(dateString);
-  };
-
-  const formatTimeRange = (start, end) => {
-    if (!start) return 'Time TBD';
-    
-    try {
-      const startDate = new Date(start);
-      const endDate = end ? new Date(end) : null;
-      
-      const timeOptions = { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: true 
-      };
-      
-      const startTime = startDate.toLocaleTimeString('en-US', timeOptions);
-      
-      if (endDate) {
-        const endTime = endDate.toLocaleTimeString('en-US', timeOptions);
-        return `${startTime} - ${endTime}`;
-      }
-      
-      return startTime;
-    } catch (error) {
-      return 'Invalid time';
-    }
   };
 
   if (isLoading) {
@@ -230,11 +204,11 @@ function Jobs({ technician, onSelectJob }) {
                 fontSize: '0.9rem'
               }}
             >
+              <option value="all">All Dates</option>
               <option value="today-tomorrow">Today & Tomorrow</option>
               <option value="today">Today Only</option>
               <option value="tomorrow">Tomorrow Only</option>
               <option value="this-week">This Week</option>
-              <option value="all">All (30 Day History)</option>
             </select>
           </div>
           
@@ -291,16 +265,16 @@ function Jobs({ technician, onSelectJob }) {
                       fontWeight: '700',
                       color: '#2ecc71'
                     }}>
-                      {getStatusIcon(appointment.status)} {appointment.appointmentNumber}
+                      {getStatusIcon(appointment.status)} {appointment.customer?.name || 'Unknown Customer'}
                     </h3>
                     <h4 className="job-name" style={{ 
                       margin: '0 0 1rem 0',
-                      fontSize: '1rem',
-                      fontWeight: '600',
-                      color: '#333',
+                      fontSize: '0.9rem',
+                      fontWeight: '500',
+                      color: '#666',
                       lineHeight: '1.3'
                     }}>
-                      {appointment.customer?.name || 'Unknown Customer'}
+                      Appointment #{appointment.appointmentNumber}
                     </h4>
                   </div>
                   <div>
@@ -323,23 +297,33 @@ function Jobs({ technician, onSelectJob }) {
                     <span style={{ color: '#666', fontWeight: '500' }}>Date:</span>
                     <span style={{ color: '#333' }}>{formatDate(appointment.start)}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#666', fontWeight: '500' }}>Time:</span>
-                    <span style={{ color: '#333' }}>{formatTimeRange(appointment.start, appointment.end)}</span>
-                  </div>
                   {appointment.customer?.address && (
                     <div style={{ 
                       gridColumn: '1 / -1',
-                      marginTop: '0.5rem',
-                      padding: '0.5rem',
-                      background: '#f8f9fa',
-                      borderRadius: '4px',
-                      borderLeft: '3px solid #2ecc71'
+                      marginTop: '0.75rem',
+                      padding: '0.75rem',
+                      background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                      borderRadius: '8px',
+                      border: '1px solid #dee2e6',
+                      borderLeft: '4px solid #2ecc71'
                     }}>
-                      <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
-                        Address:
+                      <div style={{ 
+                        fontSize: '0.8rem', 
+                        color: '#495057', 
+                        marginBottom: '0.5rem',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                      }}>
+                        📍 Service Address
                       </div>
-                      <div style={{ fontSize: '0.85rem', color: '#333' }}>
+                      <div style={{ 
+                        fontSize: '0.9rem', 
+                        color: '#212529',
+                        fontWeight: '500',
+                        lineHeight: '1.4',
+                        fontFamily: 'system-ui, -apple-system, sans-serif'
+                      }}>
                         {appointment.customer.address.fullAddress}
                       </div>
                     </div>
@@ -347,16 +331,30 @@ function Jobs({ technician, onSelectJob }) {
                   {appointment.specialInstructions && (
                     <div style={{ 
                       gridColumn: '1 / -1',
-                      marginTop: '0.5rem',
-                      padding: '0.5rem',
-                      background: '#fff8e1',
-                      borderRadius: '4px',
-                      borderLeft: '3px solid #f39c12'
+                      marginTop: '0.75rem',
+                      padding: '0.75rem',
+                      background: 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 30%)',
+                      borderRadius: '8px',
+                      border: '1px solid #f39c12',
+                      borderLeft: '4px solid #f39c12'
                     }}>
-                      <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
-                        Special Instructions:
+                      <div style={{ 
+                        fontSize: '0.8rem', 
+                        color: '#b8860b', 
+                        marginBottom: '0.5rem',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                      }}>
+                        ⚠️ Special Instructions
                       </div>
-                      <div style={{ fontSize: '0.85rem', color: '#333' }}>
+                      <div style={{ 
+                        fontSize: '0.9rem', 
+                        color: '#8b4513',
+                        fontWeight: '500',
+                        lineHeight: '1.4',
+                        fontStyle: 'italic'
+                      }}>
                         {appointment.specialInstructions.length > 80 
                           ? `${appointment.specialInstructions.substring(0, 80)}...`
                           : appointment.specialInstructions

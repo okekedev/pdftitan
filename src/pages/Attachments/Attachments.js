@@ -1,4 +1,4 @@
-// src/pages/Attachments/Attachments.js - Enhanced with Real ServiceTitan Data
+// src/pages/Attachments/Attachments.js - FIXED: Job Details Optional, Attachments Primary
 import React, { useState, useEffect } from 'react';
 import PDFEditor from '../PDFEditor/PDFEditor';
 import apiClient from '../../services/apiClient';
@@ -10,6 +10,7 @@ function Attachments({ job, onBack }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [jobDetails, setJobDetails] = useState(null);
+  const [jobDetailsError, setJobDetailsError] = useState(false);
 
   // Load job attachments when component mounts
   useEffect(() => {
@@ -17,30 +18,41 @@ function Attachments({ job, onBack }) {
       try {
         setIsLoading(true);
         setError('');
+        setJobDetailsError(false);
         
         console.log(`📎 Loading attachments for job: ${job.number} (ID: ${job.id})`);
         
-        // Fetch job details and attachments
-        const [details, attachmentData] = await Promise.all([
+        // ✅ FIXED: Try to fetch both, but don't fail if job details fail
+        const results = await Promise.allSettled([
           apiClient.getJobDetails(job.id),
           apiClient.getJobAttachments(job.id)
         ]);
         
-        setJobDetails(details);
-        setAttachments(attachmentData);
+        // Handle job details result
+        if (results[0].status === 'fulfilled') {
+          setJobDetails(results[0].value);
+          console.log(`✅ Job details loaded: ${results[0].value.number}`);
+        } else {
+          console.warn(`⚠️ Job details failed to load: ${results[0].reason.message}`);
+          setJobDetailsError(true);
+          // Don't set jobDetails, use fallback data from job prop
+        }
         
-        console.log(`✅ Loaded job data:`, {
-          jobNumber: details.number,
-          jobTitle: details.title,
-          attachmentCount: attachmentData.length
-        });
+        // Handle attachments result
+        if (results[1].status === 'fulfilled') {
+          setAttachments(results[1].value);
+          console.log(`✅ Attachments loaded: ${results[1].value.length} PDFs found`);
+        } else {
+          console.error(`❌ Attachments failed to load: ${results[1].reason.message}`);
+          throw new Error(`Failed to load attachments: ${results[1].reason.message}`);
+        }
         
-        if (attachmentData.length === 0) {
+        if (results[1].value.length === 0) {
           console.log(`ℹ️ No PDF attachments found for job ${job.number}`);
         }
         
       } catch (error) {
-        console.error('❌ Error loading job data:', error);
+        console.error('❌ Error loading attachment data:', error);
         const errorInfo = apiClient.handleApiError(error);
         setError(errorInfo.userMessage || `Failed to load attachments: ${error.message}`);
       } finally {
@@ -102,12 +114,36 @@ function Attachments({ job, onBack }) {
     };
   };
 
+  // ✅ HELPER: Get job info with fallbacks
+  const getJobInfo = () => {
+    if (jobDetails) {
+      return {
+        number: jobDetails.number,
+        title: jobDetails.title,
+        hasDetails: true
+      };
+    }
+    
+    // Fallback to job prop data
+    return {
+      number: job.number || job.appointmentNumber || job.id,
+      title: job.title || `Appointment ${job.appointmentNumber || job.number}`,
+      hasDetails: false
+    };
+  };
+
   // Show PDF editor if a PDF is selected
   if (selectedPDF) {
+    const jobInfo = getJobInfo();
     return (
       <PDFEditor
         pdf={selectedPDF}
-        job={jobDetails || job}
+        job={{
+          id: job.id,
+          number: jobInfo.number,
+          title: jobInfo.title,
+          ...job
+        }}
         onClose={handleClosePDF}
         onSave={handleSavePDF}
       />
@@ -125,7 +161,7 @@ function Attachments({ job, onBack }) {
             </button>
             <div className="job-info">
               <h2>PDF Forms - {job.number || job.id}</h2>
-              <p className="job-details">Loading job data...</p>
+              <p className="job-details">Loading PDF documents...</p>
             </div>
           </div>
         </div>
@@ -152,7 +188,7 @@ function Attachments({ job, onBack }) {
     );
   }
 
-  // Error state
+  // Error state (only show if attachments failed to load)
   if (error) {
     return (
       <div className="attachments-container">
@@ -175,7 +211,7 @@ function Attachments({ job, onBack }) {
           border: '2px dashed #e74c3c',
           margin: '1rem 0'
         }}>
-          <h3 style={{ color: '#e74c3c', marginBottom: '1rem' }}>Error Loading Forms</h3>
+          <h3 style={{ color: '#e74c3c', marginBottom: '1rem' }}>Error Loading PDF Forms</h3>
           <p style={{ color: '#666', marginBottom: '1.5rem' }}>{error}</p>
           <button 
             onClick={() => window.location.reload()}
@@ -196,6 +232,7 @@ function Attachments({ job, onBack }) {
   }
 
   const summary = getAttachmentSummary();
+  const jobInfo = getJobInfo();
 
   return (
     <div className="attachments-container">
@@ -205,8 +242,20 @@ function Attachments({ job, onBack }) {
             ← Back to Jobs
           </button>
           <div className="job-info">
-            <h2>PDF Forms - {jobDetails?.number || job.number || job.id}</h2>
-            <p className="job-details">{jobDetails?.title || job.title || 'Service Call'}</p>
+            <h2>PDF Forms - {jobInfo.number}</h2>
+            <p className="job-details">
+              {jobInfo.title}
+              {jobDetailsError && (
+                <span style={{ 
+                  color: '#f39c12', 
+                  fontSize: '0.8rem', 
+                  marginLeft: '0.5rem',
+                  fontStyle: 'italic'
+                }}>
+                  (Job details unavailable)
+                </span>
+              )}
+            </p>
             {summary.total > 0 && (
               <div className="attachment-summary" style={{
                 marginTop: '0.5rem',
@@ -235,6 +284,19 @@ function Attachments({ job, onBack }) {
             This job does not have any PDF documents attached.<br/>
             PDF documents will appear here when they are uploaded to the job in ServiceTitan.
           </p>
+          {jobDetailsError && (
+            <div style={{
+              marginTop: '1.5rem',
+              padding: '1rem',
+              background: '#fff8e1',
+              borderRadius: '8px',
+              border: '1px solid #f39c12'
+            }}>
+              <p style={{ color: '#b8860b', fontSize: '0.9rem', margin: 0 }}>
+                ⚠️ Note: Could not load complete job details (Job ID: {job.id}), but PDF search completed successfully.
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -283,12 +345,27 @@ function Attachments({ job, onBack }) {
             <button 
               className="save-all-btn"
               onClick={() => {
-                alert(`This will save all ${attachments.length} completed PDF forms back to ServiceTitan job ${jobDetails?.number || job.number}.`);
+                alert(`This will save all ${attachments.length} completed PDF forms back to ServiceTitan job ${jobInfo.number}.`);
               }}
             >
               Save All to ServiceTitan
             </button>
           </div>
+          
+          {jobDetailsError && (
+            <div style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              background: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6',
+              textAlign: 'center'
+            }}>
+              <p style={{ color: '#6c757d', fontSize: '0.9rem', margin: 0 }}>
+                ⚠️ Complete job details could not be loaded, but PDF attachments are available above.
+              </p>
+            </div>
+          )}
         </>
       )}
     </div>
