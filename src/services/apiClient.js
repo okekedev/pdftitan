@@ -1,4 +1,4 @@
-// src/services/apiClient.js - Final Simplified API Client
+// src/services/apiClient.js - Enhanced API Client with Job Attachments
 
 import { serviceTitanConfig } from '../config/serviceTitanConfig';
 import sessionManager from './sessionManger';
@@ -74,25 +74,147 @@ class ApiClient {
 
   // ================== JOBS ==================
 
-  // Get active jobs for current technician
-  async getMyJobs() {
+  // ================== APPOINTMENTS (SIMPLIFIED) ==================
+
+  // Get appointments for current technician 
+  async getMyAppointments() {
     const session = sessionManager.getTechnicianSession();
     if (!session || !session.technician) {
       throw new Error('No technician session found');
     }
 
     try {
-      console.log(`👷 Fetching active jobs for technician ${session.technician.id}...`);
+      console.log(`👷 Fetching appointments for technician ${session.technician.id}`);
       
-      const response = await this.apiCall(`/api/technician/${session.technician.id}/jobs`);
+      const endpoint = `/api/technician/${session.technician.id}/appointments`;
+      const response = await this.apiCall(endpoint);
       
-      console.log(`✅ Active jobs fetched: ${response.data?.length || 0} jobs`);
+      console.log(`✅ Appointments fetched: ${response.data?.length || 0} appointments`);
       
       return response.data || [];
 
     } catch (error) {
-      console.error('❌ Error fetching technician jobs:', error);
-      throw new Error(`Failed to fetch jobs: ${error.message}`);
+      console.error('❌ Error fetching technician appointments:', error);
+      throw new Error(`Failed to fetch appointments: ${error.message}`);
+    }
+  }
+
+  // Filter appointments by date range (for frontend filtering)
+  filterAppointmentsByDateRange(appointments, range = 'today-tomorrow') {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfterTomorrow = new Date(tomorrow);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+
+    return appointments.filter(appointment => {
+      if (!appointment.start) return false;
+      
+      const appointmentDate = new Date(appointment.start);
+      const appointmentDay = new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), appointmentDate.getDate());
+      
+      switch (range) {
+        case 'today':
+          return appointmentDay.getTime() === today.getTime();
+        case 'tomorrow':
+          return appointmentDay.getTime() === tomorrow.getTime();
+        case 'today-tomorrow':
+          return appointmentDay.getTime() >= today.getTime() && appointmentDay.getTime() < dayAfterTomorrow.getTime();
+        case 'this-week':
+          const weekFromNow = new Date(today);
+          weekFromNow.setDate(weekFromNow.getDate() + 7);
+          return appointmentDay.getTime() >= today.getTime() && appointmentDay.getTime() < weekFromNow.getTime();
+        case 'all':
+          return true;
+        default:
+          return appointmentDay.getTime() >= today.getTime() && appointmentDay.getTime() < dayAfterTomorrow.getTime();
+      }
+    });
+  }
+
+  // Get available appointment statuses from data
+  getAvailableStatuses(appointments) {
+    const statusSet = new Set();
+    appointments.forEach(appointment => {
+      const status = appointment.status?.name || appointment.status;
+      if (status) {
+        statusSet.add(status);
+      }
+    });
+    return Array.from(statusSet).sort();
+  }
+
+  // Legacy method - now calls appointments
+  async getMyJobs() {
+    return this.getMyAppointments();
+  }
+
+  // Get specific job details
+  async getJobDetails(jobId) {
+    try {
+      console.log(`📋 Fetching job details for: ${jobId}`);
+      
+      const response = await this.apiCall(`/api/job/${jobId}`);
+      
+      console.log(`✅ Job details fetched: ${response.data?.number}`);
+      
+      return response.data;
+
+    } catch (error) {
+      console.error('❌ Error fetching job details:', error);
+      throw new Error(`Failed to fetch job details: ${error.message}`);
+    }
+  }
+
+  // ================== ATTACHMENTS (NEW) ==================
+
+  // Get PDF attachments for a specific job
+  async getJobAttachments(jobId) {
+    try {
+      console.log(`📎 Fetching PDF attachments for job: ${jobId}`);
+      
+      const response = await this.apiCall(`/api/job/${jobId}/attachments`);
+      
+      console.log(`✅ Attachments fetched: ${response.data?.length || 0} PDFs found`);
+      
+      return response.data || [];
+
+    } catch (error) {
+      console.error('❌ Error fetching job attachments:', error);
+      
+      // If no attachments found, return empty array instead of throwing
+      if (error.message.includes('404') || error.message.includes('not found')) {
+        console.log(`ℹ️ No attachments found for job ${jobId}`);
+        return [];
+      }
+      
+      throw new Error(`Failed to fetch job attachments: ${error.message}`);
+    }
+  }
+
+  // Get combined appointment data (details + attachments via jobId)
+  async getAppointmentWithAttachments(appointmentId, jobId) {
+    try {
+      console.log(`📋📎 Fetching complete appointment data for: ${appointmentId} (Job: ${jobId})`);
+      
+      // For appointments, we get attachments from the associated job
+      const attachments = await this.getJobAttachments(jobId);
+      
+      const combinedData = {
+        appointmentId: appointmentId,
+        jobId: jobId,
+        attachments: attachments,
+        attachmentCount: attachments.length
+      };
+      
+      console.log(`✅ Complete appointment data fetched: Appointment ${appointmentId} with ${combinedData.attachmentCount} PDFs`);
+      
+      return combinedData;
+
+    } catch (error) {
+      console.error('❌ Error fetching complete appointment data:', error);
+      throw new Error(`Failed to fetch complete appointment data: ${error.message}`);
     }
   }
 
@@ -110,8 +232,20 @@ class ApiClient {
     } : null;
   }
 
-  // Format job date for display
-  formatJobDate(dateString) {
+  // Format file size for display
+  formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return 'Unknown size';
+    
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    
+    if (i === 0) return `${bytes} ${sizes[i]}`;
+    
+    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+  }
+
+  // Format appointment date for display
+  formatAppointmentDate(dateString) {
     if (!dateString) return 'Not scheduled';
     
     try {
@@ -123,9 +257,9 @@ class ApiClient {
       
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const jobDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const appointmentDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       
-      const diffDays = Math.ceil((jobDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const diffDays = Math.ceil((appointmentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       
       if (diffDays === 0) {
         return `Today, ${date.toLocaleTimeString('en-US', { 
@@ -141,6 +275,12 @@ class ApiClient {
         })}`;
       } else if (diffDays === -1) {
         return `Yesterday`;
+      } else if (diffDays < 7 && diffDays > 0) {
+        return date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
       } else {
         return date.toLocaleDateString('en-US', {
           weekday: 'short',
@@ -151,9 +291,136 @@ class ApiClient {
         });
       }
     } catch (error) {
-      console.error('Error formatting date:', error);
+      console.error('Error formatting appointment date:', error);
       return 'Invalid date';
     }
+  }
+
+  // Get appointment status color for UI
+  getAppointmentStatusColor(status) {
+    switch (status?.toLowerCase()) {
+      case 'scheduled':
+        return '#3498db'; // Blue
+      case 'dispatched':
+        return '#f39c12'; // Orange
+      case 'enroute':
+        return '#9b59b6'; // Purple
+      case 'working':
+        return '#2ecc71'; // Green
+      default:
+        return '#7f8c8d'; // Gray
+    }
+  }
+
+  // Get appointment status icon
+  getAppointmentStatusIcon(status) {
+    switch (status?.toLowerCase()) {
+      case 'scheduled':
+        return '📅'; // Calendar
+      case 'dispatched':
+        return '🚚'; // Truck
+      case 'enroute':
+        return '🚗'; // Car
+      case 'working':
+        return '🔧'; // Wrench
+      default:
+        return '📋'; // Clipboard
+    }
+  }
+
+  // Format attachment creation date
+  formatAttachmentDate(dateString) {
+    if (!dateString) return 'Unknown date';
+    
+    try {
+      const date = new Date(dateString);
+      
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+      
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting attachment date:', error);
+      return 'Invalid date';
+    }
+  }
+
+  // Get attachment type color for UI
+  getAttachmentTypeColor(type) {
+    switch (type?.toLowerCase()) {
+      case 'test report':
+        return '#2ecc71'; // Green
+      case 'safety form':
+        return '#e74c3c'; // Red
+      case 'certificate':
+        return '#f39c12'; // Orange
+      case 'maintenance':
+        return '#3498db'; // Blue
+      case 'form':
+        return '#9b59b6'; // Purple
+      default:
+        return '#7f8c8d'; // Gray
+    }
+  }
+
+  // Get status badge color
+  getStatusColor(status) {
+    switch (status?.toLowerCase()) {
+      case 'required':
+        return '#e74c3c'; // Red
+      case 'optional':
+        return '#f39c12'; // Orange
+      case 'completed':
+        return '#2ecc71'; // Green
+      default:
+        return '#7f8c8d'; // Gray
+    }
+  }
+
+  // Check if file is a PDF
+  isPdfFile(fileName) {
+    if (!fileName) return false;
+    return fileName.toLowerCase().endsWith('.pdf');
+  }
+
+  // Get attachment summary for job
+  getAttachmentSummary(attachments) {
+    if (!attachments || attachments.length === 0) {
+      return {
+        total: 0,
+        required: 0,
+        optional: 0,
+        completed: 0,
+        hasRequired: false
+      };
+    }
+
+    const summary = {
+      total: attachments.length,
+      required: 0,
+      optional: 0,
+      completed: 0,
+      hasRequired: false
+    };
+
+    attachments.forEach(attachment => {
+      const status = attachment.status?.toLowerCase();
+      if (status === 'required') {
+        summary.required++;
+        summary.hasRequired = true;
+      } else if (status === 'optional') {
+        summary.optional++;
+      } else if (status === 'completed') {
+        summary.completed++;
+      }
+    });
+
+    return summary;
   }
 
   // ================== ERROR HANDLING ==================
@@ -232,6 +499,55 @@ class ApiClient {
       return {
         connected: false,
         error: errorInfo
+      };
+    }
+  }
+
+  // ================== DEBUGGING HELPERS ==================
+
+  // Debug: Test appointment fetching for a specific technician
+  async debugTechnicianAppointments(technicianId) {
+    try {
+      console.log(`🔍 Debug: Testing appointment fetch for technician ${technicianId}`);
+      
+      const appointments = await this.apiCall(`/api/technician/${technicianId}/appointments`);
+      
+      console.log(`📊 Debug Results for Technician ${technicianId}:`);
+      console.log(`   Total appointments: ${appointments.data?.length || 0}`);
+      
+      if (appointments.data && appointments.data.length > 0) {
+        const statusCounts = {};
+        appointments.data.forEach(appointment => {
+          const status = appointment.status || 'Unknown';
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+        
+        console.log(`📎 Appointment Status Breakdown:`);
+        Object.entries(statusCounts).forEach(([status, count]) => {
+          console.log(`   ${status}: ${count}`);
+        });
+        
+        console.log(`📅 Appointment Details:`);
+        appointments.data.slice(0, 5).forEach((appointment, index) => {
+          console.log(`   ${index + 1}. ${appointment.appointmentNumber} (${appointment.status}) - Job ${appointment.jobId}`);
+        });
+      } else {
+        console.log(`   No appointments found`);
+      }
+      
+      return {
+        success: true,
+        technicianId,
+        appointments: appointments.data || [],
+        count: appointments.data?.length || 0
+      };
+      
+    } catch (error) {
+      console.error(`❌ Debug failed for technician ${technicianId}:`, error);
+      return {
+        success: false,
+        technicianId,
+        error: error.message
       };
     }
   }
