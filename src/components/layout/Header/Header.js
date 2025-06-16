@@ -15,17 +15,9 @@ function Header({ user, onLogout, currentPage, onNavigate, breadcrumbs }) {
     return index <= currentIndex;
   };
 
-  const getTechnicianDisplayInfo = () => {
-    const technicianName = user?.technician?.name || 'Unknown Technician';
-    const companyName = user?.company?.name || 'Unknown Company';
-    
-    return {
-      name: technicianName,
-      company: companyName
-    };
+  const getTechnicianName = () => {
+    return user?.technician?.name || 'Unknown User';
   };
-
-  const technicianInfo = getTechnicianDisplayInfo();
 
   return (
     <header className="app-header">
@@ -54,23 +46,7 @@ function Header({ user, onLogout, currentPage, onNavigate, breadcrumbs }) {
         
         <div className="header-right">
           <div className="user-info">
-            <span className="user-name">{technicianInfo.name}</span>
-            <span className="user-company">
-              Technician Portal • {technicianInfo.company}
-            </span>
-          </div>
-          
-          {/* Technician Status Indicator */}
-          <div className="technician-status" style={{
-            background: 'rgba(52, 152, 219, 0.2)',
-            color: '#2980b9',
-            padding: '0.25rem 0.75rem',
-            borderRadius: '12px',
-            fontSize: '0.75rem',
-            fontWeight: '600',
-            border: '1px solid rgba(52, 152, 219, 0.3)'
-          }}>
-            🔧 Technician
+            <span className="user-name">{getTechnicianName()}</span>
           </div>
           
           <button onClick={onLogout} className="logout-btn">
