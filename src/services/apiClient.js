@@ -1,4 +1,4 @@
-// src/services/apiClient.js - Simplified for Technician-Only Portal
+// src/services/apiClient.js - Optimized for Technician-Only Portal
 
 import { serviceTitanConfig } from '../config/serviceTitanConfig';
 import sessionManager from './sessionManger';
@@ -14,8 +14,7 @@ class ApiClient {
     try {
       const {
         method = 'GET',
-        body = null,
-        timeout = 30000
+        body = null
       } = options;
 
       const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
@@ -76,12 +75,12 @@ class ApiClient {
 
   // ================== TECHNICIAN JOBS ==================
 
-  // Get jobs for the current technician
-  async getJobsForTechnician(technicianId) {
+  // Get jobs for a specific technician with date filtering
+  async getJobsForTechnician(technicianId, dateFilter = 'recent') {
     try {
-      console.log(`👷 Fetching jobs for technician ${technicianId}...`);
+      console.log(`👷 Fetching jobs for technician ${technicianId} (filter: ${dateFilter})...`);
       
-      const response = await this.apiCall(`/api/technician/${technicianId}/jobs`);
+      const response = await this.apiCall(`/api/technician/${technicianId}/jobs?dateFilter=${dateFilter}`);
       
       console.log(`✅ Jobs fetched: ${response.data?.length || 0} jobs`);
       return response.data || [];
@@ -92,14 +91,14 @@ class ApiClient {
     }
   }
 
-  // Get current technician's jobs
-  async getMyJobs() {
+  // Get current technician's jobs - optimized to work with simplified server response
+  async getMyJobs(dateFilter = 'recent') {
     const session = sessionManager.getTechnicianSession();
     if (!session || !session.technician) {
       throw new Error('No technician session found');
     }
 
-    return this.getJobsForTechnician(session.technician.id);
+    return this.getJobsForTechnician(session.technician.id, dateFilter);
   }
 
   // ================== UTILITY METHODS ==================
@@ -111,25 +110,33 @@ class ApiClient {
       id: session.technician?.id,
       name: session.technician?.name,
       email: session.technician?.email,
-      phone: session.technician?.phoneNumber
+      phone: session.technician?.phoneNumber,
+      loginName: session.technician?.loginName
     } : null;
   }
 
-  // Job status helper methods
+  // Job status helper methods - optimized for server's simplified response
   getJobStatusColor(status) {
-    switch (status?.toLowerCase()) {
+    if (!status) return 'status-default';
+    
+    const normalizedStatus = status.toLowerCase();
+    switch (normalizedStatus) {
       case 'scheduled': return 'status-scheduled';
       case 'in progress': 
       case 'dispatched': return 'status-progress';
       case 'on hold': return 'status-hold';
       case 'completed': return 'status-completed';
-      case 'canceled': return 'status-canceled';
+      case 'canceled': 
+      case 'cancelled': return 'status-canceled';
       default: return 'status-default';
     }
   }
 
   getPriorityColor(priority) {
-    switch (priority?.toLowerCase()) {
+    if (!priority) return 'priority-default';
+    
+    const normalizedPriority = priority.toLowerCase();
+    switch (normalizedPriority) {
       case 'high': 
       case 'urgent': return 'priority-high';
       case 'medium': return 'priority-medium';
@@ -138,37 +145,123 @@ class ApiClient {
     }
   }
 
+  // Optimized for server's simplified date format
   formatJobDate(dateString) {
     if (!dateString) return 'Not scheduled';
     
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      const date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+      
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const jobDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      
+      // Calculate difference in days
+      const diffTime = jobDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) {
+        return `Today, ${date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        })}`;
+      } else if (diffDays === 1) {
+        return `Tomorrow, ${date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        })}`;
+      } else if (diffDays === -1) {
+        return `Yesterday, ${date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        })}`;
+      } else if (diffDays > 1 && diffDays <= 7) {
+        return date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } else {
+        return date.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
+    }
   }
 
+  // Optimized for server's simplified job structure
   getJobUrgency(job) {
-    if (job.priority?.toLowerCase() === 'urgent' || job.priority?.toLowerCase() === 'high') {
+    if (!job) return 'normal';
+    
+    // Check priority first
+    const priority = (job.priority || '').toLowerCase();
+    if (priority === 'urgent' || priority === 'high') {
       return 'urgent';
     }
     
-    if (job.status?.toLowerCase() === 'on hold') {
+    // Check status
+    const status = (job.status || '').toLowerCase();
+    if (status === 'on hold') {
       return 'hold';
     }
     
-    const scheduledDate = new Date(job.scheduledDate);
-    const today = new Date();
-    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-    
-    if (scheduledDate <= tomorrow) {
-      return 'today';
+    // Check if scheduled for today or overdue
+    if (job.scheduledDate || job.createdOn) {
+      try {
+        const scheduledDate = new Date(job.scheduledDate || job.createdOn);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+        
+        if (scheduledDate <= tomorrow) {
+          return 'today';
+        }
+      } catch (error) {
+        console.warn('Error parsing scheduled date:', error);
+      }
     }
     
     return 'normal';
+  }
+
+  // Get job urgency icon based on simplified server data
+  getJobUrgencyIcon(job) {
+    const urgency = this.getJobUrgency(job);
+    switch (urgency) {
+      case 'urgent': return '🚨';
+      case 'today': return '⏰';
+      case 'hold': return '⏸️';
+      default: return '📋';
+    }
+  }
+
+  // Debug method to check job status variety
+  async getJobStatuses() {
+    try {
+      const response = await this.apiCall('/debug/job-statuses');
+      return response;
+    } catch (error) {
+      console.error('❌ Error fetching job statuses:', error);
+      throw new Error(`Failed to fetch job statuses: ${error.message}`);
+    }
   }
 
   // ================== ERROR HANDLING ==================
@@ -184,7 +277,7 @@ class ApiClient {
       };
     }
 
-    if (error.message.includes('Failed to fetch')) {
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
       return {
         type: 'NETWORK',
         message: 'Network error - server may be down',
@@ -196,7 +289,7 @@ class ApiClient {
       return {
         type: 'AUTH',
         message: 'Authentication failed',
-        userMessage: 'Your session has expired. Please log in again.'
+        userMessage: 'Your credentials are invalid. Please log in again.'
       };
     }
 
@@ -208,10 +301,26 @@ class ApiClient {
       };
     }
 
+    if (error.message.includes('404')) {
+      return {
+        type: 'NOT_FOUND',
+        message: 'Resource not found',
+        userMessage: 'The requested resource was not found.'
+      };
+    }
+
+    if (error.message.includes('500')) {
+      return {
+        type: 'SERVER_ERROR',
+        message: 'Server error',
+        userMessage: 'Server error occurred. Please try again later.'
+      };
+    }
+
     return {
       type: 'UNKNOWN',
       message: error.message,
-      userMessage: 'An unexpected error occurred. Please try again.'
+      userMessage: error.message || 'An unexpected error occurred. Please try again.'
     };
   }
 
@@ -222,12 +331,14 @@ class ApiClient {
       return {
         connected: true,
         serverStatus: health.status,
-        environment: health.environment
+        environment: health.environment,
+        message: health.message
       };
     } catch (error) {
+      const errorInfo = this.handleApiError(error);
       return {
         connected: false,
-        error: this.handleApiError(error)
+        error: errorInfo
       };
     }
   }
