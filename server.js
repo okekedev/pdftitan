@@ -1,4 +1,4 @@
-// server.js - COMPLETE VERSION WITH DEBUG ENDPOINTS: Correct ServiceTitan Forms API + Job ID Analysis
+// server.js - COMPLETE VERSION WITH PDF DOWNLOAD ENDPOINTS
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -71,17 +71,18 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy', 
-    message: 'TitanPDF Technician Portal - FIXED ATTACHMENTS API + DEBUG ENDPOINTS',
+    message: 'TitanPDF Technician Portal - WITH PDF DOWNLOAD SUPPORT',
     environment: SERVER_CONFIG.serviceTitan.isIntegration ? 'Integration' : 'Production',
     company: SERVER_CONFIG.company.name,
     targetStatuses: SERVER_CONFIG.targetAppointmentStatuses,
     apiStrategy: 'Using correct ServiceTitan Forms API endpoint',
     fixes: {
       attachmentsEndpoint: 'forms/v2/tenant/{tenant}/jobs/{jobId}/attachments',
-      previousEndpoint: 'forms/v2/tenant/{tenant}/job-attachments (incorrect)',
+      pdfDownloadEndpoint: '/api/job/{jobId}/attachment/{attachmentId}/download',
       enhancedLogging: true,
       comprehensiveDebug: true,
-      jobIdAnalysis: true
+      jobIdAnalysis: true,
+      pdfProxySupport: true
     }
   });
 });
@@ -532,6 +533,149 @@ app.get('/api/job/:jobId/attachments', async (req, res) => {
   }
 });
 
+// ✅ NEW: PDF Download Proxy Endpoint
+app.get('/api/job/:jobId/attachment/:attachmentId/download', async (req, res) => {
+  try {
+    const { jobId, attachmentId } = req.params;
+    
+    console.log(`📥 Downloading PDF attachment: ${attachmentId} from job: ${jobId}`);
+    
+    // Get fresh ServiceTitan token
+    const tokenResult = await authenticateServiceTitan();
+    if (!tokenResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: 'ServiceTitan authentication failed'
+      });
+    }
+    
+    const fetch = (await import('node-fetch')).default;
+    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
+    const appKey = SERVER_CONFIG.serviceTitan.appKey;
+    const accessToken = tokenResult.accessToken;
+    
+    // First, get the attachment details to find the download URL
+    const attachmentDetailsUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
+    
+    console.log(`🔍 Getting attachment details: ${attachmentDetailsUrl}`);
+    
+    const attachmentResponse = await fetch(attachmentDetailsUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'ST-App-Key': appKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!attachmentResponse.ok) {
+      throw new Error(`Failed to get attachment details: ${attachmentResponse.status}`);
+    }
+
+    const attachmentData = await attachmentResponse.json();
+    const attachments = attachmentData.data || [];
+    
+    // Find the specific attachment
+    const targetAttachment = attachments.find(att => 
+      att.id == attachmentId || 
+      att.id === parseInt(attachmentId)
+    );
+    
+    if (!targetAttachment) {
+      console.error(`❌ Attachment ${attachmentId} not found in job ${jobId}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Attachment not found'
+      });
+    }
+    
+    console.log(`📄 Found attachment:`, {
+      id: targetAttachment.id,
+      fileName: targetAttachment.fileName,
+      mimeType: targetAttachment.mimeType,
+      hasDownloadUrl: !!targetAttachment.downloadUrl
+    });
+    
+    // Try to download the actual file
+    let downloadUrl = targetAttachment.downloadUrl;
+    
+    if (!downloadUrl) {
+      // If no direct download URL, try alternative ServiceTitan endpoints
+      const alternativeUrls = [
+        `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/attachments/${attachmentId}/download`,
+        `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/attachments/${attachmentId}`,
+        `https://api-integration.servicetitan.io/files/v2/tenant/${tenantId}/attachments/${attachmentId}/download`
+      ];
+      
+      for (const altUrl of alternativeUrls) {
+        try {
+          console.log(`🧪 Trying alternative URL: ${altUrl}`);
+          
+          const altResponse = await fetch(altUrl, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'ST-App-Key': appKey
+            }
+          });
+          
+          if (altResponse.ok) {
+            downloadUrl = altUrl;
+            console.log(`✅ Found working download URL: ${altUrl}`);
+            break;
+          }
+        } catch (error) {
+          console.log(`❌ Alternative URL failed: ${altUrl}`);
+        }
+      }
+    }
+    
+    if (!downloadUrl) {
+      console.error(`❌ No download URL found for attachment ${attachmentId}`);
+      return res.status(404).json({
+        success: false,
+        error: 'No download URL available for this attachment'
+      });
+    }
+    
+    // Download the file from ServiceTitan
+    console.log(`📥 Downloading from: ${downloadUrl}`);
+    
+    const fileResponse = await fetch(downloadUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'ST-App-Key': appKey
+      }
+    });
+    
+    if (!fileResponse.ok) {
+      throw new Error(`Failed to download file: ${fileResponse.status} ${fileResponse.statusText}`);
+    }
+    
+    // Get the file content
+    const fileBuffer = await fileResponse.buffer();
+    
+    console.log(`✅ Downloaded ${fileBuffer.length} bytes for ${targetAttachment.fileName}`);
+    
+    // Set appropriate headers
+    res.set({
+      'Content-Type': targetAttachment.mimeType || 'application/pdf',
+      'Content-Length': fileBuffer.length,
+      'Content-Disposition': `inline; filename="${targetAttachment.fileName}"`,
+      'Cache-Control': 'private, max-age=3600'
+    });
+    
+    // Send the file
+    res.send(fileBuffer);
+    
+  } catch (error) {
+    console.error('❌ Error downloading PDF attachment:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error downloading PDF attachment',
+      details: error.message
+    });
+  }
+});
+
 // ✅ GET SPECIFIC JOB DETAILS
 app.get('/api/job/:jobId', async (req, res) => {
   try {
@@ -626,6 +770,108 @@ app.get('/api/job/:jobId', async (req, res) => {
       error: 'Server error fetching job details',
       details: error.message
     });
+  }
+});
+
+// ✅ DEBUG: Test attachment download capabilities
+app.get('/debug/attachment-download/:jobId/:attachmentId', async (req, res) => {
+  try {
+    const { jobId, attachmentId } = req.params;
+    
+    const tokenResult = await authenticateServiceTitan();
+    if (!tokenResult.success) {
+      return res.status(500).json({ success: false, error: 'Auth failed' });
+    }
+    
+    const fetch = (await import('node-fetch')).default;
+    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
+    const appKey = SERVER_CONFIG.serviceTitan.appKey;
+    const accessToken = tokenResult.accessToken;
+    
+    // Get attachment details
+    const attachmentDetailsUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
+    
+    const attachmentResponse = await fetch(attachmentDetailsUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'ST-App-Key': appKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!attachmentResponse.ok) {
+      throw new Error(`Failed to get attachment details: ${attachmentResponse.status}`);
+    }
+
+    const attachmentData = await attachmentResponse.json();
+    const attachments = attachmentData.data || [];
+    
+    const targetAttachment = attachments.find(att => att.id == attachmentId);
+    
+    if (!targetAttachment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Attachment not found'
+      });
+    }
+    
+    // Test various download URLs
+    const testUrls = [
+      targetAttachment.downloadUrl,
+      `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/attachments/${attachmentId}/download`,
+      `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/attachments/${attachmentId}`,
+      `https://api-integration.servicetitan.io/files/v2/tenant/${tenantId}/attachments/${attachmentId}/download`,
+      `https://api-integration.servicetitan.io/files/v2/tenant/${tenantId}/attachments/${attachmentId}`
+    ].filter(Boolean);
+    
+    const results = {};
+    
+    for (const url of testUrls) {
+      try {
+        console.log(`🧪 Testing download URL: ${url}`);
+        
+        const testResponse = await fetch(url, {
+          method: 'HEAD', // Just check headers, don't download
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'ST-App-Key': appKey
+          }
+        });
+        
+        results[url] = {
+          status: testResponse.status,
+          success: testResponse.ok,
+          contentType: testResponse.headers.get('content-type'),
+          contentLength: testResponse.headers.get('content-length'),
+          headers: Object.fromEntries(testResponse.headers.entries())
+        };
+        
+      } catch (error) {
+        results[url] = {
+          error: error.message
+        };
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'Attachment download URL test results',
+      jobId: jobId,
+      attachmentId: attachmentId,
+      attachment: {
+        id: targetAttachment.id,
+        fileName: targetAttachment.fileName,
+        mimeType: targetAttachment.mimeType,
+        size: targetAttachment.size,
+        downloadUrl: targetAttachment.downloadUrl
+      },
+      testResults: results,
+      workingUrls: Object.keys(results).filter(url => results[url].success),
+      recommendation: Object.keys(results).find(url => results[url].success) || 'No working download URLs found'
+    });
+    
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -1235,7 +1481,7 @@ app.use((req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log('🚀 TitanPDF Technician Portal - COMPLETE WITH DEBUG ENDPOINTS');
+  console.log('🚀 TitanPDF Technician Portal - COMPLETE WITH PDF DOWNLOAD SUPPORT');
   console.log(`📡 Server: http://localhost:${PORT}`);
   console.log(`🌍 Environment: ${SERVER_CONFIG.serviceTitan.isIntegration ? 'Integration' : 'Production'}`);
   console.log(`🏢 Company: ${SERVER_CONFIG.company.name}`);
@@ -1251,18 +1497,20 @@ app.listen(PORT, () => {
   console.log('   GET  /api/technician/:id/appointments');
   console.log('   GET  /api/job/:jobId');
   console.log('   GET  /api/job/:jobId/attachments  (🔧 FIXED)');
+  console.log('   GET  /api/job/:jobId/attachment/:attachmentId/download  (🆕 NEW PDF DOWNLOAD)');
   console.log('');
   console.log('🧪 Debug Endpoints:');
-  console.log('   GET  /debug/appointment-raw/:technicianId          (📊 Raw appointment data)');
-  console.log('   GET  /debug/job-analysis/:technicianId             (🔍 Complete job ID analysis)');
-  console.log('   GET  /debug/attachments-comprehensive/:jobId       (📎 Test all attachment endpoints)');
-  console.log('   GET  /debug/appointments-filter/:technicianId      (📅 Test appointment filtering)');
+  console.log('   GET  /debug/appointment-raw/:technicianId');
+  console.log('   GET  /debug/job-analysis/:technicianId');
+  console.log('   GET  /debug/attachments-comprehensive/:jobId');
+  console.log('   GET  /debug/appointments-filter/:technicianId');
+  console.log('   GET  /debug/attachment-download/:jobId/:attachmentId  (🆕 TEST PDF DOWNLOAD)');
   console.log('');
-  console.log('🧪 TO DEBUG JOB ID ISSUE:');
-  console.log('   1. Test: /debug/appointment-raw/2817');
-  console.log('   2. Test: /debug/job-analysis/2817');
-  console.log('   3. This will show if job IDs are extracted correctly');
-  console.log('   4. And whether those job IDs exist in ServiceTitan');
+  console.log('📄 PDF DOWNLOAD SYSTEM:');
+  console.log('   ✅ Server proxy for PDF downloads from ServiceTitan');
+  console.log('   ✅ Multiple fallback download URL attempts');
+  console.log('   ✅ Proper file headers and content-type handling');
+  console.log('   ✅ Debug endpoint to test attachment download capabilities');
 });
 
 process.on('SIGINT', () => {
