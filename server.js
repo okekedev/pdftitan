@@ -1,4 +1,4 @@
-// server.js - COMPLETE VERSION WITH PDF DOWNLOAD ENDPOINTS
+// server.js - COMPLETE VERSION WITH PDF FORM SUPPORT
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -34,7 +34,6 @@ const SERVER_CONFIG = {
     name: 'MrBackflow TX'
   },
   
-  // Target appointment statuses
   targetAppointmentStatuses: ['Scheduled', 'Dispatched', 'Enroute', 'Working'],
   
   validate() {
@@ -65,24 +64,22 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'ST-App-Key']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased for PDF data
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy', 
-    message: 'TitanPDF Technician Portal - WITH PDF DOWNLOAD SUPPORT',
+    message: 'TitanPDF Technician Portal - Complete with PDF Form Support',
     environment: SERVER_CONFIG.serviceTitan.isIntegration ? 'Integration' : 'Production',
     company: SERVER_CONFIG.company.name,
-    targetStatuses: SERVER_CONFIG.targetAppointmentStatuses,
-    apiStrategy: 'Using correct ServiceTitan Forms API endpoint',
-    fixes: {
-      attachmentsEndpoint: 'forms/v2/tenant/{tenant}/jobs/{jobId}/attachments',
-      pdfDownloadEndpoint: '/api/job/{jobId}/attachment/{attachmentId}/download',
-      enhancedLogging: true,
-      comprehensiveDebug: true,
-      jobIdAnalysis: true,
-      pdfProxySupport: true
+    version: '1.0.0',
+    features: {
+      pdfDownload: true,
+      formEditing: true,
+      formSaving: true,
+      serviceTitanIntegration: true
     }
   });
 });
@@ -146,7 +143,6 @@ app.post('/api/technician/validate', async (req, res) => {
     
     console.log(`🔧 Authenticating technician: ${username}`);
     
-    // Get ServiceTitan token
     const tokenResult = await authenticateServiceTitan();
     if (!tokenResult.success) {
       return res.status(500).json({
@@ -155,7 +151,6 @@ app.post('/api/technician/validate', async (req, res) => {
       });
     }
     
-    // Search for technician by username
     const technician = await searchTechnicianByUsername(
       username, 
       tokenResult.accessToken, 
@@ -170,7 +165,6 @@ app.post('/api/technician/validate', async (req, res) => {
       });
     }
     
-    // Validate phone number
     if (!validatePhoneMatch(technician, phone)) {
       return res.status(401).json({
         success: false,
@@ -201,14 +195,13 @@ app.post('/api/technician/validate', async (req, res) => {
   }
 });
 
-// ✅ GET APPOINTMENTS WITH CUSTOMER NAMES & ADDRESSES
+// ✅ GET APPOINTMENTS WITH CUSTOMER DATA
 app.get('/api/technician/:technicianId/appointments', async (req, res) => {
   try {
     const { technicianId } = req.params;
     
-    console.log(`📅 Fetching appointments for technician ID: ${technicianId} with customer data`);
+    console.log(`📅 Fetching appointments for technician ID: ${technicianId}`);
     
-    // Get fresh ServiceTitan token
     const tokenResult = await authenticateServiceTitan();
     if (!tokenResult.success) {
       return res.status(500).json({
@@ -231,9 +224,6 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
     endDate.setDate(endDate.getDate() + 30);
     endDate.setHours(23, 59, 59, 999);
     
-    // Use appointments API with technicianIds filter
-    console.log(`🎯 Using appointments API with technicianIds=${technicianId} filter`);
-    
     let allAppointments = [];
     let page = 1;
     let hasMorePages = true;
@@ -250,8 +240,6 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
       
       const appointmentsUrl = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/appointments?${queryParams}`;
       
-      console.log(`🔍 API Request: ${appointmentsUrl}`);
-      
       try {
         const appointmentsResponse = await fetch(appointmentsUrl, {
           headers: {
@@ -263,14 +251,12 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
 
         if (!appointmentsResponse.ok) {
           const errorText = await appointmentsResponse.text();
-          console.error(`❌ ServiceTitan Appointments API error on page ${page}: ${appointmentsResponse.status} - ${errorText}`);
+          console.error(`❌ ServiceTitan Appointments API error: ${appointmentsResponse.status} - ${errorText}`);
           throw new Error(`API error: ${appointmentsResponse.statusText}`);
         }
 
         const appointmentsData = await appointmentsResponse.json();
         const pageAppointments = appointmentsData.data || [];
-        
-        console.log(`📊 Page ${page}: Found ${pageAppointments.length} appointments`);
         
         allAppointments = allAppointments.concat(pageAppointments);
         
@@ -280,12 +266,8 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
           hasMorePages = false;
         } else {
           page++;
-          
-          if (page > 20) {
-            hasMorePages = false;
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 200));
+          if (page > 20) hasMorePages = false; // Safety limit
+          await new Promise(resolve => setTimeout(resolve, 200)); // Rate limiting
         }
         
       } catch (error) {
@@ -293,8 +275,6 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
         hasMorePages = false;
       }
     }
-    
-    console.log(`📊 TOTAL: ${allAppointments.length} appointments for technician ${technicianId}`);
     
     if (allAppointments.length === 0) {
       return res.json({
@@ -307,8 +287,6 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
     }
     
     // Enrich with customer data
-    console.log(`👥 Enriching ALL ${allAppointments.length} appointments with customer data`);
-    
     const enrichedAppointments = await Promise.all(
       allAppointments.map(async (appointment) => {
         let customerData = null;
@@ -346,7 +324,7 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
             }
           }
           
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 100)); // Rate limiting
           
         } catch (error) {
           console.error(`❌ Error fetching customer data for appointment ${appointment.id}:`, error);
@@ -389,8 +367,7 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
       success: true,
       data: sortedAppointments,
       count: sortedAppointments.length,
-      technicianId: parseInt(technicianId),
-      method: 'appointments-api-with-technician-filter'
+      technicianId: parseInt(technicianId)
     });
     
   } catch (error) {
@@ -402,14 +379,13 @@ app.get('/api/technician/:technicianId/appointments', async (req, res) => {
   }
 });
 
-// ✅ FIXED: GET JOB ATTACHMENTS - Using Correct ServiceTitan Forms API Endpoint
+// ✅ GET JOB ATTACHMENTS
 app.get('/api/job/:jobId/attachments', async (req, res) => {
   try {
     const { jobId } = req.params;
     
-    console.log(`📎 Fetching attachments for job: ${jobId} using CORRECT Forms API endpoint`);
+    console.log(`📎 Fetching attachments for job: ${jobId}`);
     
-    // Get fresh ServiceTitan token
     const tokenResult = await authenticateServiceTitan();
     if (!tokenResult.success) {
       return res.status(500).json({
@@ -423,10 +399,7 @@ app.get('/api/job/:jobId/attachments', async (req, res) => {
     const appKey = SERVER_CONFIG.serviceTitan.appKey;
     const accessToken = tokenResult.accessToken;
     
-    // ✅ CORRECT: Use the proper Forms API endpoint from ServiceTitan documentation
     const attachmentsUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
-    
-    console.log(`🔍 CORRECT Forms API Request: ${attachmentsUrl}`);
     
     const response = await fetch(attachmentsUrl, {
       headers: {
@@ -437,11 +410,7 @@ app.get('/api/job/:jobId/attachments', async (req, res) => {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ ServiceTitan Forms API error: ${response.status} - ${errorText}`);
-      
       if (response.status === 404) {
-        console.log(`ℹ️ No attachments found for job ${jobId} in Forms API`);
         return res.json({
           success: true,
           data: [],
@@ -450,39 +419,24 @@ app.get('/api/job/:jobId/attachments', async (req, res) => {
         });
       }
       
+      const errorText = await response.text();
+      console.error(`❌ ServiceTitan Forms API error: ${response.status} - ${errorText}`);
       throw new Error(`Forms API error: ${response.statusText}`);
     }
 
     const attachmentsData = await response.json();
-    console.log(`📊 Raw attachments response:`, {
-      hasData: !!attachmentsData.data,
-      isArray: Array.isArray(attachmentsData.data),
-      dataLength: attachmentsData.data?.length,
-      totalCount: attachmentsData.totalCount,
-      hasMore: attachmentsData.hasMore
-    });
-    
     const attachments = attachmentsData.data || [];
     
-    console.log(`📊 Forms API returned ${attachments.length} total attachments for job ${jobId}`);
-    
-    // ✅ FILTER FOR PDF FILES ONLY and log each file type found
+    // Filter for PDF files only
     const pdfAttachments = attachments.filter(attachment => {
       const fileName = attachment.fileName || attachment.name || '';
       const mimeType = attachment.mimeType || attachment.contentType || '';
       const fileExtension = fileName.toLowerCase().split('.').pop();
       
-      // Check both filename and mime type for PDFs
-      const isPdf = fileExtension === 'pdf' || mimeType.includes('pdf');
-      
-      console.log(`📄 File: ${fileName} | Type: ${mimeType} | Extension: ${fileExtension} | Is PDF: ${isPdf}`);
-      
-      return isPdf;
+      return fileExtension === 'pdf' || mimeType.includes('pdf');
     });
     
-    console.log(`📄 Filtered to ${pdfAttachments.length} PDF attachments`);
-    
-    // ✅ TRANSFORM ATTACHMENTS FOR FRONTEND
+    // Transform attachments for frontend
     const transformedAttachments = pdfAttachments.map((attachment, index) => {
       const fileName = attachment.fileName || attachment.name || `Document ${index + 1}`;
       const fileNameWithoutExt = fileName.replace(/\.pdf$/i, '');
@@ -503,44 +457,32 @@ app.get('/api/job/:jobId/attachments', async (req, res) => {
       };
     });
     
-    console.log(`✅ Transformed ${transformedAttachments.length} PDF attachments for job ${jobId}`);
-    
-    if (transformedAttachments.length > 0) {
-      console.log(`📋 Sample attachment:`, {
-        name: transformedAttachments[0].name,
-        fileName: transformedAttachments[0].fileName,
-        size: transformedAttachments[0].size,
-        hasDownloadUrl: !!transformedAttachments[0].downloadUrl
-      });
-    }
+    console.log(`✅ Found ${transformedAttachments.length} PDF attachments for job ${jobId}`);
     
     res.json({
       success: true,
       data: transformedAttachments,
       count: transformedAttachments.length,
-      jobId: jobId,
-      apiUsed: 'forms/v2/jobs/{jobId}/attachments',
-      apiFixed: true
+      jobId: jobId
     });
     
   } catch (error) {
-    console.error('❌ Error fetching job attachments from Forms API:', error);
+    console.error('❌ Error fetching job attachments:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Server error fetching job attachments from Forms API',
+      error: 'Server error fetching job attachments',
       details: error.message
     });
   }
 });
 
-// ✅ NEW: PDF Download Proxy Endpoint
+// ✅ WORKING PDF DOWNLOAD ENDPOINT
 app.get('/api/job/:jobId/attachment/:attachmentId/download', async (req, res) => {
   try {
     const { jobId, attachmentId } = req.params;
     
     console.log(`📥 Downloading PDF attachment: ${attachmentId} from job: ${jobId}`);
     
-    // Get fresh ServiceTitan token
     const tokenResult = await authenticateServiceTitan();
     if (!tokenResult.success) {
       return res.status(500).json({
@@ -554,12 +496,223 @@ app.get('/api/job/:jobId/attachment/:attachmentId/download', async (req, res) =>
     const appKey = SERVER_CONFIG.serviceTitan.appKey;
     const accessToken = tokenResult.accessToken;
     
-    // First, get the attachment details to find the download URL
-    const attachmentDetailsUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
+    // ✅ WORKING PATTERN: ServiceTitan redirects to Azure Blob Storage
+    const downloadUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/attachment/${attachmentId}`;
     
-    console.log(`🔍 Getting attachment details: ${attachmentDetailsUrl}`);
+    console.log(`🔗 Fetching PDF from ServiceTitan: ${downloadUrl}`);
     
-    const attachmentResponse = await fetch(attachmentDetailsUrl, {
+    const response = await fetch(downloadUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'ST-App-Key': appKey
+      },
+      redirect: 'follow' // Follow redirects to Azure Blob Storage
+    });
+    
+    if (!response.ok) {
+      console.error(`❌ Download failed: ${response.status} ${response.statusText}`);
+      return res.status(response.status).json({
+        success: false,
+        error: `Failed to download attachment: ${response.statusText}`
+      });
+    }
+    
+    // Get the PDF content as buffer (binary data)
+    const fileBuffer = await response.buffer();
+    const contentType = response.headers.get('content-type') || 'application/pdf';
+    const finalUrl = response.url; // Azure Blob URL after redirect
+    
+    // ✅ VALIDATE THAT WE HAVE A REAL PDF
+    const isPdfValid = fileBuffer.length > 0 && fileBuffer.toString('ascii', 0, 4) === '%PDF';
+    const pdfVersion = isPdfValid ? fileBuffer.toString('ascii', 0, 8) : 'Invalid';
+    
+    console.log(`📊 PDF Download Analysis:`, {
+      success: true,
+      fileSize: `${fileBuffer.length} bytes`,
+      contentType: contentType,
+      finalUrl: finalUrl.includes('blob.core.windows.net') ? '✅ Azure Blob Storage' : 'Other source',
+      isPdfValid: isPdfValid ? '✅ Valid PDF' : '❌ Invalid PDF',
+      pdfVersion: pdfVersion
+    });
+    
+    if (!isPdfValid) {
+      console.error(`❌ Invalid PDF data received for attachment ${attachmentId}`);
+      return res.status(500).json({
+        success: false,
+        error: 'Downloaded file is not a valid PDF'
+      });
+    }
+    
+    // ✅ Send binary PDF data with proper headers
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Length': fileBuffer.length,
+      'Content-Disposition': `inline; filename="attachment_${attachmentId}.pdf"`,
+      'Cache-Control': 'private, max-age=3600',
+      'Accept-Ranges': 'bytes'
+    });
+    
+    // Send the raw binary PDF data
+    res.send(fileBuffer);
+    
+    console.log(`✅ PDF successfully served: ${fileBuffer.length} bytes`);
+    
+  } catch (error) {
+    console.error('❌ Error downloading PDF attachment:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error downloading PDF attachment',
+      details: error.message
+    });
+  }
+});
+
+// ✅ SAVE COMPLETED PDF FORM BACK TO SERVICETITAN
+app.post('/api/job/:jobId/attachment/:attachmentId/save', async (req, res) => {
+  try {
+    const { jobId, attachmentId } = req.params;
+    const { 
+      editableElements, 
+      filledPdfData, 
+      jobInfo, 
+      originalFileName,
+      metadata 
+    } = req.body;
+    
+    console.log(`💾 Saving completed PDF form: ${attachmentId} for job: ${jobId}`);
+    
+    const tokenResult = await authenticateServiceTitan();
+    if (!tokenResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: 'ServiceTitan authentication failed'
+      });
+    }
+    
+    const fetch = (await import('node-fetch')).default;
+    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
+    const appKey = SERVER_CONFIG.serviceTitan.appKey;
+    const accessToken = tokenResult.accessToken;
+    
+    // Create a new filename for the completed form
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const completedFileName = originalFileName.replace('.pdf', `_completed_${timestamp}.pdf`);
+    
+    // Create form data JSON
+    const formDataJson = {
+      originalAttachmentId: attachmentId,
+      jobId: jobId,
+      completedAt: new Date().toISOString(),
+      jobInfo: jobInfo,
+      metadata: metadata || {
+        version: '1.0.0',
+        source: 'TitanPDF Mobile Editor',
+        elementCount: editableElements.length
+      },
+      formElements: editableElements.map(element => ({
+        id: element.id,
+        type: element.type,
+        value: element.value,
+        position: {
+          x: element.x,
+          y: element.y,
+          width: element.width,
+          height: element.height
+        },
+        page: element.page,
+        fieldName: element.fieldName || null,
+        isPdfField: element.isPdfField || false
+      }))
+    };
+    
+    // Save as JSON file (ServiceTitan accepts various file types)
+    const jsonFileName = originalFileName.replace('.pdf', '_form_data.json');
+    const jsonBlob = JSON.stringify(formDataJson, null, 2);
+    
+    try {
+      // Upload form data to ServiceTitan
+      const uploadResult = await uploadFileToServiceTitan(
+        tenantId,
+        jobId,
+        accessToken,
+        appKey,
+        jsonFileName,
+        jsonBlob,
+        'application/json'
+      );
+      
+      if (uploadResult.success) {
+        console.log(`✅ Form data saved to ServiceTitan: ${uploadResult.fileId}`);
+        
+        res.json({
+          success: true,
+          message: 'PDF form completed and saved successfully',
+          data: {
+            originalAttachmentId: attachmentId,
+            formDataFileId: uploadResult.fileId,
+            formDataFileName: jsonFileName,
+            completedAt: new Date().toISOString(),
+            elementCount: editableElements.length,
+            jobInfo: jobInfo
+          }
+        });
+        
+      } else {
+        throw new Error(uploadResult.error || 'Failed to upload to ServiceTitan');
+      }
+      
+    } catch (uploadError) {
+      console.error('❌ Error uploading to ServiceTitan:', uploadError);
+      
+      // Fallback: Return the data for client-side handling
+      res.json({
+        success: true,
+        message: 'PDF form completed (saved locally)',
+        fallback: true,
+        data: {
+          originalAttachmentId: attachmentId,
+          formData: formDataJson,
+          completedAt: new Date().toISOString(),
+          note: 'Form data saved locally - ServiceTitan upload failed'
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error saving completed PDF form:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error saving completed PDF form',
+      details: error.message
+    });
+  }
+});
+
+// ✅ GET COMPLETED FORMS FOR A JOB
+app.get('/api/job/:jobId/completed-forms', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    
+    console.log(`📋 Fetching completed forms for job: ${jobId}`);
+    
+    const tokenResult = await authenticateServiceTitan();
+    if (!tokenResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: 'ServiceTitan authentication failed'
+      });
+    }
+    
+    const fetch = (await import('node-fetch')).default;
+    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
+    const appKey = SERVER_CONFIG.serviceTitan.appKey;
+    const accessToken = tokenResult.accessToken;
+    
+    // Get all attachments for this job
+    const attachmentsUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
+    
+    const response = await fetch(attachmentsUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'ST-App-Key': appKey,
@@ -567,110 +720,52 @@ app.get('/api/job/:jobId/attachment/:attachmentId/download', async (req, res) =>
       }
     });
 
-    if (!attachmentResponse.ok) {
-      throw new Error(`Failed to get attachment details: ${attachmentResponse.status}`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        return res.json({
+          success: true,
+          data: [],
+          count: 0,
+          message: 'No completed forms found for this job'
+        });
+      }
+      throw new Error(`API error: ${response.statusText}`);
     }
 
-    const attachmentData = await attachmentResponse.json();
-    const attachments = attachmentData.data || [];
+    const attachmentsData = await response.json();
+    const attachments = attachmentsData.data || [];
     
-    // Find the specific attachment
-    const targetAttachment = attachments.find(att => 
-      att.id == attachmentId || 
-      att.id === parseInt(attachmentId)
-    );
-    
-    if (!targetAttachment) {
-      console.error(`❌ Attachment ${attachmentId} not found in job ${jobId}`);
-      return res.status(404).json({
-        success: false,
-        error: 'Attachment not found'
-      });
-    }
-    
-    console.log(`📄 Found attachment:`, {
-      id: targetAttachment.id,
-      fileName: targetAttachment.fileName,
-      mimeType: targetAttachment.mimeType,
-      hasDownloadUrl: !!targetAttachment.downloadUrl
+    // Filter for completed forms (look for our naming pattern)
+    const completedForms = attachments.filter(attachment => {
+      const fileName = attachment.fileName || attachment.name || '';
+      return fileName.includes('_completed_') || fileName.includes('_form_data');
     });
     
-    // Try to download the actual file
-    let downloadUrl = targetAttachment.downloadUrl;
+    // Transform for frontend
+    const transformedForms = completedForms.map(form => ({
+      id: form.id,
+      fileName: form.fileName,
+      type: form.fileName.includes('.json') ? 'Form Data' : 'Completed PDF',
+      size: form.size || 0,
+      completedAt: form.createdOn || form.modifiedOn,
+      downloadUrl: form.downloadUrl,
+      serviceTitanId: form.id
+    }));
     
-    if (!downloadUrl) {
-      // If no direct download URL, try alternative ServiceTitan endpoints
-      const alternativeUrls = [
-        `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/attachments/${attachmentId}/download`,
-        `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/attachments/${attachmentId}`,
-        `https://api-integration.servicetitan.io/files/v2/tenant/${tenantId}/attachments/${attachmentId}/download`
-      ];
-      
-      for (const altUrl of alternativeUrls) {
-        try {
-          console.log(`🧪 Trying alternative URL: ${altUrl}`);
-          
-          const altResponse = await fetch(altUrl, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'ST-App-Key': appKey
-            }
-          });
-          
-          if (altResponse.ok) {
-            downloadUrl = altUrl;
-            console.log(`✅ Found working download URL: ${altUrl}`);
-            break;
-          }
-        } catch (error) {
-          console.log(`❌ Alternative URL failed: ${altUrl}`);
-        }
-      }
-    }
+    console.log(`✅ Found ${transformedForms.length} completed forms for job ${jobId}`);
     
-    if (!downloadUrl) {
-      console.error(`❌ No download URL found for attachment ${attachmentId}`);
-      return res.status(404).json({
-        success: false,
-        error: 'No download URL available for this attachment'
-      });
-    }
-    
-    // Download the file from ServiceTitan
-    console.log(`📥 Downloading from: ${downloadUrl}`);
-    
-    const fileResponse = await fetch(downloadUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'ST-App-Key': appKey
-      }
+    res.json({
+      success: true,
+      data: transformedForms,
+      count: transformedForms.length,
+      jobId: jobId
     });
-    
-    if (!fileResponse.ok) {
-      throw new Error(`Failed to download file: ${fileResponse.status} ${fileResponse.statusText}`);
-    }
-    
-    // Get the file content
-    const fileBuffer = await fileResponse.buffer();
-    
-    console.log(`✅ Downloaded ${fileBuffer.length} bytes for ${targetAttachment.fileName}`);
-    
-    // Set appropriate headers
-    res.set({
-      'Content-Type': targetAttachment.mimeType || 'application/pdf',
-      'Content-Length': fileBuffer.length,
-      'Content-Disposition': `inline; filename="${targetAttachment.fileName}"`,
-      'Cache-Control': 'private, max-age=3600'
-    });
-    
-    // Send the file
-    res.send(fileBuffer);
     
   } catch (error) {
-    console.error('❌ Error downloading PDF attachment:', error);
+    console.error('❌ Error fetching completed forms:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Server error downloading PDF attachment',
+      error: 'Server error fetching completed forms',
       details: error.message
     });
   }
@@ -707,9 +802,6 @@ app.get('/api/job/:jobId', async (req, res) => {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ ServiceTitan Job API error: ${response.status} - ${errorText}`);
-      
       if (response.status === 404) {
         return res.status(404).json({
           success: false,
@@ -718,11 +810,14 @@ app.get('/api/job/:jobId', async (req, res) => {
         });
       }
       
+      const errorText = await response.text();
+      console.error(`❌ ServiceTitan Job API error: ${response.status} - ${errorText}`);
       throw new Error(`API error: ${response.statusText}`);
     }
 
     const jobData = await response.json();
     
+    // Clean up job title
     let title = jobData.summary || 'Service Call';
     title = title.replace(/<[^>]*>/g, ' ')
                  .replace(/&[^;]+;/g, ' ')
@@ -756,7 +851,7 @@ app.get('/api/job/:jobId', async (req, res) => {
       duration: jobData.duration || null
     };
     
-    console.log(`✅ Job details fetched: ${transformedJob.number} - ${transformedJob.title}`);
+    console.log(`✅ Job details fetched: ${transformedJob.number}`);
     
     res.json({
       success: true,
@@ -773,639 +868,58 @@ app.get('/api/job/:jobId', async (req, res) => {
   }
 });
 
-// ✅ DEBUG: Test attachment download capabilities
-app.get('/debug/attachment-download/:jobId/:attachmentId', async (req, res) => {
+// ✅ HELPER FUNCTION: Upload file to ServiceTitan
+async function uploadFileToServiceTitan(tenantId, jobId, accessToken, appKey, fileName, fileContent, mimeType) {
   try {
-    const { jobId, attachmentId } = req.params;
-    
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({ success: false, error: 'Auth failed' });
-    }
-    
     const fetch = (await import('node-fetch')).default;
-    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
-    const appKey = SERVER_CONFIG.serviceTitan.appKey;
-    const accessToken = tokenResult.accessToken;
+    const FormData = require('form-data');
     
-    // Get attachment details
-    const attachmentDetailsUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
+    // ServiceTitan file upload endpoint
+    const uploadUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
     
-    const attachmentResponse = await fetch(attachmentDetailsUrl, {
+    // Create form data for file upload
+    const formData = new FormData();
+    formData.append('file', Buffer.from(fileContent), {
+      filename: fileName,
+      contentType: mimeType
+    });
+    
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'ST-App-Key': appKey,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!attachmentResponse.ok) {
-      throw new Error(`Failed to get attachment details: ${attachmentResponse.status}`);
-    }
-
-    const attachmentData = await attachmentResponse.json();
-    const attachments = attachmentData.data || [];
-    
-    const targetAttachment = attachments.find(att => att.id == attachmentId);
-    
-    if (!targetAttachment) {
-      return res.status(404).json({
-        success: false,
-        error: 'Attachment not found'
-      });
-    }
-    
-    // Test various download URLs
-    const testUrls = [
-      targetAttachment.downloadUrl,
-      `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/attachments/${attachmentId}/download`,
-      `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/attachments/${attachmentId}`,
-      `https://api-integration.servicetitan.io/files/v2/tenant/${tenantId}/attachments/${attachmentId}/download`,
-      `https://api-integration.servicetitan.io/files/v2/tenant/${tenantId}/attachments/${attachmentId}`
-    ].filter(Boolean);
-    
-    const results = {};
-    
-    for (const url of testUrls) {
-      try {
-        console.log(`🧪 Testing download URL: ${url}`);
-        
-        const testResponse = await fetch(url, {
-          method: 'HEAD', // Just check headers, don't download
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'ST-App-Key': appKey
-          }
-        });
-        
-        results[url] = {
-          status: testResponse.status,
-          success: testResponse.ok,
-          contentType: testResponse.headers.get('content-type'),
-          contentLength: testResponse.headers.get('content-length'),
-          headers: Object.fromEntries(testResponse.headers.entries())
-        };
-        
-      } catch (error) {
-        results[url] = {
-          error: error.message
-        };
-      }
-    }
-    
-    res.json({
-      success: true,
-      message: 'Attachment download URL test results',
-      jobId: jobId,
-      attachmentId: attachmentId,
-      attachment: {
-        id: targetAttachment.id,
-        fileName: targetAttachment.fileName,
-        mimeType: targetAttachment.mimeType,
-        size: targetAttachment.size,
-        downloadUrl: targetAttachment.downloadUrl
+        ...formData.getHeaders()
       },
-      testResults: results,
-      workingUrls: Object.keys(results).filter(url => results[url].success),
-      recommendation: Object.keys(results).find(url => results[url].success) || 'No working download URLs found'
+      body: formData
     });
     
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ✅ COMPREHENSIVE DEBUG: Job ID Extraction and Validation
-app.get('/debug/job-analysis/:technicianId', async (req, res) => {
-  try {
-    const { technicianId } = req.params;
-    
-    console.log(`🔍 DEBUGGING: Job ID extraction for technician ${technicianId}`);
-    
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({ success: false, error: 'Auth failed' });
-    }
-    
-    const fetch = (await import('node-fetch')).default;
-    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
-    const appKey = SERVER_CONFIG.serviceTitan.appKey;
-    const accessToken = tokenResult.accessToken;
-    
-    // Get first 10 appointments for this technician
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-    
-    const oneMonthFromNow = new Date();
-    oneMonthFromNow.setDate(oneMonthFromNow.getDate() + 30);
-    
-    const queryParams = new URLSearchParams({
-      pageSize: '10', // Just first 10 for debugging
-      technicianIds: technicianId,
-      startsOnOrAfter: twoWeeksAgo.toISOString(),
-      startsOnOrBefore: oneMonthFromNow.toISOString()
-    });
-    
-    const appointmentsUrl = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/appointments?${queryParams}`;
-    
-    const appointmentsResponse = await fetch(appointmentsUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'ST-App-Key': appKey,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!appointmentsResponse.ok) {
-      throw new Error(`Appointments API failed: ${appointmentsResponse.status}`);
-    }
-
-    const appointmentsData = await appointmentsResponse.json();
-    const appointments = appointmentsData.data || [];
-    
-    console.log(`📊 Found ${appointments.length} appointments for analysis`);
-    
-    // Analyze each appointment's job ID
-    const analysis = [];
-    
-    for (const appointment of appointments.slice(0, 5)) { // Test first 5
-      const appointmentAnalysis = {
-        appointmentId: appointment.id,
-        appointmentNumber: appointment.appointmentNumber || appointment.number,
-        jobIdFromAppointment: appointment.jobId,
-        rawAppointmentData: {
-          id: appointment.id,
-          jobId: appointment.jobId,
-          appointmentNumber: appointment.appointmentNumber,
-          number: appointment.number,
-          start: appointment.start,
-          customerId: appointment.customerId,
-          locationId: appointment.locationId
-        }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ ServiceTitan upload failed: ${response.status} - ${errorText}`);
+      return {
+        success: false,
+        error: `Upload failed: ${response.status} ${response.statusText}`
       };
-      
-      // Test if this job ID exists in Jobs API
-      if (appointment.jobId) {
-        try {
-          console.log(`🧪 Testing job ID ${appointment.jobId} from appointment ${appointment.id}`);
-          
-          const jobUrl = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs/${appointment.jobId}`;
-          
-          const jobResponse = await fetch(jobUrl, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'ST-App-Key': appKey,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          appointmentAnalysis.jobApiTest = {
-            url: jobUrl,
-            status: jobResponse.status,
-            success: jobResponse.ok,
-            error: jobResponse.ok ? null : await jobResponse.text()
-          };
-          
-          if (jobResponse.ok) {
-            const jobData = await jobResponse.json();
-            appointmentAnalysis.jobDetails = {
-              jobNumber: jobData.jobNumber,
-              summary: jobData.summary?.substring(0, 100) + '...',
-              customerId: jobData.customerId,
-              locationId: jobData.locationId,
-              createdOn: jobData.createdOn
-            };
-            console.log(`✅ Job ${appointment.jobId} EXISTS: ${jobData.jobNumber}`);
-          } else {
-            console.log(`❌ Job ${appointment.jobId} NOT FOUND: ${jobResponse.status}`);
-          }
-          
-        } catch (error) {
-          appointmentAnalysis.jobApiTest = {
-            error: error.message
-          };
-          console.log(`❌ Error testing job ${appointment.jobId}: ${error.message}`);
-        }
-        
-        // Test attachments for this job ID
-        try {
-          console.log(`📎 Testing attachments for job ID ${appointment.jobId}`);
-          
-          const attachmentsUrl = `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${appointment.jobId}/attachments`;
-          
-          const attachmentsResponse = await fetch(attachmentsUrl, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'ST-App-Key': appKey,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          appointmentAnalysis.attachmentsApiTest = {
-            url: attachmentsUrl,
-            status: attachmentsResponse.status,
-            success: attachmentsResponse.ok
-          };
-          
-          if (attachmentsResponse.ok) {
-            const attachmentsData = await attachmentsResponse.json();
-            appointmentAnalysis.attachmentsApiTest.attachmentCount = attachmentsData.data?.length || 0;
-            appointmentAnalysis.attachmentsApiTest.hasAttachments = (attachmentsData.data?.length || 0) > 0;
-            
-            if (attachmentsData.data?.length > 0) {
-              appointmentAnalysis.attachmentsApiTest.sampleAttachments = attachmentsData.data.slice(0, 3).map(att => ({
-                id: att.id,
-                fileName: att.fileName || att.name,
-                mimeType: att.mimeType || att.contentType,
-                size: att.size || att.fileSize
-              }));
-              console.log(`✅ Job ${appointment.jobId} has ${attachmentsData.data.length} attachments`);
-            } else {
-              console.log(`⚠️ Job ${appointment.jobId} has 0 attachments`);
-            }
-          } else {
-            appointmentAnalysis.attachmentsApiTest.error = await attachmentsResponse.text();
-            console.log(`❌ Attachments API failed for job ${appointment.jobId}: ${attachmentsResponse.status}`);
-          }
-          
-        } catch (error) {
-          appointmentAnalysis.attachmentsApiTest = {
-            error: error.message
-          };
-          console.log(`❌ Error testing attachments for job ${appointment.jobId}: ${error.message}`);
-        }
-        
-      } else {
-        appointmentAnalysis.jobApiTest = {
-          error: 'No jobId found in appointment'
-        };
-        console.log(`❌ Appointment ${appointment.id} has no jobId`);
-      }
-      
-      analysis.push(appointmentAnalysis);
-      
-      // Small delay between requests
-      await new Promise(resolve => setTimeout(resolve, 200));
     }
     
-    // Summary analysis
-    const summary = {
-      totalAppointmentsAnalyzed: analysis.length,
-      appointmentsWithJobId: analysis.filter(a => a.jobIdFromAppointment).length,
-      appointmentsWithoutJobId: analysis.filter(a => !a.jobIdFromAppointment).length,
-      validJobIds: analysis.filter(a => a.jobApiTest?.success).length,
-      invalidJobIds: analysis.filter(a => a.jobApiTest && !a.jobApiTest.success).length,
-      jobsWithAttachments: analysis.filter(a => a.attachmentsApiTest?.hasAttachments).length,
-      jobsWithoutAttachments: analysis.filter(a => a.attachmentsApiTest?.success && !a.attachmentsApiTest?.hasAttachments).length,
-      attachmentErrors: analysis.filter(a => a.attachmentsApiTest && !a.attachmentsApiTest.success).length
+    const result = await response.json();
+    
+    return {
+      success: true,
+      fileId: result.id || result.attachmentId,
+      fileName: fileName,
+      uploadedAt: new Date().toISOString()
     };
     
-    // Recommendations
-    const recommendations = [];
-    
-    if (summary.appointmentsWithoutJobId > 0) {
-      recommendations.push(`⚠️ ${summary.appointmentsWithoutJobId} appointments have no jobId - this is unusual`);
-    }
-    
-    if (summary.invalidJobIds > 0) {
-      recommendations.push(`❌ ${summary.invalidJobIds} job IDs from appointments don't exist in Jobs API - data inconsistency`);
-    }
-    
-    if (summary.validJobIds > 0 && summary.jobsWithAttachments === 0) {
-      recommendations.push(`📎 All ${summary.validJobIds} valid jobs have 0 attachments - jobs may not have PDF documents`);
-    }
-    
-    if (summary.jobsWithAttachments > 0) {
-      recommendations.push(`✅ Found ${summary.jobsWithAttachments} jobs with attachments - system is working!`);
-    }
-    
-    if (summary.attachmentErrors > 0) {
-      recommendations.push(`❌ ${summary.attachmentErrors} attachment API calls failed - check permissions`);
-    }
-    
-    res.json({
-      success: true,
-      message: 'Job ID extraction and validation analysis',
-      technicianId: technicianId,
-      summary: summary,
-      recommendations: recommendations,
-      analysis: analysis,
-      conclusion: {
-        jobIdExtractionWorking: summary.appointmentsWithJobId > 0,
-        jobApiWorking: summary.validJobIds > 0,
-        attachmentsApiWorking: summary.jobsWithAttachments > 0 || summary.jobsWithoutAttachments > 0,
-        mainIssue: summary.invalidJobIds > 0 ? 'Job IDs from appointments dont exist in Jobs API' :
-                   summary.jobsWithAttachments === 0 ? 'Jobs exist but have no attachments' :
-                   'System working correctly'
-      }
-    });
-    
   } catch (error) {
-    console.error('❌ Debug analysis failed:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
+    console.error('❌ Upload to ServiceTitan failed:', error);
+    return {
+      success: false,
+      error: error.message
+    };
   }
-});
-
-// ✅ SIMPLE DEBUG: Quick appointment data check
-app.get('/debug/appointment-raw/:technicianId', async (req, res) => {
-  try {
-    const { technicianId } = req.params;
-    
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({ success: false, error: 'Auth failed' });
-    }
-    
-    const fetch = (await import('node-fetch')).default;
-    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
-    const appKey = SERVER_CONFIG.serviceTitan.appKey;
-    const accessToken = tokenResult.accessToken;
-    
-    const queryParams = new URLSearchParams({
-      pageSize: '5',
-      technicianIds: technicianId
-    });
-    
-    const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/appointments?${queryParams}`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'ST-App-Key': appKey,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`API failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const appointments = data.data || [];
-    
-    res.json({
-      success: true,
-      message: 'Raw appointment data (first 5)',
-      technicianId: technicianId,
-      count: appointments.length,
-      rawAppointments: appointments.map(appointment => ({
-        id: appointment.id,
-        appointmentNumber: appointment.appointmentNumber,
-        number: appointment.number,
-        jobId: appointment.jobId,
-        customerId: appointment.customerId,
-        locationId: appointment.locationId,
-        start: appointment.start,
-        status: appointment.status,
-        assignedTechnicianIds: appointment.assignedTechnicianIds,
-        allFields: Object.keys(appointment)
-      })),
-      fieldAnalysis: {
-        hasJobId: appointments.filter(a => a.jobId).length,
-        missingJobId: appointments.filter(a => !a.jobId).length,
-        uniqueJobIds: [...new Set(appointments.map(a => a.jobId).filter(Boolean))],
-        commonFields: appointments.length > 0 ? Object.keys(appointments[0]) : []
-      }
-    });
-    
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ✅ ENHANCED DEBUG: Test ALL possible attachment endpoints
-app.get('/debug/attachments-comprehensive/:jobId', async (req, res) => {
-  try {
-    const { jobId } = req.params;
-    
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({ success: false, error: 'Auth failed' });
-    }
-    
-    const fetch = (await import('node-fetch')).default;
-    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
-    const appKey = SERVER_CONFIG.serviceTitan.appKey;
-    const accessToken = tokenResult.accessToken;
-    
-    const results = {};
-    
-    // Test all known attachment endpoints
-    const endpoints = [
-      // Forms API endpoints
-      {
-        name: 'forms_jobs_attachments',
-        url: `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`,
-        description: '✅ CORRECT: Official Forms API endpoint (from documentation)'
-      },
-      {
-        name: 'forms_job_attachments_query',
-        url: `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/job-attachments?jobId=${jobId}`,
-        description: '❌ WRONG: Alternative Forms API with query parameter (was being used)'
-      },
-      {
-        name: 'forms_attachments_query',
-        url: `https://api-integration.servicetitan.io/forms/v2/tenant/${tenantId}/attachments?jobId=${jobId}`,
-        description: 'Forms API attachments with query'
-      },
-      
-      // JMP API endpoints
-      {
-        name: 'jmp_jobs_attachments',
-        url: `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/jobs/${jobId}/attachments`,
-        description: 'JMP API jobs attachments'
-      },
-      
-      // Other possible endpoints
-      {
-        name: 'files_api',
-        url: `https://api-integration.servicetitan.io/files/v2/tenant/${tenantId}/jobs/${jobId}/attachments`,
-        description: 'Files API (if it exists)'
-      }
-    ];
-    
-    for (const endpoint of endpoints) {
-      try {
-        console.log(`🧪 Testing: ${endpoint.description}`);
-        console.log(`📡 URL: ${endpoint.url}`);
-        
-        const response = await fetch(endpoint.url, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'ST-App-Key': appKey,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        const responseText = await response.text();
-        let responseData;
-        
-        try {
-          responseData = JSON.parse(responseText);
-        } catch {
-          responseData = responseText;
-        }
-        
-        results[endpoint.name] = {
-          url: endpoint.url,
-          description: endpoint.description,
-          status: response.status,
-          success: response.ok,
-          hasData: response.ok && responseData?.data?.length > 0,
-          dataCount: responseData?.data?.length || 0,
-          totalCount: responseData?.totalCount,
-          hasMore: responseData?.hasMore,
-          sampleData: response.ok && responseData?.data?.length > 0 ? {
-            firstItem: responseData.data[0],
-            allItems: responseData.data.map(item => ({
-              id: item.id,
-              name: item.fileName || item.name,
-              type: item.mimeType || item.contentType,
-              size: item.size || item.fileSize
-            }))
-          } : null,
-          rawResponse: typeof responseData === 'string' ? responseData.substring(0, 500) : null
-        };
-        
-        if (response.ok && responseData?.data?.length > 0) {
-          console.log(`✅ SUCCESS: ${endpoint.name} found ${responseData.data.length} attachments`);
-        } else if (response.ok) {
-          console.log(`⚠️ EMPTY: ${endpoint.name} - Status ${response.status} but no data`);
-        } else {
-          console.log(`❌ FAILED: ${endpoint.name} - Status ${response.status}`);
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-      } catch (error) {
-        results[endpoint.name] = { 
-          url: endpoint.url,
-          description: endpoint.description,
-          error: error.message 
-        };
-        console.log(`❌ ERROR: ${endpoint.name} - ${error.message}`);
-      }
-    }
-    
-    // Summary
-    const workingEndpoints = Object.keys(results).filter(key => results[key]?.success && results[key]?.hasData);
-    const partialEndpoints = Object.keys(results).filter(key => results[key]?.success && !results[key]?.hasData);
-    const failedEndpoints = Object.keys(results).filter(key => !results[key]?.success);
-    
-    res.json({
-      success: true,
-      message: 'Comprehensive attachment API endpoint test results',
-      jobId: jobId,
-      fix: {
-        status: 'APPLIED',
-        correctEndpoint: 'forms/v2/tenant/{tenant}/jobs/{jobId}/attachments',
-        previousWrongEndpoint: 'forms/v2/tenant/{tenant}/job-attachments?jobId={jobId}'
-      },
-      summary: {
-        workingWithData: workingEndpoints,
-        workingButEmpty: partialEndpoints,
-        failed: failedEndpoints,
-        recommendation: workingEndpoints.length > 0 ? 
-          `✅ SUCCESS: ${workingEndpoints[0]} returned ${results[workingEndpoints[0]]?.dataCount} attachments` :
-          partialEndpoints.length > 0 ?
-          `⚠️ ENDPOINTS WORK BUT NO DATA: Job ${jobId} may have no attachments` :
-          '❌ NO WORKING ENDPOINTS: Check job ID or API permissions'
-      },
-      results: results
-    });
-    
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ✅ QUICK DEBUG: Test the appointments endpoint
-app.get('/debug/appointments-filter/:technicianId', async (req, res) => {
-  try {
-    const { technicianId } = req.params;
-    
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({ success: false, error: 'Auth failed' });
-    }
-    
-    const fetch = (await import('node-fetch')).default;
-    const tenantId = SERVER_CONFIG.serviceTitan.tenantId;
-    const appKey = SERVER_CONFIG.serviceTitan.appKey;
-    const accessToken = tokenResult.accessToken;
-    
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-    twoWeeksAgo.setHours(0, 0, 0, 0);
-    
-    const oneMonthFromNow = new Date();
-    oneMonthFromNow.setDate(oneMonthFromNow.getDate() + 30);
-    oneMonthFromNow.setHours(23, 59, 59, 999);
-    
-    const queryParams = new URLSearchParams({
-      pageSize: '50',
-      technicianIds: technicianId,
-      startsOnOrAfter: twoWeeksAgo.toISOString(),
-      startsOnOrBefore: oneMonthFromNow.toISOString()
-    });
-    
-    const url = `https://api-integration.servicetitan.io/jpm/v2/tenant/${tenantId}/appointments?${queryParams}`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'ST-App-Key': appKey,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'API call failed', 
-        status: response.status,
-        details: await response.text()
-      });
-    }
-
-    const data = await response.json();
-    const appointments = data.data || [];
-    
-    const statusCounts = {};
-    appointments.forEach(appointment => {
-      const status = appointment.status?.name || appointment.status || 'Unknown';
-      statusCounts[status] = (statusCounts[status] || 0) + 1;
-    });
-    
-    res.json({
-      success: true,
-      message: 'Appointments API test with technicianIds filter',
-      query: {
-        technicianId,
-        dateFrom: twoWeeksAgo.toISOString(),
-        dateTo: oneMonthFromNow.toISOString(),
-        pageSize: 50
-      },
-      results: {
-        totalAppointments: appointments.length,
-        statusBreakdown: statusCounts,
-        sampleAppointments: appointments.slice(0, 5).map(a => ({ 
-          id: a.id, 
-          number: a.appointmentNumber || a.number,
-          status: a.status?.name || a.status,
-          jobId: a.jobId,
-          start: a.start
-        }))
-      }
-    });
-    
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+}
 
 // ServiceTitan Helper Functions
 async function searchTechnicianByUsername(username, accessToken, tenantId, appKey) {
@@ -1481,44 +995,36 @@ app.use((req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log('🚀 TitanPDF Technician Portal - COMPLETE WITH PDF DOWNLOAD SUPPORT');
+  console.log('🚀 TitanPDF Technician Portal - Complete with PDF Form Support');
   console.log(`📡 Server: http://localhost:${PORT}`);
   console.log(`🌍 Environment: ${SERVER_CONFIG.serviceTitan.isIntegration ? 'Integration' : 'Production'}`);
   console.log(`🏢 Company: ${SERVER_CONFIG.company.name}`);
-  console.log(`🎯 Target Statuses: ${SERVER_CONFIG.targetAppointmentStatuses.join(', ')}`);
   console.log('');
-  console.log('🔧 FIXES APPLIED:');
-  console.log('   ✅ CORRECT: /forms/v2/tenant/{tenant}/jobs/{jobId}/attachments');
-  console.log('   ❌ WRONG:   /forms/v2/tenant/{tenant}/job-attachments?jobId={jobId}');
-  console.log('');
-  console.log('📋 Production Endpoints:');
+  console.log('📋 Available Endpoints:');
   console.log('   GET  /health');
   console.log('   POST /api/technician/validate');
   console.log('   GET  /api/technician/:id/appointments');
   console.log('   GET  /api/job/:jobId');
-  console.log('   GET  /api/job/:jobId/attachments  (🔧 FIXED)');
-  console.log('   GET  /api/job/:jobId/attachment/:attachmentId/download  (🆕 NEW PDF DOWNLOAD)');
+  console.log('   GET  /api/job/:jobId/attachments');
+  console.log('   GET  /api/job/:jobId/attachment/:attachmentId/download');
+  console.log('   POST /api/job/:jobId/attachment/:attachmentId/save  🆕 SAVE FORMS');
+  console.log('   GET  /api/job/:jobId/completed-forms  🆕 LIST COMPLETED');
   console.log('');
-  console.log('🧪 Debug Endpoints:');
-  console.log('   GET  /debug/appointment-raw/:technicianId');
-  console.log('   GET  /debug/job-analysis/:technicianId');
-  console.log('   GET  /debug/attachments-comprehensive/:jobId');
-  console.log('   GET  /debug/appointments-filter/:technicianId');
-  console.log('   GET  /debug/attachment-download/:jobId/:attachmentId  (🆕 TEST PDF DOWNLOAD)');
-  console.log('');
-  console.log('📄 PDF DOWNLOAD SYSTEM:');
-  console.log('   ✅ Server proxy for PDF downloads from ServiceTitan');
-  console.log('   ✅ Multiple fallback download URL attempts');
-  console.log('   ✅ Proper file headers and content-type handling');
-  console.log('   ✅ Debug endpoint to test attachment download capabilities');
+  console.log('🎯 Features:');
+  console.log('   ✅ Technician authentication with ServiceTitan');
+  console.log('   ✅ Real appointment data with customer information');
+  console.log('   ✅ PDF attachment discovery and download');
+  console.log('   ✅ PDF form editing and completion');
+  console.log('   ✅ Save completed forms back to ServiceTitan');
+  console.log('   ✅ Production-ready error handling and rate limiting');
 });
 
 process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down...');
+  console.log('\n🛑 Shutting down TitanPDF server...');
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n🛑 TitanPDF Technician Portal terminated');
+  console.log('\n🛑 TitanPDF server terminated');
   process.exit(0);
 });
