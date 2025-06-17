@@ -1,186 +1,157 @@
+// Enhanced PDF Editor Implementation with Form Support
+// This replaces the PDFEditor.js component
+
 import React, { useState, useRef, useEffect } from 'react';
 import './PDFEditor.css';
 
 function PDFEditor({ pdf, job, onClose, onSave }) {
   const pdfContainerRef = useRef(null);
+  const canvasRef = useRef(null);
   const [pdfLoaded, setPdfLoaded] = useState(false);
   const [pdfError, setPdfError] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState('');
+  const [pdfDocument, setPdfDocument] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
   const [editableElements, setEditableElements] = useState([]);
   const [selectedElement, setSelectedElement] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
   
-  // Touch and zoom state
-  const [scale, setScale] = useState(1);
+  // PDF rendering state
+  const [scale, setScale] = useState(1.2);
   const [translateX, setTranslateX] = useState(0);
   const [translateY, setTranslateY] = useState(0);
-  const [lastTouchDistance, setLastTouchDistance] = useState(0);
-  const [lastTouchCenter, setLastTouchCenter] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Load PDF when component mounts
+  // Load PDF.js library and render PDF
   useEffect(() => {
-    loadPDF();
-  }, [pdf]);
+    loadPDFLibrary();
+  }, []);
+
+  useEffect(() => {
+    if (pdfDocument) {
+      renderPage(currentPage);
+    }
+  }, [pdfDocument, currentPage, scale]);
+
+  const loadPDFLibrary = async () => {
+    try {
+      // Load PDF.js library from CDN
+      if (!window.pdfjsLib) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = () => {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          loadPDF();
+        };
+        document.head.appendChild(script);
+      } else {
+        loadPDF();
+      }
+    } catch (error) {
+      console.error('❌ Error loading PDF.js library:', error);
+      setPdfError(true);
+    }
+  };
 
   const loadPDF = async () => {
     try {
-      console.log('📄 Loading PDF:', {
+      console.log('📄 Loading PDF for editing:', {
         pdfName: pdf.name,
-        pdfId: pdf.id,
-        downloadUrl: pdf.downloadUrl,
         serviceTitanId: pdf.serviceTitanId,
         jobId: job.id
       });
 
-      // ✅ FIRST: Try our server proxy endpoint (most reliable)
-      if (pdf.serviceTitanId && job.id) {
-        console.log('🔗 Attempting to fetch PDF from server proxy...');
-        
-        const proxyUrl = `http://localhost:3005/api/job/${job.id}/attachment/${pdf.serviceTitanId}/download`;
-        
-        try {
-          const response = await fetch(proxyUrl);
-          if (response.ok) {
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            setPdfUrl(blobUrl);
-            setPdfLoaded(true);
-            console.log('✅ PDF loaded via server proxy:', pdf.name);
-            return;
-          } else {
-            console.warn('⚠️ Server proxy failed:', response.status, response.statusText);
-          }
-        } catch (proxyError) {
-          console.warn('⚠️ Server proxy error:', proxyError);
-        }
+      // Get PDF data from our server
+      const proxyUrl = `http://localhost:3005/api/job/${job.id}/attachment/${pdf.serviceTitanId}/download`;
+      
+      const response = await fetch(proxyUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.status}`);
       }
 
-      // SECOND: Try direct ServiceTitan download URL (if available)
-      if (pdf.downloadUrl) {
-        console.log('🔗 Trying ServiceTitan download URL:', pdf.downloadUrl);
-        
-        try {
-          // Test if the URL is accessible
-          const response = await fetch(pdf.downloadUrl, { method: 'HEAD' });
-          if (response.ok) {
-            setPdfUrl(pdf.downloadUrl);
-            setPdfLoaded(true);
-            console.log('✅ PDF loaded via direct URL:', pdf.name);
-            return;
-          } else {
-            console.warn('⚠️ Direct URL failed:', response.status);
-          }
-        } catch (directError) {
-          console.warn('⚠️ Direct URL error:', directError);
-        }
-      }
-
-      // FALLBACK: Use sample PDF
-      console.log('📋 All methods failed, falling back to sample PDF...');
-      const response = await fetch('/assets/sample.pdf');
-      if (response.ok) {
-        setPdfUrl('/assets/sample.pdf');
-        setPdfLoaded(true);
-        console.log('✅ Sample PDF loaded as fallback');
-        
-        // Show user that we're using a sample
-        setTimeout(() => {
-          alert(`⚠️ Could not load the actual PDF "${pdf.name}". Showing sample PDF for demonstration.`);
-        }, 1000);
-      } else {
-        throw new Error('Sample PDF not found');
-      }
-
+      const arrayBuffer = await response.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Load PDF with PDF.js
+      const loadingTask = window.pdfjsLib.getDocument(uint8Array);
+      const pdfDoc = await loadingTask.promise;
+      
+      setPdfDocument(pdfDoc);
+      setTotalPages(pdfDoc.numPages);
+      setPdfLoaded(true);
+      
+      console.log(`✅ PDF loaded: ${pdfDoc.numPages} pages`);
+      
+      // Load any existing form fields or annotations
+      await loadExistingFormFields(pdfDoc);
+      
     } catch (error) {
       console.error('❌ Error loading PDF:', error);
       setPdfError(true);
     }
   };
 
-  // Touch gesture handlers
-  const getDistance = (touch1, touch2) => {
-    return Math.sqrt(
-      Math.pow(touch2.clientX - touch1.clientX, 2) + 
-      Math.pow(touch2.clientY - touch1.clientY, 2)
-    );
-  };
-
-  const getCenter = (touch1, touch2) => {
-    return {
-      x: (touch1.clientX + touch2.clientX) / 2,
-      y: (touch1.clientY + touch2.clientY) / 2
-    };
-  };
-
-  const handleTouchStart = (e) => {
-    const touches = e.touches;
-    
-    if (touches.length === 1) {
-      // Single touch - start dragging
-      setIsDragging(true);
-      setDragStart({
-        x: touches[0].clientX - translateX,
-        y: touches[0].clientY - translateY
+  const loadExistingFormFields = async (pdfDoc) => {
+    try {
+      // Get the first page to check for form fields
+      const page = await pdfDoc.getPage(1);
+      const annotations = await page.getAnnotations();
+      
+      const formElements = [];
+      
+      annotations.forEach((annotation, index) => {
+        if (annotation.subtype === 'Widget' && annotation.fieldType) {
+          // Convert PDF annotation to our editable element format
+          const element = {
+            id: `pdf_field_${index}`,
+            type: annotation.fieldType === 'Tx' ? 'text' : 'signature',
+            x: annotation.rect[0] * scale,
+            y: (page.view[3] - annotation.rect[3]) * scale, // PDF coordinates are bottom-up
+            width: (annotation.rect[2] - annotation.rect[0]) * scale,
+            height: (annotation.rect[3] - annotation.rect[1]) * scale,
+            value: annotation.fieldValue || '',
+            fontSize: 12,
+            fontFamily: 'Arial',
+            color: '#000000',
+            fieldName: annotation.fieldName,
+            isPdfField: true,
+            page: 1
+          };
+          formElements.push(element);
+        }
       });
-    } else if (touches.length === 2) {
-      // Two touches - prepare for zoom or add text
-      const distance = getDistance(touches[0], touches[1]);
-      const center = getCenter(touches[0], touches[1]);
-      setLastTouchDistance(distance);
-      setLastTouchCenter(center);
-      setIsDragging(false);
-    } else if (touches.length === 3) {
-      // Three touches - delete mode
-      e.preventDefault();
-      setIsDragging(false);
+      
+      if (formElements.length > 0) {
+        console.log(`📋 Found ${formElements.length} existing form fields`);
+        setEditableElements(formElements);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error loading form fields:', error);
     }
   };
 
-  const handleTouchMove = (e) => {
-    e.preventDefault();
-    const touches = e.touches;
+  const renderPage = async (pageNum) => {
+    if (!pdfDocument || !canvasRef.current) return;
     
-    if (touches.length === 1 && isDragging) {
-      // Single touch - pan/drag
-      setTranslateX(touches[0].clientX - dragStart.x);
-      setTranslateY(touches[0].clientY - dragStart.y);
-    } else if (touches.length === 2) {
-      // Two touches - pinch to zoom
-      const distance = getDistance(touches[0], touches[1]);
-      const center = getCenter(touches[0], touches[1]);
+    try {
+      const page = await pdfDocument.getPage(pageNum);
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
       
-      if (lastTouchDistance > 0) {
-        const scaleChange = distance / lastTouchDistance;
-        const newScale = Math.max(0.5, Math.min(3, scale * scaleChange));
-        setScale(newScale);
-      }
+      const viewport = page.getViewport({ scale });
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
       
-      setLastTouchDistance(distance);
-      setLastTouchCenter(center);
-    }
-  };
-
-  const handleTouchEnd = (e) => {
-    const touches = e.changedTouches;
-    
-    if (touches.length === 1 && e.touches.length === 0) {
-      // Single touch ended
-      setIsDragging(false);
-    } else if (touches.length === 2 && e.touches.length === 0) {
-      // Two touches ended - add text box
-      const rect = pdfContainerRef.current.getBoundingClientRect();
-      const x = (lastTouchCenter.x - rect.left - translateX) / scale;
-      const y = (lastTouchCenter.y - rect.top - translateY) / scale;
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport
+      };
       
-      addTextElement(x, y);
-      setLastTouchDistance(0);
-    } else if (touches.length === 3) {
-      // Three touches ended - delete selected element
-      if (selectedElement) {
-        deleteElement(selectedElement);
-      }
+      await page.render(renderContext).promise;
+      console.log(`✅ Rendered page ${pageNum}/${totalPages}`);
+      
+    } catch (error) {
+      console.error(`❌ Error rendering page ${pageNum}:`, error);
     }
   };
 
@@ -196,6 +167,8 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
       fontSize: 12,
       fontFamily: 'Arial',
       color: '#000000',
+      page: currentPage,
+      isPdfField: false,
       created: new Date().toISOString()
     };
 
@@ -212,9 +185,8 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
       width: 200,
       height: 80,
       value: '',
-      fontSize: 12,
-      fontFamily: 'Arial',
-      color: '#000000',
+      page: currentPage,
+      isPdfField: false,
       created: new Date().toISOString()
     };
 
@@ -235,38 +207,91 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
     setSelectedElement(null);
   };
 
-  const deleteSelectedElement = () => {
-    if (selectedElement) {
-      deleteElement(selectedElement);
-    }
-  };
-
-  const resetZoom = () => {
-    setScale(1);
-    setTranslateX(0);
-    setTranslateY(0);
-  };
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editableElements.length === 0) {
       alert('Please add some content to the PDF before saving');
       return;
     }
 
-    onSave({
-      pdfId: pdf.id,
-      editableElements: editableElements,
-      jobInfo: {
-        jobId: job.id,
-        jobName: job.title || job.name,
-        technician: 'Current Technician',
-        date: new Date().toLocaleDateString()
-      },
-      savedAt: new Date().toISOString()
-    });
+    try {
+      console.log('💾 Saving PDF with form data...');
+      
+      // Create a filled PDF with our form data
+      const filledPdfData = await createFilledPDF();
+      
+      const saveData = {
+        pdfId: pdf.id,
+        serviceTitanId: pdf.serviceTitanId,
+        originalFileName: pdf.fileName,
+        editableElements: editableElements,
+        filledPdfData: filledPdfData, // Base64 or binary data
+        jobInfo: {
+          jobId: job.id,
+          jobNumber: job.number,
+          jobTitle: job.title,
+          customerName: job.customer?.name,
+          technician: 'Current Technician'
+        },
+        savedAt: new Date().toISOString(),
+        pageCount: totalPages
+      };
+      
+      onSave(saveData);
+      
+    } catch (error) {
+      console.error('❌ Error saving PDF:', error);
+      alert('Error saving PDF. Please try again.');
+    }
+  };
+
+  const createFilledPDF = async () => {
+    try {
+      // This would use a library like PDF-lib to create a new PDF with filled forms
+      // For now, we'll return the form data that can be saved to ServiceTitan
+      
+      const formData = editableElements.map(element => ({
+        id: element.id,
+        type: element.type,
+        value: element.value,
+        position: {
+          x: element.x,
+          y: element.y,
+          width: element.width,
+          height: element.height
+        },
+        page: element.page,
+        fieldName: element.fieldName,
+        isPdfField: element.isPdfField
+      }));
+      
+      return {
+        type: 'form_data',
+        elements: formData,
+        metadata: {
+          totalPages: totalPages,
+          scale: scale,
+          savedAt: new Date().toISOString()
+        }
+      };
+      
+    } catch (error) {
+      console.error('❌ Error creating filled PDF:', error);
+      throw error;
+    }
+  };
+
+  const handleCanvasClick = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left - translateX) / scale;
+    const y = (e.clientY - rect.top - translateY) / scale;
+    
+    addTextElement(x, y);
   };
 
   const renderEditableElement = (element) => {
+    // Only show elements for current page
+    if (element.page !== currentPage) return null;
+    
     const commonStyle = {
       position: 'absolute',
       left: `${element.x}px`,
@@ -276,9 +301,9 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
       fontSize: `${element.fontSize}px`,
       fontFamily: element.fontFamily,
       color: element.color,
-      zIndex: 10,
-      transform: `scale(${1 / scale})`,
-      transformOrigin: 'top left'
+      zIndex: 20,
+      border: selectedElement === element.id ? '2px solid #007bff' : '1px solid #ddd',
+      background: 'rgba(255, 255, 255, 0.95)'
     };
 
     const handleElementClick = (e) => {
@@ -298,12 +323,10 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
             className={`editable-element text-element ${selectedElement === element.id ? 'selected' : ''}`}
             style={{
               ...commonStyle,
-              background: 'rgba(255, 255, 255, 0.95)',
-              border: selectedElement === element.id ? '2px solid #007bff' : '1px solid #ddd',
               borderRadius: '3px',
               padding: '2px 5px'
             }}
-            placeholder="Tap to type..."
+            placeholder={element.isPdfField ? element.fieldName : "Enter text..."}
           />
         );
 
@@ -315,7 +338,6 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
             className={`editable-element signature-element ${selectedElement === element.id ? 'selected' : ''}`}
             style={{
               ...commonStyle,
-              background: 'rgba(255, 255, 255, 0.95)',
               border: selectedElement === element.id ? '2px solid #007bff' : '2px dashed #ddd',
               borderRadius: '5px',
               display: 'flex',
@@ -331,7 +353,6 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
               onUpdate={(signatureData) => updateElement(element.id, { value: signatureData })}
               width={element.width - 10}
               height={element.height - 30}
-              scale={scale}
             />
             <button
               onClick={(e) => {
@@ -366,12 +387,34 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
           <button onClick={onClose} className="close-btn">← Back</button>
           <div className="pdf-info">
             <h2>{pdf.name || 'PDF Document'}</h2>
-            <p>{job.id} - PDF Editor {pdfLoaded ? '✅ Loaded' : '⏳ Loading...'}</p>
+            <p>{job.id} - Form Editor {pdfLoaded ? '✅ Ready' : '⏳ Loading...'}</p>
           </div>
         </div>
         
         <div className="header-right">
           <div className="simple-controls">
+            {totalPages > 1 && (
+              <>
+                <button 
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  className="control-btn"
+                  disabled={currentPage === 1}
+                >
+                  ◀ Prev
+                </button>
+                <span style={{ padding: '0 1rem', color: 'white' }}>
+                  {currentPage} / {totalPages}
+                </span>
+                <button 
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  className="control-btn"
+                  disabled={currentPage === totalPages}
+                >
+                  Next ▶
+                </button>
+              </>
+            )}
+            
             <button 
               onClick={addSignatureElement}
               className="control-btn signature-btn"
@@ -381,7 +424,7 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
             
             {selectedElement && (
               <button
-                onClick={deleteSelectedElement}
+                onClick={() => deleteElement(selectedElement)}
                 className="control-btn delete-btn"
               >
                 🗑️ Delete Selected
@@ -389,40 +432,33 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
             )}
 
             <button 
-              onClick={resetZoom}
+              onClick={() => setScale(scale === 1.2 ? 1.5 : 1.2)}
               className="control-btn zoom-btn"
             >
-              🔍 Reset Zoom
-            </button>
-
-            <button 
-              onClick={() => setShowInstructions(!showInstructions)}
-              className="control-btn help-btn"
-            >
-              ❓ Help
+              🔍 Zoom {Math.round(scale * 100)}%
             </button>
           </div>
           
-          <button onClick={handleSave} className="save-btn">💾 Save PDF</button>
+          <button onClick={handleSave} className="save-btn">💾 Save Completed Form</button>
         </div>
       </div>
 
       {showInstructions && (
         <div className="touch-instructions">
           <div className="instructions-content">
-            <h4>📱 Touch Controls</h4>
+            <h4>📝 PDF Form Editor</h4>
             <div className="instruction-grid">
               <div className="instruction-item">
-                <span className="gesture">👆 1 Touch</span>
-                <span className="action">Move & pan around document</span>
+                <span className="gesture">👆 Click</span>
+                <span className="action">Add text field at clicked location</span>
               </div>
               <div className="instruction-item">
-                <span className="gesture">✌️ 2 Touches</span>
-                <span className="action">Pinch to zoom / Tap to add text</span>
+                <span className="gesture">✍️ Signature</span>
+                <span className="action">Add signature field (use button above)</span>
               </div>
               <div className="instruction-item">
-                <span className="gesture">👌 3 Touches</span>
-                <span className="action">Delete selected element</span>
+                <span className="gesture">📝 Fill Fields</span>
+                <span className="action">Click any field to edit its content</span>
               </div>
             </div>
             <button onClick={() => setShowInstructions(false)} className="close-instructions">
@@ -434,10 +470,9 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
 
       <div className="pdf-editor-content">
         <div className="pdf-editor-workspace">
-          
           <div className="zoom-info">
-            <span>Zoom: {Math.round(scale * 100)}%</span>
-            <span>Elements: {editableElements.length}</span>
+            <span>Page: {currentPage}/{totalPages}</span>
+            <span>Fields: {editableElements.filter(e => e.page === currentPage).length}</span>
             <span>PDF: {pdf.name}</span>
           </div>
 
@@ -445,71 +480,51 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
             <div 
               ref={pdfContainerRef}
               className="pdf-viewer-main"
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
               style={{ 
-                cursor: 'grab',
-                overflow: 'hidden',
-                touchAction: 'none'
+                cursor: 'crosshair',
+                overflow: 'auto',
+                position: 'relative'
               }}
             >
-              <div 
-                className="pdf-content-wrapper"
-                style={{
-                  transform: `translate(${translateX}px, ${translateY}px) scale(${scale})`,
-                  transformOrigin: '0 0',
-                  transition: isDragging ? 'none' : 'transform 0.1s ease'
-                }}
-              >
-                {pdfError ? (
-                  <div className="pdf-error-message">
-                    <h3>❌ Error Loading PDF</h3>
-                    <p>Could not load the PDF document: {pdf.name}</p>
-                    <p>Job ID: {job.id}</p>
-                    <code>PDF ID: {pdf.id}</code>
+              {pdfError ? (
+                <div className="pdf-error-message">
+                  <h3>❌ Error Loading PDF</h3>
+                  <p>Could not load the PDF document: {pdf.name}</p>
+                  <p>Job ID: {job.id}</p>
+                </div>
+              ) : pdfLoaded ? (
+                <div style={{ position: 'relative' }}>
+                  <canvas
+                    ref={canvasRef}
+                    onClick={handleCanvasClick}
+                    style={{
+                      display: 'block',
+                      border: '1px solid #ddd',
+                      cursor: 'crosshair'
+                    }}
+                  />
+                  
+                  {/* Render editable elements over the PDF */}
+                  {editableElements.map(element => renderEditableElement(element))}
+                </div>
+              ) : (
+                <div className="pdf-placeholder">
+                  <div className="placeholder-content">
+                    <h3>📄 Loading PDF Form: {pdf.name}</h3>
+                    <p>Please wait while we prepare the form for editing...</p>
                   </div>
-                ) : pdfLoaded && pdfUrl ? (
-                  <div className="pdf-content">
-                    <embed
-                      src={pdfUrl}
-                      type="application/pdf"
-                      width="800px"
-                      height="1000px"
-                      style={{ 
-                        pointerEvents: 'none',
-                        display: 'block'
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="pdf-placeholder">
-                    <div className="placeholder-content">
-                      <h3>📄 Loading PDF: {pdf.name}</h3>
-                      <p>Please wait while we load the document...</p>
-                      <div className="placeholder-form">
-                        <div className="placeholder-section">Job ID: {job.id}</div>
-                        <div className="placeholder-section">PDF ID: {pdf.id}</div>
-                        <div className="placeholder-section">ServiceTitan ID: {pdf.serviceTitanId}</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Render all editable elements */}
-                {editableElements.map(element => renderEditableElement(element))}
-              </div>
+                </div>
+              )}
             </div>
           </div>
-
         </div>
       </div>
     </div>
   );
 }
 
-// Signature Canvas Component
-function SignatureCanvas({ elementId, value, onUpdate, width, height, scale }) {
+// Enhanced Signature Canvas Component
+function SignatureCanvas({ elementId, value, onUpdate, width, height }) {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
@@ -518,10 +533,10 @@ function SignatureCanvas({ elementId, value, onUpdate, width, height, scale }) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0);
+      img.onload = () => ctx.drawImage(img, 0, 0, width, height);
       img.src = value;
     }
-  }, [value]);
+  }, [value, width, height]);
 
   const startDrawing = (e) => {
     setIsDrawing(true);
@@ -530,16 +545,16 @@ function SignatureCanvas({ elementId, value, onUpdate, width, height, scale }) {
     
     let x, y;
     if (e.touches) {
-      x = (e.touches[0].clientX - rect.left) / scale;
-      y = (e.touches[0].clientY - rect.top) / scale;
+      x = e.touches[0].clientX - rect.left;
+      y = e.touches[0].clientY - rect.top;
     } else {
-      x = (e.clientX - rect.left) / scale;
-      y = (e.clientY - rect.top) / scale;
+      x = e.clientX - rect.left;
+      y = e.clientY - rect.top;
     }
     
     const ctx = canvas.getContext('2d');
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2 / scale;
+    ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -554,11 +569,11 @@ function SignatureCanvas({ elementId, value, onUpdate, width, height, scale }) {
     
     let x, y;
     if (e.touches) {
-      x = (e.touches[0].clientX - rect.left) / scale;
-      y = (e.touches[0].clientY - rect.top) / scale;
+      x = e.touches[0].clientX - rect.left;
+      y = e.touches[0].clientY - rect.top;
     } else {
-      x = (e.clientX - rect.left) / scale;
-      y = (e.clientY - rect.top) / scale;
+      x = e.clientX - rect.left;
+      y = e.clientY - rect.top;
     }
     
     const ctx = canvas.getContext('2d');
@@ -570,7 +585,7 @@ function SignatureCanvas({ elementId, value, onUpdate, width, height, scale }) {
     if (!isDrawing) return;
     setIsDrawing(false);
     const canvas = canvasRef.current;
-    const signatureData = canvas.toDataURL();
+    const signatureData = canvas.toDataURL('image/png');
     onUpdate(signatureData);
   };
 
