@@ -5,6 +5,7 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
   const pdfContainerRef = useRef(null);
   const [pdfLoaded, setPdfLoaded] = useState(false);
   const [pdfError, setPdfError] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState('');
   const [editableElements, setEditableElements] = useState([]);
   const [selectedElement, setSelectedElement] = useState(null);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -21,18 +22,79 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
   // Load PDF when component mounts
   useEffect(() => {
     loadPDF();
-  }, []);
+  }, [pdf]);
 
   const loadPDF = async () => {
     try {
+      console.log('📄 Loading PDF:', {
+        pdfName: pdf.name,
+        pdfId: pdf.id,
+        downloadUrl: pdf.downloadUrl,
+        serviceTitanId: pdf.serviceTitanId,
+        jobId: job.id
+      });
+
+      // ✅ FIRST: Try our server proxy endpoint (most reliable)
+      if (pdf.serviceTitanId && job.id) {
+        console.log('🔗 Attempting to fetch PDF from server proxy...');
+        
+        const proxyUrl = `http://localhost:3005/api/job/${job.id}/attachment/${pdf.serviceTitanId}/download`;
+        
+        try {
+          const response = await fetch(proxyUrl);
+          if (response.ok) {
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            setPdfUrl(blobUrl);
+            setPdfLoaded(true);
+            console.log('✅ PDF loaded via server proxy:', pdf.name);
+            return;
+          } else {
+            console.warn('⚠️ Server proxy failed:', response.status, response.statusText);
+          }
+        } catch (proxyError) {
+          console.warn('⚠️ Server proxy error:', proxyError);
+        }
+      }
+
+      // SECOND: Try direct ServiceTitan download URL (if available)
+      if (pdf.downloadUrl) {
+        console.log('🔗 Trying ServiceTitan download URL:', pdf.downloadUrl);
+        
+        try {
+          // Test if the URL is accessible
+          const response = await fetch(pdf.downloadUrl, { method: 'HEAD' });
+          if (response.ok) {
+            setPdfUrl(pdf.downloadUrl);
+            setPdfLoaded(true);
+            console.log('✅ PDF loaded via direct URL:', pdf.name);
+            return;
+          } else {
+            console.warn('⚠️ Direct URL failed:', response.status);
+          }
+        } catch (directError) {
+          console.warn('⚠️ Direct URL error:', directError);
+        }
+      }
+
+      // FALLBACK: Use sample PDF
+      console.log('📋 All methods failed, falling back to sample PDF...');
       const response = await fetch('/assets/sample.pdf');
       if (response.ok) {
+        setPdfUrl('/assets/sample.pdf');
         setPdfLoaded(true);
+        console.log('✅ Sample PDF loaded as fallback');
+        
+        // Show user that we're using a sample
+        setTimeout(() => {
+          alert(`⚠️ Could not load the actual PDF "${pdf.name}". Showing sample PDF for demonstration.`);
+        }, 1000);
       } else {
-        setPdfError(true);
+        throw new Error('Sample PDF not found');
       }
+
     } catch (error) {
-      console.error('Error loading PDF:', error);
+      console.error('❌ Error loading PDF:', error);
       setPdfError(true);
     }
   };
@@ -196,8 +258,8 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
       editableElements: editableElements,
       jobInfo: {
         jobId: job.id,
-        jobName: job.name,
-        technician: 'Mike Rodriguez',
+        jobName: job.title || job.name,
+        technician: 'Current Technician',
         date: new Date().toLocaleDateString()
       },
       savedAt: new Date().toISOString()
@@ -303,8 +365,8 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
         <div className="header-left">
           <button onClick={onClose} className="close-btn">← Back</button>
           <div className="pdf-info">
-            <h2>{pdf.name}</h2>
-            <p>{job.id} - Touch PDF Editor</p>
+            <h2>{pdf.name || 'PDF Document'}</h2>
+            <p>{job.id} - PDF Editor {pdfLoaded ? '✅ Loaded' : '⏳ Loading...'}</p>
           </div>
         </div>
         
@@ -341,7 +403,7 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
             </button>
           </div>
           
-          <button onClick={handleSave} className="save-btn">Save PDF</button>
+          <button onClick={handleSave} className="save-btn">💾 Save PDF</button>
         </div>
       </div>
 
@@ -376,6 +438,7 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
           <div className="zoom-info">
             <span>Zoom: {Math.round(scale * 100)}%</span>
             <span>Elements: {editableElements.length}</span>
+            <span>PDF: {pdf.name}</span>
           </div>
 
           <div className="pdf-container">
@@ -399,10 +462,17 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
                   transition: isDragging ? 'none' : 'transform 0.1s ease'
                 }}
               >
-                {pdfLoaded ? (
+                {pdfError ? (
+                  <div className="pdf-error-message">
+                    <h3>❌ Error Loading PDF</h3>
+                    <p>Could not load the PDF document: {pdf.name}</p>
+                    <p>Job ID: {job.id}</p>
+                    <code>PDF ID: {pdf.id}</code>
+                  </div>
+                ) : pdfLoaded && pdfUrl ? (
                   <div className="pdf-content">
                     <embed
-                      src="/assets/sample.pdf"
+                      src={pdfUrl}
                       type="application/pdf"
                       width="800px"
                       height="1000px"
@@ -415,12 +485,12 @@ function PDFEditor({ pdf, job, onClose, onSave }) {
                 ) : (
                   <div className="pdf-placeholder">
                     <div className="placeholder-content">
-                      <h3>📋 Backflow Prevention Device Test Report</h3>
-                      <p>Use touch gestures to navigate and add content</p>
+                      <h3>📄 Loading PDF: {pdf.name}</h3>
+                      <p>Please wait while we load the document...</p>
                       <div className="placeholder-form">
-                        <div className="placeholder-section">Job Information Section</div>
-                        <div className="placeholder-section">Testing Details Section</div>
-                        <div className="placeholder-section">Results & Signature Section</div>
+                        <div className="placeholder-section">Job ID: {job.id}</div>
+                        <div className="placeholder-section">PDF ID: {pdf.id}</div>
+                        <div className="placeholder-section">ServiceTitan ID: {pdf.serviceTitanId}</div>
                       </div>
                     </div>
                   </div>
