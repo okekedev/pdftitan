@@ -1,4 +1,4 @@
-// Adobe-Style PDF Editor - Simple, Efficient, Professional
+// Adobe-Style PDF Editor - Touch-Optimized, Simple, Efficient, Professional
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
@@ -119,7 +119,7 @@ function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
     }
   };
 
-  // Adobe-style interactions
+  // Touch-friendly interactions
   const handleCanvasMouseDown = useCallback((e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -137,10 +137,16 @@ function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
 
     if (clicked) {
       setSelectedId(clicked.id);
-      setEditingId(null);
+      // Single tap on text box = edit mode
+      if (clicked.type === 'text') {
+        setEditingId(clicked.id);
+      } else {
+        setEditingId(null);
+      }
     } else {
-      // Click on empty space - create text box
-      createText(x - 100, y - 20);
+      // Clear selection when clicking empty space
+      setSelectedId(null);
+      setEditingId(null);
     }
   }, [objects, currentPage, scale]);
 
@@ -149,6 +155,7 @@ function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
+    // Double tap on empty space = create new text box
     const clicked = objects.find(obj => {
       if (obj.page !== currentPage) return false;
       const objX = obj.x * scale;
@@ -158,8 +165,9 @@ function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
       return x >= objX && x <= objX + objW && y >= objY && y <= objY + objH;
     });
 
-    if (clicked && clicked.type === 'text') {
-      setEditingId(clicked.id);
+    if (!clicked) {
+      // Double tap on empty space - create text box
+      createText(x - 100, y - 20);
     }
   }, [objects, currentPage, scale]);
 
@@ -325,7 +333,7 @@ function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
 
       {/* Simple Help */}
       <div style={styles.helpBar}>
-        Click anywhere to add text • Double-click text to edit • Drag handles to move/resize
+        Double-tap empty space to add text • Single-tap text to edit • Drag handles to move/resize
       </div>
     </div>
   );
@@ -379,13 +387,17 @@ function ObjectElement({ object, scale, selected, editing, onStartDrag, onUpdate
             placeholder="Type here..."
           />
         ) : (
-          <span style={{ 
+          <div style={{ 
             fontSize: `${object.fontSize * scale}px`, 
             color: object.color,
-            wordWrap: 'break-word'
+            wordWrap: 'break-word',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            pointerEvents: 'none',
+            opacity: object.content ? 1 : 0.5
           }}>
-            {object.content || 'Double-click to edit'}
-          </span>
+            {object.content || 'Edit'}
+          </div>
         )}
         
         {/* Simple Handles */}
