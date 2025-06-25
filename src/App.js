@@ -1,67 +1,70 @@
 // src/App.js - Simplified for Technician-Only Portal
-import React, { useState, useEffect } from 'react';
-import sessionManager from './services/sessionManger';
-import apiClient from './services/apiClient';
-import Login from './pages/Login/Login';
-import Header from './components/layout/Header/Header';
-import Footer from './components/layout/Footer/Footer';
-import Jobs from './pages/Jobs/Jobs';
-import Attachments from './pages/Attachments/Attachments';
-import './App.css';
+import React, { useState, useEffect } from "react";
+import sessionManager from "./services/sessionManger";
+import apiClient from "./services/apiClient";
+import Login from "./pages/Login/Login";
+import Header from "./components/Layout/Header/Header";
+import Footer from "./components/Layout/Footer/Footer";
+import Jobs from "./pages/Jobs/Jobs";
+import Attachments from "./pages/Attachments/Attachments";
+import "./App.css";
 
 function App() {
   const [technician, setTechnician] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState('jobs');
+  const [currentPage, setCurrentPage] = useState("jobs");
   const [selectedJob, setSelectedJob] = useState(null);
 
   // Check for existing session on app load
   useEffect(() => {
-    console.log('🔍 Checking for existing technician session...');
-    
+    console.log("🔍 Checking for existing technician session...");
+
     const existingSession = sessionManager.getTechnicianSession();
     if (existingSession) {
-      console.log('✅ Found existing technician session:', existingSession.technician?.name);
+      console.log(
+        "✅ Found existing technician session:",
+        existingSession.technician?.name
+      );
       setTechnician(existingSession.technician);
-      setCurrentPage('jobs'); // Technicians always start with jobs
+      setCurrentPage("jobs"); // Technicians always start with jobs
     } else {
-      console.log('❌ No existing technician session found');
+      console.log("❌ No existing technician session found");
     }
-    
+
     setIsLoading(false);
   }, []);
 
   const handleLogin = (userData) => {
-    console.log('👤 Technician logged in:', userData.technician?.name);
-    
+    console.log("👤 Technician logged in:", userData.technician?.name);
+
     // Save to session storage
     sessionManager.setTechnicianSession(userData);
     setTechnician(userData.technician);
-    
+
     // Technicians always go to jobs page
-    setCurrentPage('jobs');
+    setCurrentPage("jobs");
   };
 
   const handleLogout = () => {
-    console.log('🚪 Logging out technician');
-    
+    console.log("🚪 Logging out technician");
+
     // Clear session storage
     sessionManager.clearTechnicianSession();
-    
+
     setTechnician(null);
     setSelectedJob(null);
-    setCurrentPage('jobs');
+    setCurrentPage("jobs");
   };
 
   const handleSelectJob = (job) => {
-    console.log('👷 Job selected:', job.number);
+    console.log("👷 Job selected:", job.number);
     setSelectedJob(job);
-    setCurrentPage('attachments');
+    setCurrentPage("attachments");
   };
 
   const handleBackToJobs = () => {
     setSelectedJob(null);
-    setCurrentPage('jobs');
+    setCurrentPage("jobs");
   };
 
   // Show loading spinner while checking session
@@ -84,65 +87,56 @@ function App() {
   // Render current page content for authenticated technicians
   const renderPageContent = () => {
     switch (currentPage) {
-      case 'jobs':
-        return (
-          <Jobs 
-            technician={technician}
-            onSelectJob={handleSelectJob}
-          />
-        );
-      
-      case 'attachments':
-        return (
-          <Attachments 
-            job={selectedJob}
-            onBack={handleBackToJobs}
-          />
-        );
-      
+      case "jobs":
+        return <Jobs technician={technician} onSelectJob={handleSelectJob} />;
+
+      case "attachments":
+        return <Attachments job={selectedJob} onBack={handleBackToJobs} />;
+
       default:
-        return (
-          <Jobs 
-            technician={technician}
-            onSelectJob={handleSelectJob}
-          />
-        );
+        return <Jobs technician={technician} onSelectJob={handleSelectJob} />;
     }
   };
 
   // Simple breadcrumb navigation for technicians
   const getBreadcrumbs = () => {
     return [
-      { id: 'jobs', label: 'My Jobs', active: currentPage === 'jobs' || currentPage === 'attachments' },
-      { id: 'attachments', label: 'Forms', active: currentPage === 'attachments' }
+      {
+        id: "jobs",
+        label: "My Jobs",
+        active: currentPage === "jobs" || currentPage === "attachments",
+      },
+      {
+        id: "attachments",
+        label: "Forms",
+        active: currentPage === "attachments",
+      },
     ];
   };
 
   const handleNavigate = (page) => {
-    console.log('🧭 Navigating to:', page);
-    
-    if (page === 'jobs') {
+    console.log("🧭 Navigating to:", page);
+
+    if (page === "jobs") {
       setSelectedJob(null);
-      setCurrentPage('jobs');
+      setCurrentPage("jobs");
     }
     // Technicians can't navigate to attachments without selecting a job first
   };
 
   return (
     <div className="App">
-      <Header 
-        user={technician} 
+      <Header
+        user={technician}
         onLogout={handleLogout}
         currentPage={currentPage}
         onNavigate={handleNavigate}
         breadcrumbs={getBreadcrumbs()}
         userType="technician"
       />
-      
-      <main className="main-content">
-        {renderPageContent()}
-      </main>
-      
+
+      <main className="main-content">{renderPageContent()}</main>
+
       <Footer />
     </div>
   );
