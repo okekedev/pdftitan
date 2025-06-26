@@ -1,67 +1,78 @@
-// src/pages/Jobs/Jobs.jsx - Modern JSX with Global Styles
+// src/pages/Jobs/Jobs.jsx - Enhanced for job-focused API with customer data
 import React, { useState, useEffect } from 'react';
 import apiClient from '../services/apiClient';
 
 export default function Jobs({ technician, onSelectJob }) {
-  const [groupedAppointments, setGroupedAppointments] = useState({});
+  const [groupedJobs, setGroupedJobs] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const loadAppointments = async () => {
+    const loadJobs = async () => {
       try {
         setIsLoading(true);
         setError('');
         
-        console.log(`🔧 Loading appointments for technician: ${technician?.name}`);
+        console.log(`🔧 Loading jobs for technician: ${technician?.name}`);
         
-        const response = await apiClient.getMyAppointments();
-        setGroupedAppointments(response.groupedByDate || {});
+        // ✅ Updated to use job-focused API
+        const response = await apiClient.getMyJobs();
+        setGroupedJobs(response.groupedByDate || {});
         
-        console.log(`✅ Loaded appointments grouped into ${Object.keys(response.groupedByDate || {}).length} days`);
+        console.log(`✅ Loaded jobs grouped into ${Object.keys(response.groupedByDate || {}).length} days`);
         
       } catch (error) {
-        console.error('❌ Error loading appointments:', error);
-        setError(`Failed to load appointments: ${error.message}`);
+        console.error('❌ Error loading jobs:', error);
+        setError(`Failed to load jobs: ${error.message}`);
       } finally {
         setIsLoading(false);
       }
     };
 
     if (technician?.id) {
-      loadAppointments();
+      loadJobs();
     }
   }, [technician]);
 
   const getStatusIcon = (status) => {
-    const statusName = status?.name || status;
-    switch (statusName?.toLowerCase()) {
+    const statusName = status?.toLowerCase?.() || status;
+    switch (statusName) {
       case 'scheduled': return '📅';
       case 'dispatched': return '🚚';
-      case 'enroute': return '🛣️';
+      case 'inprogress': case 'in progress': return '🔧';
       case 'working': return '🔧';
       case 'hold': return '⏸️';
-      case 'done': return '✅';
-      case 'canceled': return '❌';
+      case 'completed': case 'done': return '✅';
+      case 'canceled': case 'cancelled': return '❌';
       default: return '📋';
     }
   };
 
   const getStatusClass = (status) => {
-    const statusName = status?.name || status;
-    switch (statusName?.toLowerCase()) {
+    const statusName = status?.toLowerCase?.() || status;
+    switch (statusName) {
       case 'scheduled': return 'status-scheduled';
       case 'dispatched': return 'status-dispatched';
-      case 'enroute': return 'status-enroute';
-      case 'working': return 'status-working';
+      case 'inprogress': case 'in progress': case 'working': return 'status-working';
       case 'hold': return 'status-hold';
-      case 'done': return 'status-done';
-      case 'canceled': return 'status-canceled';
+      case 'completed': case 'done': return 'status-done';
+      case 'canceled': case 'cancelled': return 'status-canceled';
       default: return 'status-default';
     }
   };
 
+  const getPriorityIcon = (priority) => {
+    switch (priority?.toLowerCase()) {
+      case 'urgent': return '🚨';
+      case 'high': return '🔴';
+      case 'normal': return '🟡';
+      case 'low': return '🟢';
+      default: return '🟡';
+    }
+  };
+
   const formatTime = (dateString) => {
+    if (!dateString) return 'No time set';
     return new Date(dateString).toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -69,16 +80,16 @@ export default function Jobs({ technician, onSelectJob }) {
     });
   };
 
-  const handleJobSelection = (appointment) => {
+  const handleJobSelection = (job) => {
+    // ✅ Simplified job data structure
     const jobData = {
-      id: appointment.jobId,
-      number: appointment.appointmentNumber,
-      title: appointment.customer?.name || 'Unknown Customer',
-      appointmentId: appointment.id,
-      appointmentNumber: appointment.appointmentNumber,
-      start: appointment.start,
-      status: appointment.status,
-      customer: appointment.customer
+      id: job.id,
+      number: job.number,
+      title: job.title,
+      status: job.status,
+      priority: job.priority,
+      customer: job.customer,
+      nextAppointment: job.nextAppointment
     };
 
     console.log('🔧 Selected job:', jobData);
@@ -90,7 +101,7 @@ export default function Jobs({ technician, onSelectJob }) {
       <div className="page-container">
         <div className="loading-content text-center">
           <div className="loading-spinner"></div>
-          <h2>Loading Your Appointments</h2>
+          <h2>Loading Your Jobs</h2>
           <p className="text-gray-600">Fetching your latest job assignments...</p>
         </div>
       </div>
@@ -103,7 +114,7 @@ export default function Jobs({ technician, onSelectJob }) {
         <div className="alert alert-error">
           <span>❌</span>
           <div>
-            <strong>Error Loading Appointments</strong>
+            <strong>Error Loading Jobs</strong>
             <p>{error}</p>
           </div>
         </div>
@@ -119,16 +130,16 @@ export default function Jobs({ technician, onSelectJob }) {
     );
   }
 
-  const dateKeys = Object.keys(groupedAppointments);
+  const dateKeys = Object.keys(groupedJobs);
   
   if (dateKeys.length === 0) {
     return (
       <div className="page-container">
         <div className="empty-state">
-          <div className="empty-icon">📅</div>
-          <h2>No Appointments Found</h2>
+          <div className="empty-icon">📋</div>
+          <h2>No Jobs Found</h2>
           <p className="text-gray-600">
-            No appointments found for the last 2 days.
+            No jobs found for the last 2 days.
           </p>
           <button 
             className="btn btn-primary mt-3"
@@ -145,20 +156,20 @@ export default function Jobs({ technician, onSelectJob }) {
     <div className="page-container">
       {/* Page Header */}
       <div className="page-header text-center mb-4">
-        <h2>📅 Your Appointments</h2>
+        <h2>📋 Your Jobs</h2>
         <p className="text-gray-600">
-          Showing appointments from 2 days ago to today • {' '}
+          Showing jobs from 2 days ago to today • {' '}
           <strong>
-            {Object.values(groupedAppointments).reduce((total, group) => total + group.appointments.length, 0)}
-          </strong> total appointments
+            {Object.values(groupedJobs).reduce((total, group) => total + group.appointments.length, 0)}
+          </strong> total jobs
         </p>
       </div>
 
-      {/* Date-Grouped Appointments */}
-      <div className="appointments-timeline">
+      {/* Date-Grouped Jobs */}
+      <div className="jobs-timeline">
         {dateKeys.map((dateKey, index) => {
-          const dateGroup = groupedAppointments[dateKey];
-          const { displayDate, isToday, isYesterday, appointments } = dateGroup;
+          const dateGroup = groupedJobs[dateKey];
+          const { displayDate, isToday, isYesterday, appointments: jobs } = dateGroup; // Note: still called "appointments" for API compatibility
           
           return (
             <div key={dateKey} className="date-section">
@@ -176,65 +187,85 @@ export default function Jobs({ technician, onSelectJob }) {
                     {isToday && ' (Today)'}
                     {isYesterday && ' (Yesterday)'}
                   </h3>
-                  <span className="appointment-count status-badge status-default">
-                    {appointments.length} appointment{appointments.length !== 1 ? 's' : ''}
+                  <span className="job-count status-badge status-default">
+                    {jobs.length} job{jobs.length !== 1 ? 's' : ''}
                   </span>
                 </div>
               </div>
 
-              {/* Appointments Grid */}
-              <div className="appointments-grid grid grid-auto-fit">
-                {appointments.map((appointment) => (
+              {/* Jobs Grid */}
+              <div className="jobs-grid grid grid-auto-fit">
+                {jobs.map((job) => (
                   <div
-                    key={appointment.id}
-                    className="appointment-card card"
-                    onClick={() => handleJobSelection(appointment)}
+                    key={job.id}
+                    className="job-card card"
+                    onClick={() => handleJobSelection(job)}
                     role="button"
                     tabIndex={0}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
-                        handleJobSelection(appointment);
+                        handleJobSelection(job);
                       }
                     }}
                   >
                     {/* Card Header */}
                     <div className="card-header">
-                      <div className="appointment-number">
-                        <span className="font-bold text-lg">#{appointment.appointmentNumber}</span>
+                      <div className="job-identifier">
+                        {/* ✅ Customer Name where Job ID was */}
+                        <h4 className="customer-name font-bold text-lg">
+                          {job.customer?.name || 'Unknown Customer'}
+                        </h4>
+                        <span className="job-number">#{job.number}</span>
+                        {job.priority && job.priority !== 'Normal' && (
+                          <span className="priority-indicator" title={`Priority: ${job.priority}`}>
+                            {getPriorityIcon(job.priority)}
+                          </span>
+                        )}
                       </div>
-                      <span className={`status-badge ${getStatusClass(appointment.status)}`}>
-                        {getStatusIcon(appointment.status)} {appointment.status?.name || appointment.status}
+                      <span className={`status-badge ${getStatusClass(job.status)}`}>
+                        {getStatusIcon(job.status)} {job.status}
                       </span>
                     </div>
 
                     {/* Card Body */}
                     <div className="card-body">
-                      <div className="customer-info mb-3">
-                        <h4 className="customer-name font-semibold text-lg mb-1">
-                          {appointment.customer?.name || 'Unknown Customer'}
-                        </h4>
+                      <div className="job-info">
+                        {/* ✅ Shorter job title */}
+                        <h5 className="job-title font-semibold mb-2">
+                          {job.title}
+                        </h5>
                         
-                        <div className="appointment-time text-gray-600 mb-2">
-                          🕐 {formatTime(appointment.start)}
-                          {appointment.end && ` - ${formatTime(appointment.end)}`}
-                        </div>
-
-                        {appointment.summary && (
-                          <p className="appointment-summary text-sm text-gray-600">
-                            {appointment.summary.length > 120 
-                              ? appointment.summary.substring(0, 120) + '...' 
-                              : appointment.summary
-                            }
-                          </p>
+                        {/* ✅ Customer address below title */}
+                        {job.customer?.address?.fullAddress && (
+                          <div className="customer-address text-gray-600 mb-3">
+                            📍 {job.customer.address.fullAddress}
+                          </div>
+                        )}
+                        
+                        {/* ✅ Centered next appointment info (removed $ amount and appointment count) */}
+                        {job.nextAppointment && (
+                          <div className="next-appointment-centered text-center">
+                            <div className="appointment-time text-gray-700 font-medium">
+                              🕐 {formatTime(job.nextAppointment.start)}
+                              {job.nextAppointment.end && ` - ${formatTime(job.nextAppointment.end)}`}
+                            </div>
+                            {job.nextAppointment.status && (
+                              <span className={`appointment-status-badge ${getStatusClass(job.nextAppointment.status)}`}>
+                                {job.nextAppointment.status}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
 
                     {/* Card Footer */}
                     <div className="card-footer">
-                      <small className="text-gray-500">
-                        Job ID: {appointment.jobId}
-                      </small>
+                      <div className="job-metadata">
+                        <small className="text-gray-500">
+                          Job ID: {job.id}
+                        </small>
+                      </div>
                       <div className="view-forms-btn">
                         <span className="btn btn-sm btn-primary">
                           📎 View Forms →
@@ -252,7 +283,7 @@ export default function Jobs({ technician, onSelectJob }) {
   );
 }
 
-// Additional Jobs-specific styles
+// Enhanced Jobs-specific styles
 const jobsStyles = `
 .page-container {
   max-width: 1400px;
@@ -287,7 +318,7 @@ const jobsStyles = `
   margin-bottom: var(--spacing-sm);
 }
 
-.appointments-timeline {
+.jobs-timeline {
   position: relative;
 }
 
@@ -357,61 +388,106 @@ const jobsStyles = `
   margin: 0;
 }
 
-.appointment-count {
+.job-count {
   background: rgba(255, 255, 255, 0.2) !important;
   color: var(--white) !important;
   border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
-.appointments-grid {
+.jobs-grid {
   margin-left: 30px; /* Align with timeline */
 }
 
-.appointment-card {
+.job-card {
   cursor: pointer;
   transition: all var(--transition-normal);
   border: 2px solid transparent;
 }
 
-.appointment-card:hover {
+.job-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
   border-color: var(--primary-color);
 }
 
-.appointment-card:focus {
+.job-card:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.appointment-number {
+.job-identifier {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--spacing-xs);
 }
 
 .customer-name {
   color: var(--gray-800);
+  line-height: 1.2;
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.job-number {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  font-weight: 500;
+}
+
+.priority-indicator {
+  font-size: 1.2rem;
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+}
+
+.job-title {
+  color: var(--gray-700);
   line-height: 1.3;
+  font-size: 1rem;
+}
+
+.customer-address {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-xs);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.next-appointment-centered {
+  padding: var(--spacing-sm);
+  background: var(--gray-100);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
 }
 
 .appointment-time {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
   font-size: 0.9rem;
 }
 
-.appointment-summary {
-  line-height: 1.4;
+.appointment-status-badge {
+  font-size: 0.75rem;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.job-metadata {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
 }
 
 .view-forms-btn .btn {
   transition: var(--transition-normal);
 }
 
-.appointment-card:hover .view-forms-btn .btn {
+.job-card:hover .view-forms-btn .btn {
   background: var(--primary-dark);
   transform: translateX(2px);
 }
@@ -432,12 +508,24 @@ const jobsStyles = `
     text-align: center;
   }
   
-  .appointments-grid {
+  .jobs-grid {
     margin-left: 0;
   }
   
   .date-indicator {
     display: none;
+  }
+  
+  .job-identifier {
+    text-align: left;
+  }
+  
+  .customer-name {
+    font-size: 1rem;
+  }
+  
+  .next-appointment-centered {
+    padding: var(--spacing-xs);
   }
 }
 `;

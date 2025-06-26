@@ -1,10 +1,10 @@
-// src/services/apiClient.js - Consolidated API Client
+// src/services/apiClient.js - Updated for job-focused API
 import sessionManager from './sessionManager';
 
 class ApiClient {
   constructor() {
     this.baseUrl = process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:3004'  // ← Changed from 3005 to 3004
+      ? 'http://localhost:3004'  // Updated to match your server port
       : '';
   }
 
@@ -73,30 +73,37 @@ class ApiClient {
     return this.apiCall('/health');
   }
 
-  // ================== APPOINTMENTS ==================
+  // ================== JOBS (renamed from appointments) ==================
 
-  async getMyAppointments() {
+  async getMyJobs() {
     const session = sessionManager.getTechnicianSession();
     if (!session?.technician?.id) {
       throw new Error('No technician session found');
     }
 
     try {
-      console.log(`👷 Fetching appointments for technician ${session.technician.id}`);
+      console.log(`👷 Fetching jobs for technician ${session.technician.id}`);
       
-      const response = await this.apiCall(`/api/technician/${session.technician.id}/appointments`);
+      // ✅ Updated endpoint: /jobs instead of /appointments
+      const response = await this.apiCall(`/api/technician/${session.technician.id}/jobs`);
       
-      console.log(`✅ Appointments fetched: ${response.data?.length || 0} appointments`);
+      console.log(`✅ Jobs fetched: ${response.data?.length || 0} jobs`);
       
       return response; // Returns { data: [...], groupedByDate: {...}, count: N }
 
     } catch (error) {
-      console.error('❌ Error fetching appointments:', error);
-      throw new Error(`Failed to fetch appointments: ${error.message}`);
+      console.error('❌ Error fetching jobs:', error);
+      throw new Error(`Failed to fetch jobs: ${error.message}`);
     }
   }
 
-  // ================== JOBS ==================
+  // Keep old method name for backward compatibility
+  async getMyAppointments() {
+    console.log('⚠️ getMyAppointments() is deprecated, use getMyJobs() instead');
+    return this.getMyJobs();
+  }
+
+  // ================== JOB DETAILS ==================
 
   async getJobDetails(jobId) {
     try {
@@ -202,7 +209,6 @@ class ApiClient {
       timestamp: new Date().toISOString()
     };
   }
-
 }
 
 // Export singleton instance

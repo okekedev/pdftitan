@@ -1,4 +1,4 @@
-// src/pages/PDFEditor/PDFEditor.jsx - Modern JSX with Simplified Interface
+// src/pages/PDFEditor/PDFEditor.jsx - Simple, User-Friendly PDF Editor
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import apiClient from '../services/apiClient';
 
@@ -8,14 +8,12 @@ function usePDFEditor(pdf, job) {
   const [pdfDocument, setPdfDocument] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [scale, setScale] = useState(1.0);
+  const [scale, setScale] = useState(1.2);
   const [pdfLoaded, setPdfLoaded] = useState(false);
   const [pdfError, setPdfError] = useState(null);
   const [objects, setObjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
 
   // PDF Loading
   const loadPDF = useCallback(async () => {
@@ -70,34 +68,6 @@ function usePDFEditor(pdf, job) {
     }
   }, [pdfDocument, currentPage, scale]);
 
-  // History Management
-  const saveToHistory = useCallback((newObjects) => {
-    setHistory(prev => {
-      const newHistory = prev.slice(0, historyIndex + 1);
-      newHistory.push([...newObjects]);
-      return newHistory.slice(-20); // Keep last 20 states
-    });
-    setHistoryIndex(prev => prev + 1);
-  }, [historyIndex]);
-
-  const undo = useCallback(() => {
-    if (historyIndex > 0) {
-      setHistoryIndex(prev => prev - 1);
-      setObjects(history[historyIndex - 1]);
-      setSelectedId(null);
-      setEditingId(null);
-    }
-  }, [historyIndex, history]);
-
-  const redo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      setHistoryIndex(prev => prev + 1);
-      setObjects(history[historyIndex + 1]);
-      setSelectedId(null);
-      setEditingId(null);
-    }
-  }, [historyIndex, history]);
-
   // Object Management
   const addTextObject = useCallback((x = 100, y = 100) => {
     const id = Date.now().toString();
@@ -107,21 +77,17 @@ function usePDFEditor(pdf, job) {
       x: x / scale,
       y: y / scale,
       width: 200 / scale,
-      height: 40 / scale,
+      height: 30 / scale,
       content: '',
-      fontSize: 16,
+      fontSize: 14,
       color: '#000000',
       page: currentPage
     };
     
-    setObjects(prev => {
-      const newObjects = [...prev, newText];
-      saveToHistory(newObjects);
-      return newObjects;
-    });
+    setObjects(prev => [...prev, newText]);
     setSelectedId(id);
     setEditingId(id);
-  }, [scale, currentPage, saveToHistory]);
+  }, [scale, currentPage]);
 
   const addSignatureObject = useCallback((x = 100, y = 100) => {
     const id = Date.now().toString();
@@ -130,33 +96,31 @@ function usePDFEditor(pdf, job) {
       type: 'signature',
       x: x / scale,
       y: y / scale,
-      width: 250 / scale,
-      height: 100 / scale,
+      width: 200 / scale,
+      height: 80 / scale,
       content: null,
       page: currentPage
     };
     
-    setObjects(prev => {
-      const newObjects = [...prev, newSig];
-      saveToHistory(newObjects);
-      return newObjects;
-    });
+    setObjects(prev => [...prev, newSig]);
     setSelectedId(id);
-  }, [scale, currentPage, saveToHistory]);
+  }, [scale, currentPage]);
 
   const updateObject = useCallback((id, updates) => {
     setObjects(prev => prev.map(obj => obj.id === id ? { ...obj, ...updates } : obj));
   }, []);
 
   const deleteObject = useCallback((id) => {
-    setObjects(prev => {
-      const newObjects = prev.filter(obj => obj.id !== id);
-      saveToHistory(newObjects);
-      return newObjects;
-    });
+    setObjects(prev => prev.filter(obj => obj.id !== id));
     setSelectedId(null);
     setEditingId(null);
-  }, [saveToHistory]);
+  }, []);
+
+  const clearAllObjects = useCallback(() => {
+    setObjects([]);
+    setSelectedId(null);
+    setEditingId(null);
+  }, []);
 
   useEffect(() => {
     loadPDF();
@@ -184,24 +148,135 @@ function usePDFEditor(pdf, job) {
     addSignatureObject,
     updateObject,
     deleteObject,
-    undo,
-    redo,
-    canUndo: historyIndex > 0,
-    canRedo: historyIndex < history.length - 1
+    clearAllObjects
   };
 }
 
-// Editable Object Component
-function EditableObject({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
-  const [content, setContent] = useState(object.content || '');
-  const [isEditing, setIsEditing] = useState(editing);
+// Simple Signature Pad Component
+function SignatureDialog({ isOpen, onClose, onSave }) {
+  const canvasRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(true);
+
+  useEffect(() => {
+    if (isOpen && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#000';
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      setIsEmpty(true);
+    }
+  }, [isOpen]);
+
+  const getEventPos = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    
+    if (e.touches && e.touches[0]) {
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top
+      };
+    }
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  };
+
+  const startDrawing = (e) => {
+    e.preventDefault();
+    setIsDrawing(true);
+    const pos = getEventPos(e);
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    setIsEmpty(false);
+  };
+
+  const draw = (e) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const pos = getEventPos(e);
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = (e) => {
+    e.preventDefault();
+    setIsDrawing(false);
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setIsEmpty(true);
+  };
+
+  const saveSignature = () => {
+    if (isEmpty) {
+      alert('Please draw your signature first');
+      return;
+    }
+    const canvas = canvasRef.current;
+    const dataURL = canvas.toDataURL('image/png');
+    onSave(dataURL);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="signature-overlay">
+      <div className="signature-dialog">
+        <h3>✍️ Add Your Signature</h3>
+        <p>Draw your signature below using your finger or mouse:</p>
+        
+        <div className="signature-area">
+          <canvas
+            ref={canvasRef}
+            width={400}
+            height={200}
+            className="signature-canvas"
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={stopDrawing}
+            onMouseLeave={stopDrawing}
+            onTouchStart={startDrawing}
+            onTouchMove={draw}
+            onTouchEnd={stopDrawing}
+          />
+        </div>
+        
+        <div className="signature-actions">
+          <button onClick={clearSignature} className="btn btn-secondary">
+            🗑️ Clear
+          </button>
+          <button onClick={onClose} className="btn btn-ghost">
+            Cancel
+          </button>
+          <button onClick={saveSignature} className="btn btn-success">
+            ✅ Use This Signature
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Simple Editable Field Component
+function EditableField({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
+  const [value, setValue] = useState(object.content || '');
   
   useEffect(() => {
-    setIsEditing(editing);
-    if (editing) {
-      setContent(object.content || '');
-    }
-  }, [editing, object.content]);
+    setValue(object.content || '');
+  }, [object.content]);
 
   const style = {
     position: 'absolute',
@@ -209,8 +284,11 @@ function EditableObject({ object, scale, selected, editing, onUpdate, onSelect, 
     top: `${object.y * scale}px`,
     width: `${object.width * scale}px`,
     height: `${object.height * scale}px`,
-    cursor: selected ? 'move' : 'pointer',
-    zIndex: selected ? 1000 : 100
+    zIndex: selected ? 1000 : 100,
+    border: selected ? '3px solid #007bff' : '2px solid transparent',
+    borderRadius: '4px',
+    background: selected ? 'rgba(0, 123, 255, 0.1)' : 'rgba(255, 255, 255, 0.95)',
+    cursor: 'pointer'
   };
 
   const handleClick = (e) => {
@@ -226,65 +304,51 @@ function EditableObject({ object, scale, selected, editing, onUpdate, onSelect, 
   };
 
   const handleSave = () => {
-    onUpdate(object.id, { content });
+    onUpdate(object.id, { content: value });
     onFinishEdit();
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
       handleSave();
-    } else if (e.key === 'Escape') {
-      setContent(object.content || '');
-      onFinishEdit();
     }
   };
 
   if (object.type === 'text') {
     return (
-      <div
-        style={{
-          ...style,
-          background: selected ? 'rgba(102, 126, 234, 0.1)' : 'rgba(255, 255, 255, 0.9)',
-          border: selected ? '2px solid var(--primary-color)' : '1px solid transparent',
-          borderRadius: '4px',
-          padding: '8px',
-          boxShadow: selected ? '0 0 0 2px rgba(102, 126, 234, 0.2)' : 'none'
-        }}
-        onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
-      >
-        {isEditing ? (
+      <div style={style} onClick={handleClick} onDoubleClick={handleDoubleClick}>
+        {editing ? (
           <input
             type="text"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
             onBlur={handleSave}
-            onKeyDown={handleKeyDown}
-            placeholder="Type here..."
+            onKeyPress={handleKeyPress}
+            placeholder="Enter text here..."
             autoFocus
             style={{
               width: '100%',
+              height: '100%',
               border: 'none',
               background: 'transparent',
-              fontSize: `${object.fontSize * scale}px`,
+              fontSize: `${Math.max(12, object.fontSize * scale)}px`,
               color: object.color,
               outline: 'none',
-              padding: 0,
-              margin: 0
+              padding: '2px'
             }}
           />
         ) : (
-          <span
-            style={{
-              fontSize: `${object.fontSize * scale}px`,
-              color: object.color,
-              userSelect: 'none',
-              opacity: object.content ? 1 : 0.5
-            }}
-          >
-            {object.content || 'Double-click to edit'}
-          </span>
+          <div style={{
+            padding: '2px',
+            fontSize: `${Math.max(12, object.fontSize * scale)}px`,
+            color: object.color,
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            opacity: object.content ? 1 : 0.6
+          }}>
+            {object.content || 'Click to edit text'}
+          </div>
         )}
       </div>
     );
@@ -295,23 +359,27 @@ function EditableObject({ object, scale, selected, editing, onUpdate, onSelect, 
       <div
         style={{
           ...style,
-          background: 'rgba(255, 255, 255, 0.95)',
-          border: selected ? '2px solid var(--success-color)' : '2px dashed #ccc',
-          borderRadius: '4px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: selected ? '0 0 0 2px rgba(72, 187, 120, 0.2)' : 'none'
+          border: selected ? '3px solid #28a745' : '2px dashed #ccc',
+          background: selected ? 'rgba(40, 167, 69, 0.1)' : 'rgba(255, 255, 255, 0.95)'
         }}
         onClick={handleClick}
       >
         {object.content ? (
-          <span style={{ color: 'var(--success-color)', fontWeight: 'bold' }}>
-            ✓ Signature Applied
-          </span>
+          <img 
+            src={object.content} 
+            alt="Signature" 
+            style={{ 
+              maxWidth: '100%', 
+              maxHeight: '100%',
+              objectFit: 'contain'
+            }} 
+          />
         ) : (
-          <span style={{ color: '#666', fontSize: '0.9rem' }}>
-            Click to add signature
+          <span style={{ color: '#666', fontSize: '14px', textAlign: 'center' }}>
+            Click to add<br/>signature
           </span>
         )}
       </div>
@@ -319,109 +387,6 @@ function EditableObject({ object, scale, selected, editing, onUpdate, onSelect, 
   }
 
   return null;
-}
-
-// Simple Signature Dialog Component
-function SignatureDialog({ isOpen, onClose, onSave }) {
-  const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-
-  useEffect(() => {
-    if (isOpen && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#000';
-    }
-  }, [isOpen]);
-
-  const startDrawing = (e) => {
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const ctx = canvas.getContext('2d');
-    ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-  };
-
-  const draw = (e) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const ctx = canvas.getContext('2d');
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
-
-  const clearSignature = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  };
-
-  const saveSignature = () => {
-    const canvas = canvasRef.current;
-    const dataURL = canvas.toDataURL();
-    onSave(dataURL);
-    clearSignature();
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="signature-dialog-overlay">
-      <div className="signature-dialog card">
-        <div className="card-header">
-          <h3 className="card-title">Add Your Signature</h3>
-          <button 
-            onClick={onClose}
-            className="btn btn-sm btn-ghost"
-            aria-label="Close signature dialog"
-          >
-            ✕
-          </button>
-        </div>
-        
-        <div className="card-body">
-          <p className="text-gray-600 mb-3">Draw your signature in the box below:</p>
-          
-          <div className="signature-canvas-container">
-            <canvas
-              ref={canvasRef}
-              width={400}
-              height={200}
-              className="signature-canvas"
-              onMouseDown={startDrawing}
-              onMouseMove={draw}
-              onMouseUp={stopDrawing}
-              onMouseLeave={stopDrawing}
-            />
-          </div>
-        </div>
-        
-        <div className="card-footer">
-          <button 
-            onClick={clearSignature}
-            className="btn btn-secondary"
-          >
-            🗑️ Clear
-          </button>
-          <button 
-            onClick={saveSignature}
-            className="btn btn-primary"
-          >
-            ✓ Save Signature
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // Main PDF Editor Component
@@ -444,37 +409,26 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     addSignatureObject,
     updateObject,
     deleteObject,
-    undo,
-    redo,
-    canUndo,
-    canRedo
+    clearAllObjects
   } = usePDFEditor(pdf, job);
 
   const [showSignatureDialog, setShowSignatureDialog] = useState(false);
-  const [tool, setTool] = useState('select');
   const [isSaving, setIsSaving] = useState(false);
+  const [showHelp, setShowHelp] = useState(true);
 
   const currentObjects = objects.filter(obj => obj.page === currentPage);
 
   const handleCanvasClick = useCallback((e) => {
-    if (tool === 'text') {
-      const rect = canvasRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      addTextObject(x, y);
-      setTool('select');
-    } else if (tool === 'signature') {
-      const rect = canvasRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      addSignatureObject(x, y);
-      setShowSignatureDialog(true);
-      setTool('select');
-    } else {
-      setSelectedId(null);
-      setEditingId(null);
-    }
-  }, [tool, addTextObject, addSignatureObject, canvasRef, setSelectedId, setEditingId]);
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    addTextObject(x, y);
+  }, [addTextObject, canvasRef]);
+
+  const handleAddSignature = () => {
+    addSignatureObject(100, 100);
+    setShowSignatureDialog(true);
+  };
 
   const handleSave = async () => {
     try {
@@ -507,17 +461,18 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     }
   };
 
+  const getCompletionStatus = () => {
+    const total = objects.length;
+    const filled = objects.filter(obj => obj.content && obj.content.trim() !== '').length;
+    return { total, filled, percentage: total > 0 ? Math.round((filled / total) * 100) : 0 };
+  };
+
   if (pdfError) {
     return (
-      <div className="page-container">
-        <div className="alert alert-error">
-          <span>❌</span>
-          <div>
-            <strong>Error Loading PDF</strong>
-            <p>{pdfError}</p>
-          </div>
-        </div>
-        <div className="text-center mt-4">
+      <div className="pdf-editor-error">
+        <div className="error-content">
+          <h2>❌ Cannot Load PDF</h2>
+          <p>{pdfError}</p>
           <button onClick={onClose} className="btn btn-primary">
             ← Back to Forms
           </button>
@@ -526,103 +481,117 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     );
   }
 
+  const completion = getCompletionStatus();
+
   return (
-    <div className="pdf-editor">
+    <div className="pdf-editor-simple">
       {/* Header */}
-      <div className="pdf-editor-header">
+      <div className="editor-header">
         <div className="header-left">
           <button onClick={onClose} className="btn btn-secondary">
-            ← Back to Forms
+            ← Back
           </button>
           <div className="pdf-info">
-            <h2 className="pdf-title">{pdf.fileName || pdf.name}</h2>
-            <p className="job-info">Job #{job.number} - {job.title}</p>
+            <h2>{pdf.fileName || pdf.name}</h2>
+            <p>Job #{job.number}</p>
           </div>
         </div>
         
         <div className="header-right">
+          <div className="completion-status">
+            <span>Progress: {completion.filled}/{completion.total} fields ({completion.percentage}%)</span>
+          </div>
           <button 
             onClick={handleSave}
             disabled={isSaving}
             className="btn btn-success btn-lg"
           >
-            {isSaving ? (
-              <>
-                <div className="button-spinner"></div>
-                Saving...
-              </>
-            ) : (
-              <>
-                💾 Save PDF
-              </>
-            )}
+            {isSaving ? '💾 Saving...' : '💾 Save Completed Form'}
           </button>
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="pdf-toolbar">
-        <div className="toolbar-section">
-          <div className="tool-group">
-            <button
-              className={`btn btn-sm ${tool === 'select' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setTool('select')}
-              title="Select and move objects"
-            >
-              🔲 Select
-            </button>
-            <button
-              className={`btn btn-sm ${tool === 'text' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setTool('text')}
-              title="Add text field"
-            >
-              📝 Add Text
-            </button>
-            <button
-              className={`btn btn-sm ${tool === 'signature' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setTool('signature')}
-              title="Add signature field"
-            >
-              ✍️ Signature
+      {/* Help Instructions */}
+      {showHelp && (
+        <div className="help-banner">
+          <div className="help-content">
+            <h4>📝 How to Fill This Form:</h4>
+            <div className="help-steps">
+              <span>1️⃣ Click anywhere to add text</span>
+              <span>2️⃣ Use "Add Signature" button</span>
+              <span>3️⃣ Click fields to edit them</span>
+              <span>4️⃣ Save when done</span>
+            </div>
+            <button onClick={() => setShowHelp(false)} className="help-close">
+              Got it! ✕
             </button>
           </div>
         </div>
+      )}
 
-        <div className="toolbar-section">
-          <div className="tool-group">
-            <button 
-              onClick={undo} 
-              disabled={!canUndo}
-              className="btn btn-sm btn-ghost"
-              title="Undo"
+      {/* Simple Toolbar */}
+      <div className="editor-toolbar">
+        <div className="toolbar-left">
+          <button 
+            onClick={handleAddSignature}
+            className="btn btn-primary"
+          >
+            ✍️ Add Signature
+          </button>
+          {selectedId && (
+            <button
+              onClick={() => deleteObject(selectedId)}
+              className="btn btn-error"
             >
-              ↶ Undo
+              🗑️ Delete Selected
             </button>
-            <button 
-              onClick={redo} 
-              disabled={!canRedo}
-              className="btn btn-sm btn-ghost"
-              title="Redo"
+          )}
+          {objects.length > 0 && (
+            <button
+              onClick={clearAllObjects}
+              className="btn btn-warning"
             >
-              ↷ Redo
+              🧹 Clear All
             </button>
-          </div>
+          )}
         </div>
 
-        <div className="toolbar-section">
-          <div className="tool-group">
+        <div className="toolbar-center">
+          {totalPages > 1 && (
+            <div className="page-controls">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage <= 1}
+                className="btn btn-ghost"
+              >
+                ← Prev
+              </button>
+              <span className="page-info">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage >= totalPages}
+                className="btn btn-ghost"
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="toolbar-right">
+          <div className="zoom-controls">
             <button
-              onClick={() => setScale(prev => Math.max(0.5, prev - 0.1))}
-              className="btn btn-sm btn-ghost"
-              title="Zoom out"
+              onClick={() => setScale(prev => Math.max(0.8, prev - 0.2))}
+              className="btn btn-ghost"
             >
               🔍-
             </button>
             <span className="zoom-level">{Math.round(scale * 100)}%</span>
             <button
-              onClick={() => setScale(prev => Math.min(3, prev + 0.1))}
-              className="btn btn-sm btn-ghost"
-              title="Zoom in"
+              onClick={() => setScale(prev => Math.min(2, prev + 0.2))}
+              className="btn btn-ghost"
             >
               🔍+
             </button>
@@ -630,51 +599,32 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="pdf-content">
-        {/* Page Controls */}
-        <div className="page-controls">
-          <button
-            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-            disabled={currentPage <= 1}
-            className="btn btn-sm btn-ghost"
-          >
-            ← Previous
-          </button>
-          <span className="page-info">
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-            disabled={currentPage >= totalPages}
-            className="btn btn-sm btn-ghost"
-          >
-            Next →
-          </button>
-        </div>
-
-        {/* PDF Canvas */}
-        <div className="pdf-canvas-container">
-          {!pdfLoaded && (
-            <div className="loading-content">
-              <div className="loading-spinner"></div>
-              <p>Loading PDF...</p>
-            </div>
-          )}
-          
-          <div className="pdf-canvas-wrapper" style={{ display: pdfLoaded ? 'block' : 'none' }}>
+      {/* PDF Canvas */}
+      <div className="pdf-container">
+        {!pdfLoaded && (
+          <div className="loading-content">
+            <div className="loading-spinner"></div>
+            <h3>Loading PDF Form...</h3>
+            <p>Please wait while we prepare your form...</p>
+          </div>
+        )}
+        
+        {pdfLoaded && (
+          <div className="pdf-wrapper">
             <canvas
               ref={canvasRef}
               onClick={handleCanvasClick}
               className="pdf-canvas"
               style={{
-                cursor: tool === 'text' ? 'crosshair' : tool === 'signature' ? 'crosshair' : 'default'
+                cursor: 'crosshair',
+                maxWidth: '100%',
+                height: 'auto'
               }}
             />
 
-            {/* Render Objects */}
+            {/* Render Editable Fields */}
             {currentObjects.map(obj => (
-              <EditableObject
+              <EditableField
                 key={obj.id}
                 object={obj}
                 scale={scale}
@@ -687,32 +637,6 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
               />
             ))}
           </div>
-        </div>
-
-        {/* Selection Actions */}
-        {selectedId && (
-          <div className="selection-actions">
-            <button
-              onClick={() => setEditingId(selectedId)}
-              className="btn btn-sm btn-primary"
-            >
-              ✏️ Edit
-            </button>
-            {objects.find(obj => obj.id === selectedId)?.type === 'signature' && (
-              <button
-                onClick={() => setShowSignatureDialog(true)}
-                className="btn btn-sm btn-success"
-              >
-                ✍️ Add Signature
-              </button>
-            )}
-            <button
-              onClick={() => deleteObject(selectedId)}
-              className="btn btn-sm btn-error"
-            >
-              🗑️ Delete
-            </button>
-          </div>
         )}
       </div>
 
@@ -722,161 +646,202 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         onClose={() => setShowSignatureDialog(false)}
         onSave={handleSignatureSave}
       />
+
+      {/* Floating Help Button */}
+      {!showHelp && (
+        <button 
+          onClick={() => setShowHelp(true)}
+          className="help-float-btn"
+          title="Show help"
+        >
+          ❓
+        </button>
+      )}
     </div>
   );
 }
 
-// PDF Editor specific styles
-const pdfEditorStyles = `
-.pdf-editor {
+// Simple, clean styles
+const editorStyles = `
+.pdf-editor-simple {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--gray-100);
+  background: #f8f9fa;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.pdf-editor-header {
-  background: var(--white);
-  border-bottom: 2px solid var(--gray-200);
-  padding: var(--spacing-md) var(--spacing-lg);
+.editor-header {
+  background: white;
+  border-bottom: 2px solid #e9ecef;
+  padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: var(--spacing-lg);
+  gap: 1rem;
 }
 
-.pdf-info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-.pdf-title {
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: var(--gray-800);
+.pdf-info h2 {
   margin: 0;
+  font-size: 1.2rem;
+  color: #333;
 }
 
-.job-info {
+.pdf-info p {
+  margin: 0;
+  color: #666;
   font-size: 0.9rem;
-  color: var(--gray-600);
-  margin: 0;
 }
 
-.pdf-toolbar {
-  background: var(--gray-50);
-  border-bottom: 1px solid var(--gray-300);
-  padding: var(--spacing-sm) var(--spacing-lg);
+.completion-status {
+  background: #e3f2fd;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  color: #1976d2;
+  border: 1px solid #bbdefb;
+}
+
+.help-banner {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.help-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.help-steps {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.help-steps span {
+  background: rgba(255,255,255,0.2);
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  font-size: 0.9rem;
+}
+
+.help-close {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.editor-toolbar {
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  padding: 0.75rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--spacing-md);
+  gap: 1rem;
 }
 
-.toolbar-section {
+.toolbar-left, .toolbar-center, .toolbar-right {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-}
-
-.tool-group {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs);
-  background: var(--white);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-}
-
-.zoom-level {
-  padding: var(--spacing-xs) var(--spacing-sm);
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--gray-700);
-  min-width: 60px;
-  text-align: center;
-}
-
-.pdf-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  gap: 1rem;
 }
 
 .page-controls {
-  background: var(--white);
-  border-bottom: 1px solid var(--gray-300);
-  padding: var(--spacing-sm) var(--spacing-lg);
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: var(--spacing-md);
+  gap: 1rem;
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
+  border: 1px solid #dee2e6;
 }
 
 .page-info {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--gray-700);
+  font-weight: 600;
+  color: #495057;
   min-width: 120px;
   text-align: center;
 }
 
-.pdf-canvas-container {
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
+  border: 1px solid #dee2e6;
+}
+
+.zoom-level {
+  min-width: 60px;
+  text-align: center;
+  font-weight: 600;
+  color: #495057;
+}
+
+.pdf-container {
   flex: 1;
   overflow: auto;
-  background: var(--gray-200);
+  padding: 2rem;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: var(--spacing-lg);
+  background: #e9ecef;
 }
 
-.pdf-canvas-wrapper {
+.pdf-wrapper {
   position: relative;
-  background: var(--white);
-  box-shadow: var(--shadow-xl);
-  border-radius: var(--radius-md);
+  background: white;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  border-radius: 8px;
   overflow: hidden;
 }
 
 .pdf-canvas {
   display: block;
-  max-width: 100%;
-  height: auto;
 }
 
-.selection-actions {
-  position: fixed;
-  bottom: var(--spacing-lg);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm);
-  background: var(--white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--gray-300);
-  z-index: 1000;
+.loading-content {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #6c757d;
 }
 
-.signature-dialog-overlay {
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 1rem;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.signature-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0,0,0,0.5);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -884,68 +849,125 @@ const pdfEditorStyles = `
 }
 
 .signature-dialog {
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow: auto;
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 16px 64px rgba(0,0,0,0.2);
+  max-width: 90%;
+  max-height: 90%;
+  width: 500px;
 }
 
-.signature-canvas-container {
-  border: 2px solid var(--gray-300);
-  border-radius: var(--radius-md);
-  background: var(--white);
-  display: flex;
-  justify-content: center;
-  padding: var(--spacing-sm);
+.signature-dialog h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+}
+
+.signature-area {
+  border: 3px dashed #dee2e6;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  background: #f8f9fa;
 }
 
 .signature-canvas {
+  display: block;
+  width: 100%;
+  background: white;
+  border-radius: 4px;
   cursor: crosshair;
-  border-radius: var(--radius-sm);
-  max-width: 100%;
-  height: auto;
+  touch-action: none;
+}
+
+.signature-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.help-float-btn {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #007bff;
+  color: white;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,123,255,0.3);
+  z-index: 1000;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.btn-primary { background: #007bff; color: white; }
+.btn-secondary { background: #6c757d; color: white; }
+.btn-success { background: #28a745; color: white; }
+.btn-error { background: #dc3545; color: white; }
+.btn-warning { background: #ffc107; color: #333; }
+.btn-ghost { background: transparent; color: #6c757d; border: 1px solid #dee2e6; }
+
+.btn-lg { padding: 0.75rem 1.5rem; font-size: 1.1rem; }
+
+.btn:hover:not(:disabled) { transform: translateY(-1px); opacity: 0.9; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 @media (max-width: 768px) {
-  .pdf-editor-header {
+  .editor-header {
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: 1rem;
     align-items: stretch;
   }
   
-  .header-left {
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    align-items: stretch;
-  }
-  
-  .pdf-toolbar {
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-  
-  .toolbar-section {
+  .header-left, .header-right {
     justify-content: center;
   }
   
-  .selection-actions {
-    left: var(--spacing-md);
-    right: var(--spacing-md);
-    transform: none;
-    justify-content: center;
+  .editor-toolbar {
+    flex-direction: column;
+    gap: 1rem;
   }
   
+  .toolbar-left, .toolbar-center, .toolbar-right {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .help-steps {
+    justify-content: center;
+  }
   .signature-dialog {
-    width: 95%;
-    margin: var(--spacing-md);
+    margin: 1rem;
+    width: auto;
   }
 }
 `;
 
 // Inject styles
-if (typeof document !== 'undefined' && !document.getElementById('pdf-editor-styles')) {
+if (typeof document !== 'undefined' && !document.getElementById('simple-pdf-editor-styles')) {
   const style = document.createElement('style');
-  style.id = 'pdf-editor-styles';
-  style.textContent = pdfEditorStyles;
+  style.id = 'simple-pdf-editor-styles';
+  style.textContent = editorStyles;
   document.head.appendChild(style);
 }

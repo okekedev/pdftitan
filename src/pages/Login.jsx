@@ -1,4 +1,4 @@
-// src/pages/Login/Login.jsx - Modern JSX with Global Styles
+// src/pages/Login.jsx - Fixed server port reference
 import React, { useState, useEffect } from 'react';
 import apiClient from '../services/apiClient';
 
@@ -71,7 +71,8 @@ export default function Login({ onLogin }) {
       } else if (error.message.includes('timeout')) {
         setError('Connection timeout. Please try again.');
       } else if (error.message.includes('connect')) {
-        setError('Cannot connect to server. Make sure the server is running on localhost:3005');
+        // ✅ FIXED: Updated port to match your server
+        setError('Cannot connect to server. Make sure the server is running on localhost:3004');
       } else {
         setError(error.message || 'An unexpected error occurred');
       }

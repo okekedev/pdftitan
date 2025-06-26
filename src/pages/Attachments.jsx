@@ -1,4 +1,4 @@
-// src/pages/Attachments/Attachments.jsx - Modern JSX with Global Styles
+// src/pages/Attachments/Attachments.jsx - Side-by-Side Layout
 import React, { useState, useEffect } from 'react';
 import PDFEditor from './PDFEditor';
 import apiClient from '../services/apiClient';
@@ -6,9 +6,52 @@ import apiClient from '../services/apiClient';
 export default function Attachments({ job, onBack }) {
   const [selectedPDF, setSelectedPDF] = useState(null);
   const [attachments, setAttachments] = useState([]);
+  const [jobDetails, setJobDetails] = useState(null);
+  const [customerData, setCustomerData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingJobDetails, setIsLoadingJobDetails] = useState(true);
   const [error, setError] = useState('');
 
+  // Load job details and customer information
+  useEffect(() => {
+    const loadJobDetails = async () => {
+      try {
+        setIsLoadingJobDetails(true);
+        
+        console.log('📋 Loading job details for:', job.id);
+        
+        // Get detailed job information
+        const jobData = await apiClient.getJobDetails(job.id);
+        setJobDetails(jobData);
+        
+        // Get customer information if we have a customer ID
+        if (jobData.customer?.id) {
+          try {
+            const customerInfo = await apiClient.getCustomerDetails(jobData.customer.id);
+            setCustomerData(customerInfo);
+            console.log('✅ Customer details loaded:', customerInfo.name);
+          } catch (error) {
+            console.warn('⚠️ Could not load customer details:', error.message);
+            // Don't fail the whole page if customer details fail
+          }
+        }
+        
+        console.log('✅ Job details loaded');
+        
+      } catch (error) {
+        console.error('❌ Error loading job details:', error);
+        // Don't set error state for job details - use the data we have from props
+      } finally {
+        setIsLoadingJobDetails(false);
+      }
+    };
+
+    if (job?.id) {
+      loadJobDetails();
+    }
+  }, [job]);
+
+  // Load attachments
   useEffect(() => {
     const loadAttachments = async () => {
       try {
@@ -97,12 +140,59 @@ export default function Attachments({ job, onBack }) {
     });
   };
 
+  const getStatusIcon = (status) => {
+    const statusName = status?.name || status;
+    switch (statusName?.toLowerCase()) {
+      case 'scheduled': return '📅';
+      case 'dispatched': return '🚚';
+      case 'enroute': return '🛣️';
+      case 'working': return '🔧';
+      case 'hold': return '⏸️';
+      case 'done': return '✅';
+      case 'canceled': return '❌';
+      default: return '📋';
+    }
+  };
+
+  const getStatusClass = (status) => {
+    const statusName = status?.name || status;
+    switch (statusName?.toLowerCase()) {
+      case 'scheduled': return 'status-scheduled';
+      case 'dispatched': return 'status-dispatched';
+      case 'enroute': return 'status-enroute';
+      case 'working': return 'status-working';
+      case 'hold': return 'status-hold';
+      case 'done': return 'status-done';
+      case 'canceled': return 'status-canceled';
+      default: return 'status-default';
+    }
+  };
+
+  // Use jobDetails if available, otherwise fall back to job prop
+  const displayJob = jobDetails || job;
+  const displayCustomer = customerData || displayJob.customer;
+
+  // Extract clean job description from title (remove job number if it's duplicated)
+  const getJobDescription = () => {
+    if (!displayJob.title) return '';
+    
+    // Remove job number if it appears at the start of the title
+    const jobNumber = displayJob.appointmentNumber || displayJob.number;
+    let description = displayJob.title;
+    
+    if (jobNumber && description.startsWith(`Job #${jobNumber}`)) {
+      description = description.replace(`Job #${jobNumber}`, '').replace(/^\s*•\s*/, '').trim();
+    }
+    
+    return description;
+  };
+
   // Show PDF editor if a PDF is selected
   if (selectedPDF) {
     return (
       <PDFEditor
         pdf={selectedPDF}
-        job={job}
+        job={displayJob}
         onClose={handleClosePDF}
         onSave={handleSavePDF}
       />
@@ -112,188 +202,284 @@ export default function Attachments({ job, onBack }) {
   return (
     <div className="page-container">
       {/* Header */}
-      <div className="attachments-header">
-        <div className="header-actions">
-          <button 
-            onClick={onBack} 
-            className="btn btn-secondary"
-            aria-label="Go back to jobs"
-          >
-            ← Back to Jobs
-          </button>
-        </div>
+      <div className="page-header text-center mb-4">
+        <button 
+          onClick={onBack} 
+          className="btn btn-secondary mb-4"
+          aria-label="Go back to jobs"
+        >
+          ← Back to Jobs
+        </button>
         
-        <div className="job-info">
-          <h2 className="page-title">📎 PDF Forms</h2>
-          <div className="job-details">
-            <h3 className="job-customer">{job.title}</h3>
-            <div className="job-meta">
-              <span>Job ID: {job.id}</span>
-              <span>•</span>
-              <span>Appointment: {job.appointmentNumber}</span>
+        <h2>📎 Job Details & PDF Forms</h2>
+        
+        {/* Customer Name */}
+        <h3 className="customer-main-title">
+          {displayCustomer?.name || 'Customer Information'}
+        </h3>
+      </div>
+
+      {/* Main Content - Side by Side Layout */}
+      <div className="main-content-grid">
+        
+        {/* Left Side - Job Details */}
+        <div className="job-details-column">
+          <div className="job-details-card card">
+            {/* Job ID and Status */}
+            <div className="job-header-section">
+              <h4 className="job-number">
+                Job #{displayJob.appointmentNumber || displayJob.number}
+              </h4>
+              <span className={`status-badge ${getStatusClass(displayJob.status)}`}>
+                {getStatusIcon(displayJob.status)} {displayJob.status?.name || displayJob.status || 'Active'}
+              </span>
             </div>
-            {attachments.length > 0 && (
-              <div className="status-message success">
-                ✅ {attachments.length} PDF form{attachments.length !== 1 ? 's' : ''} found
+
+            {/* Description */}
+            {getJobDescription() && (
+              <div className="job-description">
+                <h5 className="section-subtitle">📝 Description</h5>
+                <div className="description-box">
+                  {getJobDescription()}
+                </div>
+              </div>
+            )}
+
+            {/* Priority */}
+            {displayJob.priority && (
+              <div className="job-priority">
+                <span className="metadata-item">⚡ Priority: {displayJob.priority}</span>
+              </div>
+            )}
+
+            {/* Loading overlay for job details */}
+            {isLoadingJobDetails && (
+              <div className="loading-overlay">
+                <div className="loading-spinner"></div>
+                <span className="text-sm">Loading details...</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Side - PDF Forms */}
+        <div className="pdf-forms-column">
+          <div className="pdf-forms-card card">
+            <div className="pdf-header">
+              <h4>📄 PDF Forms</h4>
+              {attachments.length > 0 && (
+                <div className="status-message success">
+                  ✅ {attachments.length} PDF form{attachments.length !== 1 ? 's' : ''} available
+                </div>
+              )}
+            </div>
+
+            {/* Loading State */}
+            {isLoading && (
+              <div className="loading-content text-center">
+                <div className="loading-spinner"></div>
+                <p className="text-gray-600">Loading PDF forms...</p>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="alert alert-error">
+                <span>❌</span>
+                <div>
+                  <strong>Unable to Load PDF Forms</strong>
+                  <p>{error}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && !error && attachments.length === 0 && (
+              <div className="empty-state-compact">
+                <div className="empty-icon">📄</div>
+                <h5>No PDF Forms</h5>
+                <p className="text-gray-600 text-sm">
+                  No PDF forms are attached to this job.
+                </p>
+              </div>
+            )}
+
+            {/* PDF List */}
+            {!isLoading && !error && attachments.length > 0 && (
+              <div className="pdf-list">
+                {attachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    className="pdf-item"
+                    onClick={() => handleOpenPDF(attachment)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        handleOpenPDF(attachment);
+                      }
+                    }}
+                    aria-label={`Open PDF: ${attachment.name}`}
+                  >
+                    <div className="pdf-item-header">
+                      <div className="pdf-icon">📄</div>
+                      <span className="status-badge status-default">PDF</span>
+                    </div>
+                    
+                    <h6 className="pdf-name">{attachment.name}</h6>
+                    
+                    <div className="pdf-meta">
+                      <div className="meta-line">
+                        <span className="meta-label">Added:</span>
+                        <span>{formatDate(attachment.createdOn)}</span>
+                      </div>
+                      {attachment.category && (
+                        <div className="meta-line">
+                          <span className="meta-label">Category:</span>
+                          <span>{attachment.category}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button className="btn btn-primary btn-sm pdf-action-btn">
+                      💾 Fill & Save PDF →
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {/* Loading State */}
-      {isLoading && (
-        <div className="loading-content text-center">
-          <div className="loading-spinner"></div>
-          <h3>Loading PDF Forms</h3>
-          <p className="text-gray-600">Fetching forms from ServiceTitan...</p>
-        </div>
-      )}
-
-      {/* Error State */}
-      {error && (
-        <>
-          <div className="alert alert-error">
-            <span>❌</span>
-            <div>
-              <strong>Unable to Load PDF Forms</strong>
-              <p>{error}</p>
-            </div>
-          </div>
-          <div className="text-center mt-4">
-            <button 
-              className="btn btn-primary"
-              onClick={() => window.location.reload()}
-            >
-              🔄 Try Again
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* Empty State */}
-      {!isLoading && !error && attachments.length === 0 && (
-        <div className="empty-state">
-          <div className="empty-icon">📄</div>
-          <h3>No PDF Forms Available</h3>
-          <p className="text-gray-600">
-            This appointment does not have any PDF forms attached.
-            <br />
-            PDF forms will appear here when they are uploaded to the job in ServiceTitan.
-          </p>
-          
-          <div className="info-box">
-            <strong>Note:</strong> Only PDF documents are shown in this portal. 
-            Other file types (images, Word docs, etc.) are not displayed but may be 
-            available in the main ServiceTitan application.
-          </div>
-        </div>
-      )}
-
-      {/* PDF Grid */}
-      {!isLoading && !error && attachments.length > 0 && (
-        <div className="attachments-grid grid grid-auto-fit">
-          {attachments.map((attachment) => (
-            <div
-              key={attachment.id}
-              className="attachment-card card"
-              onClick={() => handleOpenPDF(attachment)}
-              role="button"
-              tabIndex={0}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  handleOpenPDF(attachment);
-                }
-              }}
-              aria-label={`Open PDF: ${attachment.name}`}
-            >
-              {/* Card Header */}
-              <div className="card-header">
-                <div className="attachment-icon">
-                  📄
-                </div>
-                <div className="attachment-type">
-                  <span className="status-badge status-default">PDF</span>
-                </div>
-              </div>
-
-              {/* Card Body */}
-              <div className="card-body">
-                <h4 className="attachment-name font-semibold mb-2">
-                  {attachment.name}
-                </h4>
-                
-                <div className="attachment-meta text-sm text-gray-600">
-                  {attachment.size > 0 && (
-                    <div className="meta-item">
-                      <span className="meta-label">Size:</span>
-                      <span>{formatFileSize(attachment.size)}</span>
-                    </div>
-                  )}
-                  <div className="meta-item">
-                    <span className="meta-label">Added:</span>
-                    <span>{formatDate(attachment.createdOn)}</span>
-                  </div>
-                  {attachment.category && (
-                    <div className="meta-item">
-                      <span className="meta-label">Category:</span>
-                      <span>{attachment.category}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Card Footer */}
-              <div className="card-footer">
-                <button className="btn btn-primary btn-sm">
-                  💾 Fill & Save PDF →
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
-// Additional Attachments-specific styles
+// Side-by-side layout styles
 const attachmentsStyles = `
-.attachments-header {
-  margin-bottom: var(--spacing-xl);
-  padding-bottom: var(--spacing-lg);
-  border-bottom: 2px solid var(--gray-200);
+.page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-xl);
 }
 
-.header-actions {
-  margin-bottom: var(--spacing-md);
-}
-
-.job-info {
-  text-align: center;
-}
-
-.page-title {
+.page-header h2 {
   font-size: 2rem;
   font-weight: 700;
   color: var(--gray-800);
   margin-bottom: var(--spacing-sm);
 }
 
-.job-customer {
-  font-size: 1.3rem;
+.customer-main-title {
+  font-size: 1.4rem;
   font-weight: 600;
   color: var(--gray-700);
-  margin-bottom: var(--spacing-xs);
+  margin: var(--spacing-sm) 0;
 }
 
-.job-meta {
+/* Main Side-by-Side Layout */
+.main-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-xl);
+  align-items: start;
+}
+
+/* Job Details Column (Left) */
+.job-details-column {
+  position: relative;
+}
+
+.job-details-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.job-header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 2px solid var(--gray-200);
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.job-number {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin: 0;
+}
+
+.section-subtitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: var(--spacing-sm);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
+}
+
+.job-description {
+  margin-bottom: var(--spacing-lg);
+}
+
+.job-priority {
+  margin-top: var(--spacing-md);
+}
+
+.description-box {
+  background: var(--white);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gray-300);
+  line-height: 1.5;
+  color: var(--gray-700);
+}
+
+.job-metadata {
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--gray-200);
+}
+
+.metadata-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+.metadata-item {
   font-size: 0.9rem;
   color: var(--gray-600);
+  background: var(--gray-100);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+}
+
+/* PDF Forms Column (Right) */
+.pdf-forms-column {
+  position: relative;
+}
+
+.pdf-forms-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.pdf-header {
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 2px solid var(--gray-200);
+  text-align: center;
+}
+
+.pdf-header h4 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--gray-800);
   margin-bottom: var(--spacing-sm);
 }
 
@@ -313,132 +499,164 @@ const attachmentsStyles = `
   border: 1px solid #9ae6b4;
 }
 
-.empty-state {
-  text-align: center;
-  padding: var(--spacing-2xl);
-  background: var(--white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  border: 2px dashed var(--gray-300);
-  margin: var(--spacing-xl) 0;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: var(--spacing-lg);
-  opacity: 0.6;
-}
-
-.empty-state h3 {
-  color: var(--gray-700);
-  margin-bottom: var(--spacing-sm);
-  font-size: 1.5rem;
-}
-
-.info-box {
-  margin-top: var(--spacing-lg);
-  padding: var(--spacing-md);
-  background: var(--gray-100);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--gray-300);
-  font-size: 0.9rem;
-  color: var(--gray-700);
-  text-align: left;
-}
-
-.attachments-grid {
-  margin-top: var(--spacing-xl);
-}
-
-.attachment-card {
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  border: 2px solid transparent;
-  height: 100%;
+/* PDF List - Vertical Stack */
+.pdf-list {
   display: flex;
   flex-direction: column;
+  gap: var(--spacing-lg);
 }
 
-.attachment-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+.pdf-item {
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  background: var(--white);
+}
+
+.pdf-item:hover {
   border-color: var(--primary-color);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
-.attachment-card:focus {
+.pdf-item:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.attachment-icon {
-  font-size: 2.5rem;
-  color: var(--error-color);
-  margin-bottom: var(--spacing-sm);
-}
-
-.attachment-type {
-  position: absolute;
-  top: var(--spacing-sm);
-  right: var(--spacing-sm);
-}
-
-.attachment-name {
-  color: var(--gray-800);
-  line-height: 1.3;
-  word-break: break-word;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.attachment-meta {
-  flex: 1;
-}
-
-.meta-item {
+.pdf-item-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-xs);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.pdf-icon {
+  font-size: 2rem;
+  color: var(--error-color);
+}
+
+.pdf-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-800);
+  margin-bottom: var(--spacing-md);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.pdf-meta {
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.meta-line {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
 }
 
 .meta-label {
   font-weight: 500;
-  color: var(--gray-500);
+  min-width: 60px;
 }
 
-.attachment-card .btn {
-  transition: var(--transition-normal);
+.pdf-action-btn {
   width: 100%;
+  font-size: 0.9rem;
+  padding: var(--spacing-sm) var(--spacing-md);
 }
 
-.attachment-card:hover .btn {
+.pdf-item:hover .pdf-action-btn {
   background: var(--primary-dark);
-  transform: translateY(-1px);
+}
+
+/* Loading and Empty States */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  border-radius: var(--radius-lg);
+}
+
+.loading-overlay .loading-spinner {
+  width: 30px;
+  height: 30px;
+}
+
+.loading-content {
+  padding: var(--spacing-xl);
+}
+
+.empty-state-compact {
+  text-align: center;
+  padding: var(--spacing-xl);
+}
+
+.empty-state-compact .empty-icon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.6;
+}
+
+.empty-state-compact h5 {
+  color: var(--gray-700);
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Responsive Design */
+@media (max-width: 968px) {
+  .main-content-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-xl);
+  }
+  
+  .page-container {
+    padding: 0 var(--spacing-md);
+  }
 }
 
 @media (max-width: 768px) {
-  .page-title {
+  .page-header h2 {
     font-size: 1.6rem;
   }
   
-  .job-meta {
+  .customer-main-title {
+    font-size: 1.2rem;
+  }
+  
+  .job-header-section {
     flex-direction: column;
-    gap: var(--spacing-xs);
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .customer-location, .job-description {
+    padding: var(--spacing-sm);
   }
   
-  .job-meta span:nth-child(2) {
-    display: none; /* Hide separator on mobile */
+  .pdf-item {
+    padding: var(--spacing-sm);
   }
   
-  .empty-state {
-    padding: var(--spacing-xl);
-  }
-  
-  .empty-icon {
-    font-size: 3rem;
+  .job-number {
+    font-size: 1.1rem;
   }
 }
 `;
