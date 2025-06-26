@@ -1,69 +1,20 @@
-// backend/api/jobs.js - Jobs API
+// api/jobs.js - Jobs API (Optimized for Serverless)
 const express = require('express');
+const serviceTitan = require('../utils/serviceTitan');
 const router = express.Router();
 
 // ✅ GET SPECIFIC JOB DETAILS
 router.get('/job/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
-    const { authenticateServiceTitan } = req.app.locals.helpers;
     
     console.log(`📋 Fetching job details: ${jobId}`);
     
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: 'ServiceTitan authentication failed'
-      });
-    }
+    const endpoint = serviceTitan.buildTenantUrl('jpm') + `/jobs/${jobId}`;
+    const jobData = await serviceTitan.apiCall(endpoint);
     
-    const fetch = (await import('node-fetch')).default;
-    const tenantId = process.env.REACT_APP_SERVICETITAN_TENANT_ID;
-    const appKey = process.env.REACT_APP_SERVICETITAN_APP_KEY;
-    const apiBaseUrl = process.env.REACT_APP_SERVICETITAN_API_BASE_URL;
-    const accessToken = tokenResult.accessToken;
-    
-    const jobUrl = `${apiBaseUrl}/jpm/v2/tenant/${tenantId}/jobs/${jobId}`;
-    
-    const response = await fetch(jobUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'ST-App-Key': appKey,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        return res.status(404).json({
-          success: false,
-          error: 'Job not found',
-          jobId: jobId
-        });
-      }
-      
-      const errorText = await response.text();
-      console.error(`❌ ServiceTitan Job API error: ${response.status} - ${errorText}`);
-      throw new Error(`API error: ${response.statusText}`);
-    }
-
-    const jobData = await response.json();
-    
-    // Clean up job title
-    let title = jobData.summary || 'Service Call';
-    title = title.replace(/<[^>]*>/g, ' ')
-                 .replace(/&[^;]+;/g, ' ')
-                 .replace(/\s+/g, ' ')
-                 .trim();
-    
-    if (title.length > 200) {
-      title = title.substring(0, 200) + '...';
-    }
-    
-    if (!title || title.length < 3) {
-      title = 'Service Call';
-    }
+    // Use utility method to clean job title
+    const title = serviceTitan.cleanJobTitle(jobData.summary);
     
     const transformedJob = {
       id: jobData.id,
@@ -79,108 +30,99 @@ router.get('/job/:jobId', async (req, res) => {
         name: `Location #${jobData.locationId}`
       },
       scheduledDate: jobData.createdOn,
-      businessUnit: jobData.businessUnitId ? `Business Unit #${jobData.businessUnitId}` : 'General',
-      priority: jobData.priority || 'Normal',
-      duration: jobData.duration || null
+      businessUnit: jobData.businessUnitId ? {
+        id: jobData.businessUnitId,
+        name: `Business Unit #${jobData.businessUnitId}`
+      } : null,
+      
+      // Additional job details
+      priority: jobData.priority,
+      type: jobData.jobType,
+      category: jobData.category,
+      duration: jobData.duration,
+      
+      // Raw ServiceTitan data for advanced use cases
+      serviceTitanData: {
+        id: jobData.id,
+        jobNumber: jobData.jobNumber,
+        summary: jobData.summary,
+        jobStatus: jobData.jobStatus,
+        customerId: jobData.customerId,
+        locationId: jobData.locationId,
+        businessUnitId: jobData.businessUnitId,
+        createdOn: jobData.createdOn,
+        modifiedOn: jobData.modifiedOn
+      }
     };
     
-    console.log(`✅ Job details fetched: ${transformedJob.number}`);
+    console.log(`✅ Job details fetched: ${transformedJob.number} - ${transformedJob.title}`);
     
     res.json({
       success: true,
-      data: transformedJob
+      data: transformedJob,
+      jobId: jobData.id
     });
     
   } catch (error) {
     console.error('❌ Error fetching job details:', error);
+    
+    if (error.message.includes('404')) {
+      return res.status(404).json({
+        success: false,
+        error: 'Job not found',
+        jobId: req.params.jobId
+      });
+    }
+    
     res.status(500).json({ 
       success: false,
       error: 'Server error fetching job details',
-      details: error.message
+      jobId: req.params.jobId
     });
   }
 });
 
-// ✅ GET COMPLETED FORMS FOR A JOB
+// ✅ GET COMPLETED FORMS FOR A JOB (Optional endpoint)
 router.get('/job/:jobId/completed-forms', async (req, res) => {
   try {
     const { jobId } = req.params;
-    const { authenticateServiceTitan } = req.app.locals.helpers;
     
     console.log(`📋 Fetching completed forms for job: ${jobId}`);
     
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: 'ServiceTitan authentication failed'
+    const endpoint = serviceTitan.buildTenantUrl('forms') + `/jobs/${jobId}/completed-forms`;
+    
+    try {
+      const formsData = await serviceTitan.apiCall(endpoint);
+      const forms = formsData.data || [];
+      
+      console.log(`✅ Found ${forms.length} completed forms for job ${jobId}`);
+      
+      res.json({
+        success: true,
+        data: forms,
+        count: forms.length,
+        jobId: jobId
       });
-    }
-    
-    const fetch = (await import('node-fetch')).default;
-    const tenantId = process.env.REACT_APP_SERVICETITAN_TENANT_ID;
-    const appKey = process.env.REACT_APP_SERVICETITAN_APP_KEY;
-    const apiBaseUrl = process.env.REACT_APP_SERVICETITAN_API_BASE_URL;
-    const accessToken = tokenResult.accessToken;
-    
-    // Get all attachments for this job
-    const attachmentsUrl = `${apiBaseUrl}/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
-    
-    const response = await fetch(attachmentsUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'ST-App-Key': appKey,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
+      
+    } catch (error) {
+      if (error.message.includes('404')) {
         return res.json({
           success: true,
           data: [],
           count: 0,
-          message: 'No completed forms found for this job'
+          message: 'No completed forms found for this job',
+          jobId: jobId
         });
       }
-      throw new Error(`API error: ${response.statusText}`);
+      throw error;
     }
-
-    const attachmentsData = await response.json();
-    const attachments = attachmentsData.data || [];
-    
-    // Filter for completed forms (look for our naming pattern)
-    const completedForms = attachments.filter(attachment => {
-      const fileName = attachment.fileName || attachment.name || '';
-      return fileName.includes('_completed_') || fileName.includes('_form_data');
-    });
-    
-    // Transform for frontend
-    const transformedForms = completedForms.map(form => ({
-      id: form.id,
-      fileName: form.fileName,
-      type: form.fileName.includes('.json') ? 'Form Data' : 'Completed PDF',
-      size: form.size || 0,
-      completedAt: form.createdOn || form.modifiedOn,
-      downloadUrl: form.downloadUrl,
-      serviceTitanId: form.id
-    }));
-    
-    console.log(`✅ Found ${transformedForms.length} completed forms for job ${jobId}`);
-    
-    res.json({
-      success: true,
-      data: transformedForms,
-      count: transformedForms.length,
-      jobId: jobId
-    });
     
   } catch (error) {
     console.error('❌ Error fetching completed forms:', error);
     res.status(500).json({ 
       success: false,
       error: 'Server error fetching completed forms',
-      details: error.message
+      jobId: req.params.jobId
     });
   }
 });

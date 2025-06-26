@@ -1,196 +1,149 @@
-// backend/api/attachments.js - Attachments API
+// api/attachments.js - Attachments API (Optimized for Serverless)
 const express = require('express');
+const serviceTitan = require('../utils/serviceTitan');
 const router = express.Router();
 
 // ✅ GET JOB ATTACHMENTS
 router.get('/job/:jobId/attachments', async (req, res) => {
   try {
     const { jobId } = req.params;
-    const { authenticateServiceTitan } = req.app.locals.helpers;
     
     console.log(`📎 Fetching attachments for job: ${jobId}`);
     
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: 'ServiceTitan authentication failed'
+    const endpoint = serviceTitan.buildTenantUrl('forms') + `/jobs/${jobId}/attachments`;
+    
+    try {
+      const attachmentsData = await serviceTitan.apiCall(endpoint);
+      const attachments = attachmentsData.data || [];
+      
+      // Filter for PDF files only
+      const pdfAttachments = attachments.filter(attachment => {
+        const fileName = attachment.fileName || attachment.name || '';
+        const mimeType = attachment.mimeType || attachment.contentType || '';
+        const fileExtension = fileName.toLowerCase().split('.').pop();
+        
+        return fileExtension === 'pdf' || mimeType === 'application/pdf';
       });
-    }
-    
-    const fetch = (await import('node-fetch')).default;
-    const tenantId = process.env.REACT_APP_SERVICETITAN_TENANT_ID;
-    const appKey = process.env.REACT_APP_SERVICETITAN_APP_KEY;
-    const apiBaseUrl = process.env.REACT_APP_SERVICETITAN_API_BASE_URL || 'https://api-integration.servicetitan.io';
-    const accessToken = tokenResult.accessToken;
-    
-    const attachmentsUrl = `${apiBaseUrl}/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
-    
-    const response = await fetch(attachmentsUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'ST-App-Key': appKey,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
+      
+      // Transform attachments for frontend
+      const transformedAttachments = pdfAttachments.map(attachment => ({
+        id: attachment.id,
+        serviceTitanId: attachment.id,
+        name: attachment.fileName || attachment.name || 'Unnamed PDF',
+        fileName: attachment.fileName || attachment.name,
+        mimeType: attachment.mimeType || attachment.contentType || 'application/pdf',
+        size: attachment.size || 0,
+        sizeFormatted: attachment.size ? `${Math.round(attachment.size / 1024)} KB` : 'Unknown size',
+        createdOn: attachment.createdOn || attachment.uploadedOn,
+        modifiedOn: attachment.modifiedOn,
+        jobId: jobId,
+        downloadUrl: `/api/job/${jobId}/attachment/${attachment.id}/download`,
+        canEdit: true,
+        category: attachment.category || 'PDF Form',
+        
+        // Additional metadata
+        uploadedBy: attachment.uploadedBy,
+        description: attachment.description,
+        tags: attachment.tags || []
+      }));
+      
+      console.log(`✅ Found ${transformedAttachments.length} PDF attachments out of ${attachments.length} total attachments`);
+      
+      res.json({
+        success: true,
+        data: transformedAttachments,
+        count: transformedAttachments.length,
+        totalAttachments: attachments.length,
+        jobId: jobId
+      });
+      
+    } catch (error) {
+      if (error.message.includes('404')) {
         return res.json({
           success: true,
           data: [],
           count: 0,
-          message: 'No attachments found for this job'
+          message: 'No attachments found for this job',
+          jobId: jobId
         });
       }
-      
-      const errorText = await response.text();
-      console.error(`❌ ServiceTitan Forms API error: ${response.status} - ${errorText}`);
-      throw new Error(`Forms API error: ${response.statusText}`);
+      throw error;
     }
-
-    const attachmentsData = await response.json();
-    const attachments = attachmentsData.data || [];
-    
-    // Filter for PDF files only
-    const pdfAttachments = attachments.filter(attachment => {
-      const fileName = attachment.fileName || attachment.name || '';
-      const mimeType = attachment.mimeType || attachment.contentType || '';
-      const fileExtension = fileName.toLowerCase().split('.').pop();
-      
-      return fileExtension === 'pdf' || mimeType.includes('pdf');
-    });
-    
-    // Transform attachments for frontend
-    const transformedAttachments = pdfAttachments.map((attachment, index) => {
-      const fileName = attachment.fileName || attachment.name || `Document ${index + 1}`;
-      const fileNameWithoutExt = fileName.replace(/\.pdf$/i, '');
-      
-      return {
-        id: attachment.id || `attachment_${index}`,
-        name: fileNameWithoutExt,
-        fileName: fileName,
-        type: 'PDF Document',
-        status: 'Available',
-        active: true,
-        size: attachment.size || attachment.fileSize || 0,
-        createdOn: attachment.createdOn || attachment.dateCreated || attachment.modifiedOn || new Date().toISOString(),
-        downloadUrl: attachment.downloadUrl || attachment.url || null,
-        serviceTitanId: attachment.id,
-        jobId: jobId,
-        mimeType: attachment.mimeType || attachment.contentType || 'application/pdf'
-      };
-    });
-    
-    console.log(`✅ Found ${transformedAttachments.length} PDF attachments for job ${jobId}`);
-    
-    res.json({
-      success: true,
-      data: transformedAttachments,
-      count: transformedAttachments.length,
-      jobId: jobId
-    });
     
   } catch (error) {
     console.error('❌ Error fetching job attachments:', error);
     res.status(500).json({ 
       success: false,
       error: 'Server error fetching job attachments',
-      details: error.message
+      jobId: req.params.jobId
     });
   }
 });
 
-// ✅ DOWNLOAD PDF ATTACHMENT
+// ✅ DOWNLOAD ATTACHMENT
 router.get('/job/:jobId/attachment/:attachmentId/download', async (req, res) => {
   try {
     const { jobId, attachmentId } = req.params;
-    const { authenticateServiceTitan } = req.app.locals.helpers;
     
-    console.log(`📥 Downloading PDF attachment: ${attachmentId} from job: ${jobId}`);
+    console.log(`📥 Downloading attachment: ${attachmentId} for job: ${jobId}`);
     
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: 'ServiceTitan authentication failed'
-      });
-    }
+    const endpoint = serviceTitan.buildTenantUrl('forms') + `/jobs/${jobId}/attachments/${attachmentId}/download`;
     
-    const fetch = (await import('node-fetch')).default;
-    const tenantId = process.env.REACT_APP_SERVICETITAN_TENANT_ID;
-    const appKey = process.env.REACT_APP_SERVICETITAN_APP_KEY;
-    const apiBaseUrl = process.env.REACT_APP_SERVICETITAN_API_BASE_URL || 'https://api-integration.servicetitan.io';
-    const accessToken = tokenResult.accessToken;
-    
-    // ✅ WORKING PATTERN: ServiceTitan redirects to Azure Blob Storage
-    const downloadUrl = `${apiBaseUrl}/forms/v2/tenant/${tenantId}/jobs/attachment/${attachmentId}`;
-    
-    console.log(`🔗 Fetching PDF from ServiceTitan: ${downloadUrl}`);
-    
-    const response = await fetch(downloadUrl, {
-      method: 'GET',
+    // Use raw fetch for file downloads
+    const response = await serviceTitan.rawFetch(endpoint, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'ST-App-Key': appKey
-      },
-      redirect: 'follow' // Follow redirects to Azure Blob Storage
+        'Content-Type': undefined // Let ServiceTitan set the content type
+      }
     });
     
     if (!response.ok) {
-      console.error(`❌ Download failed: ${response.status} ${response.statusText}`);
-      return res.status(response.status).json({
-        success: false,
-        error: `Failed to download attachment: ${response.statusText}`
-      });
+      const errorText = await response.text();
+      throw new Error(`Download failed: ${response.status} - ${errorText}`);
     }
     
-    // Get the PDF content as buffer (binary data)
-    const fileBuffer = await response.buffer();
+    // Get content type and filename from response headers
     const contentType = response.headers.get('content-type') || 'application/pdf';
-    const finalUrl = response.url; // Azure Blob URL after redirect
+    const contentDisposition = response.headers.get('content-disposition');
     
-    // ✅ VALIDATE THAT WE HAVE A REAL PDF
-    const isPdfValid = fileBuffer.length > 0 && fileBuffer.toString('ascii', 0, 4) === '%PDF';
-    const pdfVersion = isPdfValid ? fileBuffer.toString('ascii', 0, 8) : 'Invalid';
-    
-    console.log(`📊 PDF Download Analysis:`, {
-      success: true,
-      fileSize: `${fileBuffer.length} bytes`,
-      contentType: contentType,
-      finalUrl: finalUrl.includes('blob.core.windows.net') ? '✅ Azure Blob Storage' : 'Other source',
-      isPdfValid: isPdfValid ? '✅ Valid PDF' : '❌ Invalid PDF',
-      pdfVersion: pdfVersion
-    });
-    
-    if (!isPdfValid) {
-      console.error(`❌ Invalid PDF data received for attachment ${attachmentId}`);
-      return res.status(500).json({
-        success: false,
-        error: 'Downloaded file is not a valid PDF'
-      });
+    let filename = `attachment-${attachmentId}.pdf`;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (match && match[1]) {
+        filename = match[1].replace(/['"]/g, '');
+      }
     }
     
-    // ✅ Send binary PDF data with proper headers
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Length': fileBuffer.length,
-      'Content-Disposition': `inline; filename="attachment_${attachmentId}.pdf"`,
-      'Cache-Control': 'private, max-age=3600',
-      'Accept-Ranges': 'bytes'
-    });
+    // Stream the file back to client
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     
-    // Send the raw binary PDF data
-    res.send(fileBuffer);
+    // If response has content-length, set it
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
     
-    console.log(`✅ PDF successfully served: ${fileBuffer.length} bytes`);
+    console.log(`✅ Streaming attachment: ${filename} (${contentType})`);
+    
+    response.body.pipe(res);
     
   } catch (error) {
-    console.error('❌ Error downloading PDF attachment:', error);
+    console.error('❌ Error downloading attachment:', error);
+    
+    if (error.message.includes('404')) {
+      return res.status(404).json({
+        success: false,
+        error: 'Attachment not found',
+        jobId: req.params.jobId,
+        attachmentId: req.params.attachmentId
+      });
+    }
+    
     res.status(500).json({ 
       success: false,
-      error: 'Server error downloading PDF attachment',
-      details: error.message
+      error: 'Server error downloading attachment',
+      jobId: req.params.jobId,
+      attachmentId: req.params.attachmentId
     });
   }
 });
@@ -199,130 +152,131 @@ router.get('/job/:jobId/attachment/:attachmentId/download', async (req, res) => 
 router.post('/job/:jobId/attachment/:attachmentId/save', async (req, res) => {
   try {
     const { jobId, attachmentId } = req.params;
-    const { authenticateServiceTitan } = req.app.locals.helpers;
-    const { 
-      editableElements, 
-      filledPdfData, 
-      jobInfo, 
-      originalFileName,
-      metadata 
-    } = req.body;
+    const formData = req.body;
     
     console.log(`💾 Saving completed PDF form: ${attachmentId} for job: ${jobId}`);
     
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({
+    // Validate required data
+    if (!formData || typeof formData !== 'object') {
+      return res.status(400).json({
         success: false,
-        error: 'ServiceTitan authentication failed'
+        error: 'Form data is required'
       });
     }
     
-    const fetch = (await import('node-fetch')).default;
-    const FormData = require('form-data');
-    const tenantId = process.env.REACT_APP_SERVICETITAN_TENANT_ID;
-    const appKey = process.env.REACT_APP_SERVICETITAN_APP_KEY;
-    const apiBaseUrl = process.env.REACT_APP_SERVICETITAN_API_BASE_URL;
-    const accessToken = tokenResult.accessToken;
+    const endpoint = serviceTitan.buildTenantUrl('forms') + `/jobs/${jobId}/attachments/${attachmentId}/save`;
     
-    // Create form data JSON
-    const formDataJson = {
-      originalAttachmentId: attachmentId,
-      jobId: jobId,
-      completedAt: new Date().toISOString(),
-      jobInfo: jobInfo,
-      metadata: metadata || {
-        version: '1.0.0',
-        source: 'TitanPDF Mobile Editor',
-        elementCount: editableElements.length
+    const result = await serviceTitan.apiCall(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
       },
-      formElements: editableElements.map(element => ({
-        id: element.id,
-        type: element.type,
-        value: element.value,
-        position: {
-          x: element.x,
-          y: element.y,
-          width: element.width,
-          height: element.height
-        },
-        page: element.page,
-        fieldName: element.fieldName || null,
-        isPdfField: element.isPdfField || false
-      }))
-    };
+      body: JSON.stringify(formData)
+    });
     
-    // Save as JSON file
-    const jsonFileName = originalFileName.replace('.pdf', '_form_data.json');
-    const jsonBlob = JSON.stringify(formDataJson, null, 2);
+    console.log(`✅ PDF form saved successfully for attachment: ${attachmentId}`);
     
-    try {
-      // Upload form data to ServiceTitan
-      const uploadUrl = `${apiBaseUrl}/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
-      
-      const formData = new FormData();
-      formData.append('file', Buffer.from(jsonBlob), {
-        filename: jsonFileName,
-        contentType: 'application/json'
-      });
-      
-      const response = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'ST-App-Key': appKey,
-          ...formData.getHeaders()
-        },
-        body: formData
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        
-        console.log(`✅ Form data saved to ServiceTitan: ${result.id || result.attachmentId}`);
-        
-        res.json({
-          success: true,
-          message: 'PDF form completed and saved successfully',
-          data: {
-            originalAttachmentId: attachmentId,
-            formDataFileId: result.id || result.attachmentId,
-            formDataFileName: jsonFileName,
-            completedAt: new Date().toISOString(),
-            elementCount: editableElements.length,
-            jobInfo: jobInfo
-          }
-        });
-        
-      } else {
-        const errorText = await response.text();
-        console.error(`❌ ServiceTitan upload failed: ${response.status} - ${errorText}`);
-        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
-      }
-      
-    } catch (uploadError) {
-      console.error('❌ Error uploading to ServiceTitan:', uploadError);
-      
-      // Fallback: Return the data for client-side handling
-      res.json({
-        success: true,
-        message: 'PDF form completed (saved locally)',
-        fallback: true,
-        data: {
-          originalAttachmentId: attachmentId,
-          formData: formDataJson,
-          completedAt: new Date().toISOString(),
-          note: 'Form data saved locally - ServiceTitan upload failed'
-        }
-      });
-    }
+    res.json({
+      success: true,
+      data: result,
+      jobId: jobId,
+      attachmentId: attachmentId,
+      message: 'PDF form saved successfully'
+    });
     
   } catch (error) {
-    console.error('❌ Error saving completed PDF form:', error);
+    console.error('❌ Error saving PDF form:', error);
+    
+    if (error.message.includes('400')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid form data provided',
+        jobId: req.params.jobId,
+        attachmentId: req.params.attachmentId
+      });
+    }
+    
+    if (error.message.includes('404')) {
+      return res.status(404).json({
+        success: false,
+        error: 'Job or attachment not found',
+        jobId: req.params.jobId,
+        attachmentId: req.params.attachmentId
+      });
+    }
+    
     res.status(500).json({ 
       success: false,
-      error: 'Server error saving completed PDF form',
-      details: error.message
+      error: 'Server error saving PDF form',
+      jobId: req.params.jobId,
+      attachmentId: req.params.attachmentId
+    });
+  }
+});
+
+// ✅ GENERATE FILLED PDF (Optional endpoint)
+router.post('/job/:jobId/attachment/:attachmentId/generate-pdf', async (req, res) => {
+  try {
+    const { jobId, attachmentId } = req.params;
+    const formData = req.body;
+    
+    console.log(`📄 Generating filled PDF: ${attachmentId} for job: ${jobId}`);
+    
+    if (!formData || typeof formData !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'Form data is required'
+      });
+    }
+    
+    const endpoint = serviceTitan.buildTenantUrl('forms') + `/jobs/${jobId}/attachments/${attachmentId}/generate-pdf`;
+    
+    const response = await serviceTitan.rawFetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(formData)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`PDF generation failed: ${response.status} - ${errorText}`);
+    }
+    
+    // Stream the generated PDF back to client
+    const contentType = response.headers.get('content-type') || 'application/pdf';
+    const filename = `filled-form-${attachmentId}-${Date.now()}.pdf`;
+    
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
+    
+    console.log(`✅ Streaming generated PDF: ${filename}`);
+    
+    response.body.pipe(res);
+    
+  } catch (error) {
+    console.error('❌ Error generating filled PDF:', error);
+    
+    if (error.message.includes('400')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid form data for PDF generation',
+        jobId: req.params.jobId,
+        attachmentId: req.params.attachmentId
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error generating filled PDF',
+      jobId: req.params.jobId,
+      attachmentId: req.params.attachmentId
     });
   }
 });
