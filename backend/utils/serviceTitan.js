@@ -7,7 +7,7 @@ class ServiceTitanClient {
     this.clientSecret = process.env.REACT_APP_SERVICETITAN_CLIENT_SECRET;
     this.tenantId = process.env.REACT_APP_SERVICETITAN_TENANT_ID;
     this.appKey = process.env.REACT_APP_SERVICETITAN_APP_KEY;
-    this.apiBaseUrl = process.env.REACT_APP_SERVICETITAN_API_BASE_URL || 'https://api-integration.servicetitan.io';
+    this.apiBaseUrl = process.env.REACT_APP_SERVICETITAN_API_BASE_URL;
     
     // Cache token for reuse within same execution
     this.tokenCache = null;
