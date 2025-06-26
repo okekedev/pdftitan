@@ -1,4 +1,4 @@
-// server.js - Fixed ServiceTitan OAuth2 with Correct Endpoints
+// server.js - Fixed ServiceTitan OAuth2 with Correct Endpoints (Updated imports)
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -206,6 +206,11 @@ class ServiceTitanClient {
     const fetch = (await import('node-fetch')).default;
     const headers = await this.getAuthHeaders();
     
+    // Remove Content-Type for file downloads if undefined
+    if (options.headers && options.headers['Content-Type'] === undefined) {
+      delete headers['Content-Type'];
+    }
+    
     const url = `${this.apiBaseUrl}${endpoint}`;
     
     return fetch(url, {
@@ -320,29 +325,27 @@ app.use((req, res, next) => {
   next();
 });
 
-// Import API modules AFTER setting up global serviceTitan
+// ✅ FIXED: Import API modules AFTER setting up global serviceTitan
 const authAPI = require('./api/auth');
-const appointmentsAPI = require('./api/appointments');
-const jobsAPI = require('./api/jobs');
+const jobsAPI = require('./api/jobs'); // ✅ Changed from appointments to jobs
 const attachmentsAPI = require('./api/attachments');
 
-// API Routes
+// ✅ FIXED: API Routes - removed old appointments API, using jobs API
 app.use('/api', authAPI);
-app.use('/api', appointmentsAPI);
-app.use('/api', jobsAPI);
+app.use('/api', jobsAPI); // ✅ Jobs API handles both job listing and job details
 app.use('/api', attachmentsAPI);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
-    message: 'TitanPDF Backend API (Fixed OAuth2 Endpoints)',
+    message: 'TitanPDF Backend API (Job-Focused Architecture)',
     mode: isDevelopment ? 'development' : 'production',
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
     version: '2.0.0',
-    architecture: 'Server + ServiceTitan Client + Modular API',
-    serviceIntitan: {
+    architecture: 'Server + ServiceTitan Client + Job-Focused API',
+    serviceIntegration: {
       configured: !!(
         process.env.REACT_APP_SERVICETITAN_TENANT_ID && 
         process.env.REACT_APP_SERVICETITAN_APP_KEY &&
@@ -369,20 +372,30 @@ if (!isDevelopment) {
 } else {
   app.get('/', (req, res) => {
     res.json({
-      message: 'TitanPDF API Server (Development Mode) - Fixed OAuth2 Endpoints',
+      message: 'TitanPDF API Server (Development Mode) - Job-Focused Architecture',
       note: 'Run your React dev server separately for hot reload',
       version: '2.0.0',
-      architecture: 'Server + ServiceTitan Client + Modular API',
-      fixes: [
+      architecture: 'Server + ServiceTitan Client + Job-Focused API',
+      improvements: [
+        'Job-focused API instead of appointment-focused',
         'Fixed OAuth2 endpoints (auth-integration.servicetitan.io vs api-integration.servicetitan.io)',
         'Proper client credentials flow implementation',
         'Better error handling for OAuth2 responses',
         'Environment-specific OAuth endpoint detection'
-      ]
+      ],
+      endpoints: {
+        health: 'GET /health',
+        technicianValidate: 'POST /api/technician/validate',
+        technicianJobs: 'GET /api/technician/:id/jobs', // ✅ Updated endpoint name
+        jobDetails: 'GET /api/job/:jobId',
+        jobAttachments: 'GET /api/job/:jobId/attachments',
+        downloadAttachment: 'GET /api/job/:jobId/attachment/:attachmentId/download',
+        saveAttachment: 'POST /api/job/:jobId/attachment/:attachmentId/save'
+      }
     });
   });
   
-  console.log('🛠️ Development mode: API-only server with fixed OAuth2');
+  console.log('🛠️ Development mode: API-only server with job-focused architecture');
   console.log('🔥 Run your React app separately for hot reload');
 }
 
@@ -402,17 +415,26 @@ app.use((req, res) => {
     success: false,
     error: 'Endpoint not found',
     path: req.path,
-    method: req.method
+    method: req.method,
+    availableEndpoints: [
+      'GET /health',
+      'POST /api/technician/validate',
+      'GET /api/technician/:id/jobs',  // ✅ Updated endpoint documentation
+      'GET /api/job/:jobId',
+      'GET /api/job/:jobId/attachments',
+      'GET /api/job/:jobId/attachment/:attachmentId/download',
+      'POST /api/job/:jobId/attachment/:attachmentId/save'
+    ]
   });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log('🚀 TitanPDF Server with Correct ServiceTitan OAuth2');
+  console.log('🚀 TitanPDF Server with Job-Focused Architecture');
   console.log(`📡 Server: http://localhost:${PORT}`);
   console.log(`🌍 Mode: ${isDevelopment ? 'Development' : 'Production'}`);
   console.log(`🔍 Health check: http://localhost:${PORT}/health`);
-  console.log('🎯 Architecture: Server + ServiceTitan Client + Modular API (OAuth2 Fixed)');
+  console.log('🎯 Architecture: Server + ServiceTitan Client + Job-Focused API');
   console.log('');
   
   if (isDevelopment) {
@@ -420,9 +442,20 @@ app.listen(PORT, () => {
     console.log('📋 Available API Endpoints:');
     console.log('   GET  /health');
     console.log('   POST /api/technician/validate');
-    console.log('   GET  /api/technician/:id/appointments');
+    console.log('   GET  /api/technician/:id/jobs');  // ✅ Updated endpoint name
     console.log('   GET  /api/job/:jobId');
     console.log('   GET  /api/job/:jobId/attachments');
+    console.log('   GET  /api/job/:jobId/attachment/:attachmentId/download');
+    console.log('   POST /api/job/:jobId/attachment/:attachmentId/save');
+    console.log('');
+    console.log('🎯 Job-Focused Improvements:');
+    console.log('   ✅ Renamed appointments API to jobs API');
+    console.log('   ✅ Job-centric data model and endpoints');
+    console.log('   ✅ Better business logic alignment');
+    console.log('   ✅ Simplified frontend integration');
+  } else {
+    console.log('🏭 Production mode: Serving React app + API (Job-Focused)');
+    console.log('📱 App available at: http://localhost:' + PORT);
   }
 });
 
