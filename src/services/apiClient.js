@@ -4,7 +4,7 @@ import sessionManager from './sessionManager';
 class ApiClient {
   constructor() {
     this.baseUrl = process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:3005' 
+      ? 'http://localhost:3004'  // ← Changed from 3005 to 3004
       : '';
   }
 
