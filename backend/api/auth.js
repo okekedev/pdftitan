@@ -1,12 +1,12 @@
-// backend/api/auth.js - Authentication API
+// api/auth.js - Authentication API (Optimized for Serverless)
 const express = require('express');
+const serviceTitan = require('../utils/serviceTitan');
 const router = express.Router();
 
 // ✅ TECHNICIAN VALIDATION
 router.post('/technician/validate', async (req, res) => {
   try {
     const { username, phone } = req.body;
-    const { authenticateServiceTitan, searchTechnicianByUsername, validatePhoneMatch } = req.app.locals.helpers;
     
     if (!username || !phone) {
       return res.status(400).json({
@@ -17,17 +17,13 @@ router.post('/technician/validate', async (req, res) => {
     
     console.log(`🔧 Authenticating technician: ${username}`);
     
-    const tokenResult = await authenticateServiceTitan();
-    if (!tokenResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: 'ServiceTitan authentication failed'
-      });
-    }
+    // Use centralized ServiceTitan client
+    const endpoint = serviceTitan.buildTenantUrl('settings') + '/technicians';
+    const data = await serviceTitan.apiCall(endpoint);
     
-    const technician = await searchTechnicianByUsername(
-      username, 
-      tokenResult.accessToken
+    const technicians = data.data || [];
+    const technician = technicians.find(tech => 
+      tech.username && tech.username.toLowerCase() === username.toLowerCase()
     );
     
     if (!technician) {
@@ -37,7 +33,7 @@ router.post('/technician/validate', async (req, res) => {
       });
     }
     
-    if (!validatePhoneMatch(technician, phone)) {
+    if (!serviceTitan.validatePhoneMatch(technician.phoneNumber || technician.mobileNumber, phone)) {
       return res.status(401).json({
         success: false,
         error: 'Phone number does not match our records for this technician'
@@ -48,14 +44,20 @@ router.post('/technician/validate', async (req, res) => {
     
     res.json({
       success: true,
-      technician: technician,
+      technician: {
+        id: technician.id,
+        name: technician.name,
+        username: technician.username,
+        phoneNumber: technician.phoneNumber || technician.mobileNumber,
+        email: technician.email,
+        active: technician.active
+      },
       company: {
         name: process.env.COMPANY_NAME || 'MrBackflow TX',
-        tenantId: process.env.REACT_APP_SERVICETITAN_TENANT_ID,
-        appKey: process.env.REACT_APP_SERVICETITAN_APP_KEY
+        tenantId: serviceTitan.tenantId,
+        appKey: serviceTitan.appKey
       },
-      accessToken: tokenResult.accessToken,
-      environment: process.env.REACT_APP_SERVICETITAN_API_BASE_URL?.includes('integration') ? 'Integration' : 'Production'
+      environment: serviceTitan.apiBaseUrl?.includes('integration') ? 'Integration' : 'Production'
     });
     
   } catch (error) {

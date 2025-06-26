@@ -1,10 +1,10 @@
-// backend/server.js - Unified Server (API + Static Files)
+// server.js - Optimized Unified Server (Serverless Ready)
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 require('dotenv').config();
 
-// Import API modules
+// Import optimized API modules
 const authAPI = require('./api/auth');
 const appointmentsAPI = require('./api/appointments');
 const jobsAPI = require('./api/jobs');
@@ -20,6 +20,8 @@ console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
 console.log('ServiceTitan Tenant ID:', process.env.REACT_APP_SERVICETITAN_TENANT_ID ? '✅ Set' : '❌ Missing');
 console.log('ServiceTitan App Key:', process.env.REACT_APP_SERVICETITAN_APP_KEY ? '✅ Set' : '❌ Missing');
 console.log('ServiceTitan API Base URL:', process.env.REACT_APP_SERVICETITAN_API_BASE_URL ? '✅ Set' : '❌ Missing');
+console.log('ServiceTitan Client ID:', process.env.REACT_APP_SERVICETITAN_CLIENT_ID ? '✅ Set' : '❌ Missing');
+console.log('ServiceTitan Client Secret:', process.env.REACT_APP_SERVICETITAN_CLIENT_SECRET ? '✅ Set' : '❌ Missing');
 
 // Basic middleware
 app.use(express.json({ limit: '50mb' }));
@@ -47,148 +49,31 @@ app.use((req, res, next) => {
   next();
 });
 
-// Add helper functions to app.locals for API routes
-app.locals.helpers = {
-  // ServiceTitan OAuth Authentication
-  authenticateServiceTitan: async () => {
-    try {
-      const fetch = (await import('node-fetch')).default;
-      const FormData = require('form-data');
-      
-      const clientId = process.env.REACT_APP_SERVICETITAN_CLIENT_ID;
-      const clientSecret = process.env.REACT_APP_SERVICETITAN_CLIENT_SECRET;
-      const tenantId = process.env.REACT_APP_SERVICETITAN_TENANT_ID;
-      const apiBaseUrl = process.env.REACT_APP_SERVICETITAN_API_BASE_URL || 'https://api-integration.servicetitan.io';
-      
-      if (!clientId || !clientSecret || !tenantId) {
-        console.error('❌ Missing ServiceTitan credentials');
-        return { success: false, error: 'Missing credentials' };
-      }
-      
-      const tokenUrl = `${apiBaseUrl}/connect/token`;
-      
-      const formData = new FormData();
-      formData.append('grant_type', 'client_credentials');
-      formData.append('client_id', clientId);
-      formData.append('client_secret', clientSecret);
-      
-      const response = await fetch(tokenUrl, {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ ServiceTitan auth failed: ${response.status} - ${errorText}`);
-        return { success: false, error: `Auth failed: ${response.statusText}` };
-      }
-      
-      const tokenData = await response.json();
-      
-      console.log('✅ ServiceTitan authentication successful');
-      return {
-        success: true,
-        accessToken: tokenData.access_token,
-        tokenType: tokenData.token_type,
-        expiresIn: tokenData.expires_in
-      };
-      
-    } catch (error) {
-      console.error('❌ ServiceTitan auth error:', error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  // Search for technician by username
-  searchTechnicianByUsername: async (username, accessToken) => {
-    try {
-      const fetch = (await import('node-fetch')).default;
-      const tenantId = process.env.REACT_APP_SERVICETITAN_TENANT_ID;
-      const appKey = process.env.REACT_APP_SERVICETITAN_APP_KEY;
-      const apiBaseUrl = process.env.REACT_APP_SERVICETITAN_API_BASE_URL;
-      
-      // Search technicians endpoint
-      const searchUrl = `${apiBaseUrl}/settings/v2/tenant/${tenantId}/technicians`;
-      
-      const response = await fetch(searchUrl, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'ST-App-Key': appKey,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        console.error(`❌ Technician search failed: ${response.status}`);
-        return null;
-      }
-      
-      const data = await response.json();
-      const technicians = data.data || [];
-      
-      // Find technician by username (case-insensitive)
-      const technician = technicians.find(tech => 
-        tech.username && tech.username.toLowerCase() === username.toLowerCase()
-      );
-      
-      if (technician) {
-        return {
-          id: technician.id,
-          name: technician.name,
-          username: technician.username,
-          phoneNumber: technician.phoneNumber || technician.mobileNumber,
-          email: technician.email,
-          active: technician.active
-        };
-      }
-      
-      return null;
-      
-    } catch (error) {
-      console.error('❌ Error searching technician:', error);
-      return null;
-    }
-  },
-
-  // Validate phone number match
-  validatePhoneMatch: (technician, inputPhone) => {
-    if (!technician.phoneNumber || !inputPhone) {
-      return false;
-    }
-    
-    // Normalize phone numbers (remove all non-digits)
-    const normalizePhone = (phone) => phone.replace(/\D/g, '');
-    
-    const techPhone = normalizePhone(technician.phoneNumber);
-    const userPhone = normalizePhone(inputPhone);
-    
-    // Compare last 10 digits (handles country codes)
-    const techLast10 = techPhone.slice(-10);
-    const userLast10 = userPhone.slice(-10);
-    
-    return techLast10 === userLast10;
-  }
-};
-
-// API Routes (always available)
+// API Routes - No more app.locals.helpers needed!
 app.use('/api', authAPI);
 app.use('/api', appointmentsAPI);
 app.use('/api', jobsAPI);
 app.use('/api', attachmentsAPI);
 
-// Health check
+// Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
-    message: 'TitanPDF Backend API',
+    message: 'TitanPDF Backend API (Optimized)',
     mode: isDevelopment ? 'development' : 'production',
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
+    version: '2.0.0',
     serviceIntegration: {
       serviceTitan: {
-        configured: !!(process.env.REACT_APP_SERVICETITAN_TENANT_ID && 
-                      process.env.REACT_APP_SERVICETITAN_APP_KEY),
-        baseUrl: process.env.REACT_APP_SERVICETITAN_API_BASE_URL
+        configured: !!(
+          process.env.REACT_APP_SERVICETITAN_TENANT_ID && 
+          process.env.REACT_APP_SERVICETITAN_APP_KEY &&
+          process.env.REACT_APP_SERVICETITAN_CLIENT_ID &&
+          process.env.REACT_APP_SERVICETITAN_CLIENT_SECRET
+        ),
+        baseUrl: process.env.REACT_APP_SERVICETITAN_API_BASE_URL,
+        environment: process.env.REACT_APP_SERVICETITAN_API_BASE_URL?.includes('integration') ? 'Integration' : 'Production'
       }
     }
   });
@@ -210,23 +95,41 @@ if (!isDevelopment) {
   // Development mode: API-only server
   app.get('/', (req, res) => {
     res.json({
-      message: 'TitanPDF API Server (Development Mode)',
+      message: 'TitanPDF API Server (Development Mode) - Optimized',
       note: 'Run your React dev server separately for hot reload',
-      version: '1.0.0',
+      version: '2.0.0',
+      optimization: 'Serverless Ready',
       endpoints: {
-        health: '/health',
+        health: 'GET /health',
+        
+        // Authentication
         technicianValidate: 'POST /api/technician/validate',
+        
+        // Appointments
         technicianAppointments: 'GET /api/technician/:id/appointments',
+        
+        // Jobs
         jobDetails: 'GET /api/job/:jobId',
+        completedForms: 'GET /api/job/:jobId/completed-forms',
+        
+        // Attachments
         jobAttachments: 'GET /api/job/:jobId/attachments',
         downloadAttachment: 'GET /api/job/:jobId/attachment/:attachmentId/download',
         saveAttachment: 'POST /api/job/:jobId/attachment/:attachmentId/save',
-        completedForms: 'GET /api/job/:jobId/completed-forms'
-      }
+        generatePDF: 'POST /api/job/:jobId/attachment/:attachmentId/generate-pdf'
+      },
+      improvements: [
+        'Centralized ServiceTitan client with token caching',
+        'Eliminated duplicate authentication logic',
+        'Removed app.locals.helpers dependency',
+        'Optimized for serverless deployment',
+        'Better error handling and logging',
+        'Reduced bundle size per endpoint'
+      ]
     });
   });
   
-  console.log('🛠️ Development mode: API-only server');
+  console.log('🛠️ Development mode: API-only server (Optimized)');
   console.log('🔥 Run your React app separately for hot reload');
 }
 
@@ -236,7 +139,7 @@ app.use((error, req, res, next) => {
   res.status(500).json({
     success: false,
     error: 'Internal server error',
-    ...(isDevelopment && { details: error.message })
+    ...(isDevelopment && { details: error.message, stack: error.stack })
   });
 });
 
@@ -245,13 +148,25 @@ app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: 'Endpoint not found',
-    path: req.path
+    path: req.path,
+    method: req.method,
+    availableEndpoints: [
+      'GET /health',
+      'POST /api/technician/validate',
+      'GET /api/technician/:id/appointments',
+      'GET /api/job/:jobId',
+      'GET /api/job/:jobId/completed-forms',
+      'GET /api/job/:jobId/attachments',
+      'GET /api/job/:jobId/attachment/:attachmentId/download',
+      'POST /api/job/:jobId/attachment/:attachmentId/save',
+      'POST /api/job/:jobId/attachment/:attachmentId/generate-pdf'
+    ]
   });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log('🚀 TitanPDF Unified Server');
+  console.log('🚀 TitanPDF Optimized Server');
   console.log(`📡 Server: http://localhost:${PORT}`);
   console.log(`🌍 Mode: ${isDevelopment ? 'Development' : 'Production'}`);
   console.log(`🔍 Health check: http://localhost:${PORT}/health`);
@@ -264,16 +179,25 @@ app.listen(PORT, () => {
     console.log('   POST /api/technician/validate');
     console.log('   GET  /api/technician/:id/appointments');
     console.log('   GET  /api/job/:jobId');
+    console.log('   GET  /api/job/:jobId/completed-forms');
     console.log('   GET  /api/job/:jobId/attachments');
     console.log('   GET  /api/job/:jobId/attachment/:attachmentId/download');
     console.log('   POST /api/job/:jobId/attachment/:attachmentId/save');
-    console.log('   GET  /api/job/:jobId/completed-forms');
+    console.log('   POST /api/job/:jobId/attachment/:attachmentId/generate-pdf');
+    console.log('');
+    console.log('🎯 Optimizations Applied:');
+    console.log('   ✅ Centralized ServiceTitan client');
+    console.log('   ✅ Token caching within execution context');
+    console.log('   ✅ Eliminated duplicate authentication logic');
+    console.log('   ✅ Removed app.locals.helpers dependency');
+    console.log('   ✅ Optimized for serverless deployment');
+    console.log('   ✅ Better error handling and logging');
     console.log('');
     console.log('📱 Frontend Commands:');
     console.log('   npm start     - Start React dev server (port 3000)');
     console.log('   npm run build - Build React app for production');
   } else {
-    console.log('🏭 Production mode: Serving React app + API');
+    console.log('🏭 Production mode: Serving React app + API (Optimized)');
     console.log('📱 App available at: http://localhost:' + PORT);
   }
 });

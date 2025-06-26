@@ -1,368 +1,236 @@
-/* src/pages/Jobs/Jobs.css - Clean and Efficient */
+/* src/pages/Jobs/Jobs.css - Simplified Styling for Date-Grouped Appointments */
 
 .jobs-container {
-  max-width: 1400px;
+  padding: 1.5rem;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
 }
 
 .jobs-header {
   margin-bottom: 2rem;
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  text-align: center;
 }
 
-.project-info h2 {
+.jobs-header h2 {
+  margin: 0 0 0.5rem 0;
   color: #333;
-  margin: 0 0 0.25rem 0;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.8rem;
 }
 
-.project-info p {
-  color: #666;
+.jobs-header p {
   margin: 0;
+  color: #666;
   font-size: 1rem;
 }
 
-/* Jobs Grid */
-.jobs-grid {
+/* ✅ DATE SECTION STYLING */
+.date-section {
+  margin-bottom: 2.5rem;
+}
+
+.date-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.date-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.appointment-count {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* ✅ APPOINTMENTS GRID */
+.appointments-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 1.5rem;
 }
 
-/* Job Cards */
-.job-card {
+.appointment-card {
   background: white;
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e9ecef;
+  border: 2px solid #e9ecef;
   cursor: pointer;
   transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.job-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-  border-color: #2ecc71;
+.appointment-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  border-color: #007bff;
 }
 
-.job-content {
-  margin-bottom: 1.5rem;
-}
-
-/* Job Header */
-.job-header {
+.appointment-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-  gap: 1rem;
-}
-
-.job-id {
-  color: #2ecc71;
-  font-size: 1.1rem;
-  font-weight: 700;
-  margin: 0 0 0.5rem 0;
-  display: flex;
   align-items: center;
-  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
-.job-name {
+.appointment-number {
+  font-weight: 700;
+  font-size: 1.1rem;
   color: #333;
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0;
-  line-height: 1.3;
 }
 
-/* Status Badges - The 4 Target Statuses (Exact ServiceTitan API names) */
 .status-badge {
-  padding: 0.25rem 0.75rem;
+  padding: 0.4rem 0.8rem;
   border-radius: 20px;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  white-space: nowrap;
 }
 
-/* Dispatched - Blue */
-.status-dispatched {
+/* ✅ STATUS COLORS */
+.status-scheduled, .status-scheduled.status-badge {
   background: #e3f2fd;
   color: #1976d2;
-  border: 1px solid #2196f3;
+  border: 1px solid #bbdefb;
 }
 
-/* InProgress (ServiceTitan API name) - Green */
-.status-progress {
-  background: #e8f5e8;
-  color: #2ecc71;
-  border: 1px solid #27ae60;
-}
-
-/* Working - Orange */
-.status-working {
-  background: #fff8e1;
+.status-dispatched, .status-dispatched.status-badge {
+  background: #fff3e0;
   color: #f57c00;
   border: 1px solid #ffcc02;
 }
 
-/* OnHold (ServiceTitan API name) - Purple */
-.status-hold {
-  background: #fce4ec;
-  color: #c2185b;
-  border: 1px solid #e91e63;
+.status-enroute, .status-enroute.status-badge {
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border: 1px solid #ce93d8;
 }
 
-/* Default (fallback) */
-.status-default {
+.status-working, .status-working.status-badge {
+  background: #e8f5e8;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.status-hold, .status-hold.status-badge {
+  background: #fff8e1;
+  color: #f9a825;
+  border: 1px solid #ffecb3;
+}
+
+.status-done, .status-done.status-badge {
+  background: #e8f5e8;
+  color: #1b5e20;
+  border: 1px solid #4caf50;
+}
+
+.status-canceled, .status-canceled.status-badge {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+.status-default, .status-default.status-badge {
   background: #f5f5f5;
-  color: #666;
-  border: 1px solid #ddd;
+  color: #616161;
+  border: 1px solid #e0e0e0;
 }
 
-/* Job Details */
-.job-details {
-  display: grid;
-  gap: 0.5rem;
-  font-size: 0.9rem;
+.appointment-details {
   margin-bottom: 1rem;
 }
 
-.job-details > div {
+.customer-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.appointment-time {
+  font-size: 0.95rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.appointment-summary {
+  font-size: 0.9rem;
+  color: #666;
+  line-height: 1.4;
+  margin-top: 0.5rem;
+}
+
+.appointment-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.job-details span:first-child {
-  color: #666;
-  font-weight: 500;
-}
-
-.job-details span:last-child {
-  color: #333;
-  text-align: right;
-  max-width: 60%;
-  word-break: break-word;
-}
-
-/* Job Footer */
-.job-footer {
   padding-top: 1rem;
-  border-top: 1px solid #f8f9fa;
+  border-top: 1px solid #eee;
 }
 
-.view-attachments-btn {
-  width: 100%;
-  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+.appointment-footer small {
+  color: #999;
+  font-size: 0.8rem;
+}
+
+.select-button {
+  background: #007bff;
   color: white;
   border: none;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.2s ease;
 }
 
-.view-attachments-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+.select-button:hover {
+  background: #0056b3;
 }
 
-/* Loading Animation */
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Empty State */
-.empty-state {
-  background: #fff;
-  padding: 3rem;
-  border-radius: 12px;
-  text-align: center;
-  border: 2px dashed #e9ecef;
-  margin-top: 1rem;
-}
-
-.empty-state h3 {
+/* ✅ LOADING AND ERROR STATES */
+.loading-spinner {
+  font-size: 1.1rem;
   color: #666;
-  margin-bottom: 1rem;
-  font-size: 1.3rem;
 }
 
-.empty-state p {
-  color: #999;
-  font-size: 1rem;
-  line-height: 1.5;
-}
-
-/* Responsive Design */
-@media (max-width: 1024px) {
-  .jobs-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  }
-}
-
+/* ✅ RESPONSIVE DESIGN */
 @media (max-width: 768px) {
   .jobs-container {
     padding: 1rem;
   }
   
-  .jobs-grid {
+  .appointments-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
   
-  .job-header {
+  .date-header {
     flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
+    gap: 0.5rem;
+    text-align: center;
   }
   
-  .status-badge {
-    align-self: flex-start;
-  }
-  
-  .job-details span:last-child {
-    max-width: 70%;
-  }
-}
-
-@media (max-width: 480px) {
-  .jobs-container {
-    padding: 0.5rem;
-  }
-  
-  .jobs-header {
+  .appointment-card {
     padding: 1rem;
   }
   
-  .job-card {
-    padding: 1rem;
+  .appointment-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
   }
-}
-
-/* Status Badges - Updated for Appointment Statuses */
-.status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-
-/* Scheduled - Blue */
-.status-scheduled {
-  background: #e3f2fd;
-  color: #1976d2;
-  border: 1px solid #2196f3;
-}
-
-/* Dispatched - Orange */
-.status-dispatched {
-  background: #fff8e1;
-  color: #f57c00;
-  border: 1px solid #ffcc02;
-}
-
-/* Enroute - Purple */
-.status-enroute {
-  background: #f3e5f5;
-  color: #7b1fa2;
-  border: 1px solid #9c27b0;
-}
-
-/* Working - Green */
-.status-working {
-  background: #e8f5e8;
-  color: #2ecc71;
-  border: 1px solid #27ae60;
-}
-
-/* Default (fallback) */
-.status-default {
-  background: #f5f5f5;
-  color: #666;
-  border: 1px solid #ddd;
-}
-
-/* Status Badges - All Appointment Statuses */
-.status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-
-/* Scheduled - Blue */
-.status-scheduled {
-  background: #e3f2fd;
-  color: #1976d2;
-  border: 1px solid #2196f3;
-}
-
-/* Dispatched - Orange */
-.status-dispatched {
-  background: #fff8e1;
-  color: #f57c00;
-  border: 1px solid #ffcc02;
-}
-
-/* Enroute - Purple */
-.status-enroute {
-  background: #f3e5f5;
-  color: #7b1fa2;
-  border: 1px solid #9c27b0;
-}
-
-/* Working - Green */
-.status-working {
-  background: #e8f5e8;
-  color: #2ecc71;
-  border: 1px solid #27ae60;
-}
-
-/* Hold - Yellow */
-.status-hold {
-  background: #fffde7;
-  color: #f57f17;
-  border: 1px solid #ffeb3b;
-}
-
-/* Done - Success Green */
-.status-done {
-  background: #e0f2f1;
-  color: #00695c;
-  border: 1px solid #26a69a;
-}
-
-/* Canceled - Red */
-.status-canceled {
-  background: #ffebee;
-  color: #c62828;
-  border: 1px solid #e74c3c;
-}
-
-/* Default (fallback) */
-.status-default {
-  background: #f5f5f5;
-  color: #666;
-  border: 1px solid #ddd;
 }
