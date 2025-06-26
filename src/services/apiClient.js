@@ -1,10 +1,10 @@
-// src/services/apiClient.js - Updated for job-focused API
+// src/services/apiClient.js - Updated with ServiceTitan Upload
 import sessionManager from './sessionManager';
 
 class ApiClient {
   constructor() {
     this.baseUrl = process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:3004'  // Updated to match your server port
+      ? 'http://localhost:3004'
       : '';
   }
 
@@ -73,7 +73,7 @@ class ApiClient {
     return this.apiCall('/health');
   }
 
-  // ================== JOBS (renamed from appointments) ==================
+  // ================== JOBS ==================
 
   async getMyJobs() {
     const session = sessionManager.getTechnicianSession();
@@ -84,12 +84,11 @@ class ApiClient {
     try {
       console.log(`👷 Fetching jobs for technician ${session.technician.id}`);
       
-      // ✅ Updated endpoint: /jobs instead of /appointments
       const response = await this.apiCall(`/api/technician/${session.technician.id}/jobs`);
       
       console.log(`✅ Jobs fetched: ${response.data?.length || 0} jobs`);
       
-      return response; // Returns { data: [...], groupedByDate: {...}, count: N }
+      return response;
 
     } catch (error) {
       console.error('❌ Error fetching jobs:', error);
@@ -118,6 +117,24 @@ class ApiClient {
     } catch (error) {
       console.error('❌ Error fetching job details:', error);
       throw new Error(`Failed to fetch job details: ${error.message}`);
+    }
+  }
+
+  // ================== CUSTOMER DETAILS ==================
+
+  async getCustomerDetails(customerId) {
+    try {
+      console.log(`👤 Fetching customer details for: ${customerId}`);
+      
+      const response = await this.apiCall(`/api/customer/${customerId}`);
+      
+      console.log(`✅ Customer details fetched: ${response.data?.name}`);
+      
+      return response.data;
+
+    } catch (error) {
+      console.error('❌ Error fetching customer details:', error);
+      throw new Error(`Failed to fetch customer details: ${error.message}`);
     }
   }
 
@@ -151,24 +168,66 @@ class ApiClient {
     return `${this.baseUrl}/api/job/${jobId}/attachment/${attachmentId}/download`;
   }
 
-  // Save completed PDF form
+  // 🚀 NEW: Upload completed PDF form to ServiceTitan
   async saveCompletedPDFForm(jobId, attachmentId, formData) {
     try {
-      console.log(`💾 Saving completed PDF form: ${attachmentId} for job: ${jobId}`);
+      console.log(`🚀 Uploading completed PDF form to ServiceTitan...`);
+      console.log(`📋 Job: ${jobId}, Attachment: ${attachmentId}`);
+      console.log(`📄 File: ${formData.completedFileName}`);
       
       const response = await this.apiCall(`/api/job/${jobId}/attachment/${attachmentId}/save`, {
         method: 'POST',
         body: formData,
-        timeout: 60000 // Longer timeout for file uploads
+        timeout: 120000 // 2 minutes timeout for upload
       });
       
-      console.log(`✅ PDF form saved successfully`);
+      console.log(`✅ PDF form uploaded successfully to ServiceTitan!`);
+      console.log(`📊 Upload details:`, response.uploadDetails);
       
       return response;
       
     } catch (error) {
-      console.error('❌ Error saving PDF form:', error);
-      throw new Error(`Failed to save PDF form: ${error.message}`);
+      console.error('❌ Error uploading PDF form to ServiceTitan:', error);
+      
+      // Enhanced error handling for upload failures
+      if (error.message.includes('timeout')) {
+        throw new Error('Upload timed out - please check your connection and try again');
+      } else if (error.message.includes('400')) {
+        throw new Error('Invalid file format or data - please check your form and try again');
+      } else if (error.message.includes('401') || error.message.includes('403')) {
+        throw new Error('Permission denied - please check your ServiceTitan access');
+      } else if (error.message.includes('413')) {
+        throw new Error('File too large - please reduce the number of form elements');
+      } else if (error.message.includes('500')) {
+        throw new Error('ServiceTitan server error - please try again later');
+      } else if (error.message.includes('502') || error.message.includes('503')) {
+        throw new Error('ServiceTitan service temporarily unavailable - please try again');
+      }
+      
+      throw new Error(`Failed to upload PDF form: ${error.message}`);
+    }
+  }
+
+  // 📄 NEW: Get saved forms for a job
+  async getSavedForms(jobId) {
+    try {
+      console.log(`📄 Fetching saved forms for job: ${jobId}`);
+      
+      const response = await this.apiCall(`/api/job/${jobId}/saved-forms`);
+      
+      console.log(`✅ Saved forms fetched: ${response.data?.length || 0} forms found`);
+      
+      return response.data || [];
+
+    } catch (error) {
+      console.error('❌ Error fetching saved forms:', error);
+      
+      if (error.message.includes('404')) {
+        console.log(`ℹ️ No saved forms found for job ${jobId}`);
+        return [];
+      }
+      
+      throw new Error(`Failed to fetch saved forms: ${error.message}`);
     }
   }
 
@@ -181,12 +240,14 @@ class ApiClient {
       return {
         connected: true,
         serverStatus: response.status,
-        message: response.message
+        message: response.message,
+        uploadCapable: true
       };
     } catch (error) {
       return {
         connected: false,
-        error: error.message
+        error: error.message,
+        uploadCapable: false
       };
     }
   }
@@ -203,14 +264,119 @@ class ApiClient {
   handleApiError(error) {
     const userMessage = this.formatError(error);
     
+    // Enhanced error categorization
+    let category = 'unknown';
+    if (error.message?.includes('network') || error.message?.includes('connection')) {
+      category = 'network';
+    } else if (error.message?.includes('timeout')) {
+      category = 'timeout';
+    } else if (error.message?.includes('401') || error.message?.includes('403')) {
+      category = 'permission';
+    } else if (error.message?.includes('404')) {
+      category = 'not_found';
+    } else if (error.message?.includes('500')) {
+      category = 'server_error';
+    }
+    
     return {
       userMessage,
+      category,
       originalError: error,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      suggestions: this.getErrorSuggestions(category)
     };
+  }
+
+  // Get helpful suggestions based on error category
+  getErrorSuggestions(category) {
+    switch (category) {
+      case 'network':
+        return [
+          'Check your internet connection',
+          'Make sure the server is running',
+          'Try refreshing the page'
+        ];
+      case 'timeout':
+        return [
+          'The request took too long - try again',
+          'Check your internet connection speed',
+          'Try uploading a smaller file'
+        ];
+      case 'permission':
+        return [
+          'Check your ServiceTitan access permissions',
+          'Make sure you are logged in',
+          'Contact your administrator if needed'
+        ];
+      case 'not_found':
+        return [
+          'The requested item may have been deleted',
+          'Check that the job or attachment exists',
+          'Try refreshing the page'
+        ];
+      case 'server_error':
+        return [
+          'ServiceTitan server is experiencing issues',
+          'Please try again in a few minutes',
+          'Contact support if the problem persists'
+        ];
+      default:
+        return [
+          'Please try again',
+          'Check your connection',
+          'Contact support if needed'
+        ];
+    }
+  }
+
+  // 🔍 NEW: Enhanced debugging for uploads
+  async debugUploadCapabilities() {
+    try {
+      const health = await this.getHealth();
+      const session = sessionManager.getTechnicianSession();
+      
+      const debugInfo = {
+        serverHealth: health.status === 'healthy',
+        serviceTitanConfigured: health.serviceIntegration?.configured || false,
+        userLoggedIn: !!session?.technician?.id,
+        environment: health.serviceIntegration?.environment || 'unknown',
+        uploadEndpointsAvailable: true, // Based on our implementation
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log('🔍 Upload capabilities debug:', debugInfo);
+      return debugInfo;
+      
+    } catch (error) {
+      console.error('❌ Error checking upload capabilities:', error);
+      return {
+        serverHealth: false,
+        serviceTitanConfigured: false,
+        userLoggedIn: false,
+        environment: 'unknown',
+        uploadEndpointsAvailable: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
   }
 }
 
 // Export singleton instance
 const apiClient = new ApiClient();
+
+// Add development helpers
+if (process.env.NODE_ENV === 'development') {
+  window.apiClient = apiClient;
+  
+  // Log capabilities on load
+  apiClient.debugUploadCapabilities().then(capabilities => {
+    if (capabilities.serverHealth && capabilities.serviceTitanConfigured) {
+      console.log('🚀 TitanPDF API Client Ready - ServiceTitan Upload Enabled');
+    } else {
+      console.warn('⚠️ TitanPDF API Client - Limited functionality');
+    }
+  });
+}
+
 export default apiClient;
