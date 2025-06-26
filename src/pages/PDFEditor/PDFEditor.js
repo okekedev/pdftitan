@@ -1,8 +1,39 @@
-// Adobe-Style PDF Editor - Touch-Optimized, Simple, Efficient, Professional
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  Provider,
+  defaultTheme,
+  ActionBar,
+  Item,
+  Button,
+  ButtonGroup,
+  TextField,
+  Dialog,
+  Content,
+  Header,
+  Heading,
+  Text,
+  Flex,
+  View,
+  Divider,
+  ProgressBar,
+  AlertDialog
+} from '@adobe/react-spectrum';
+import Edit from '@spectrum-icons/workflow/Edit';
+import Delete from '@spectrum-icons/workflow/Delete';
+import SaveFloppy from '@spectrum-icons/workflow/SaveFloppy';
+import Close from '@spectrum-icons/workflow/Close';
+import ZoomIn from '@spectrum-icons/workflow/ZoomIn';
+import ZoomOut from '@spectrum-icons/workflow/ZoomOut';
+import ChevronLeft from '@spectrum-icons/workflow/ChevronLeft';
+import ChevronRight from '@spectrum-icons/workflow/ChevronRight';
+import TextAdd from '@spectrum-icons/workflow/TextAdd';
+import Draw from '@spectrum-icons/workflow/Draw';
+import Move from '@spectrum-icons/workflow/Move';
+import Undo from '@spectrum-icons/workflow/Undo';
+import Redo from '@spectrum-icons/workflow/Redo';
 
-function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
-  // Core state
+// Custom hook for PDF operations
+function usePDFEditor(pdf, job) {
   const canvasRef = useRef(null);
   const [pdfDocument, setPdfDocument] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -10,23 +41,14 @@ function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
   const [scale, setScale] = useState(1.0);
   const [pdfLoaded, setPdfLoaded] = useState(false);
   const [pdfError, setPdfError] = useState(null);
-
-  // Objects and interaction
   const [objects, setObjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
-  const [dragState, setDragState] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
-  // Initialize PDF
-  useEffect(() => {
-    loadPDF();
-  }, []);
-
-  useEffect(() => {
-    if (pdfDocument) renderPage();
-  }, [pdfDocument, currentPage, scale]);
-
-  const loadPDF = async () => {
+  // PDF Loading
+  const loadPDF = useCallback(async () => {
     try {
       if (!window.pdfjsLib) {
         const script = document.createElement('script');
@@ -52,9 +74,10 @@ function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
     } catch (error) {
       setPdfError(error.message);
     }
-  };
+  }, [pdf, job]);
 
-  const renderPage = async () => {
+  // Page Rendering
+  const renderPage = useCallback(async () => {
     if (!pdfDocument || !canvasRef.current) return;
     
     const page = await pdfDocument.getPage(currentPage);
@@ -67,30 +90,58 @@ function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
     
     context.clearRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: context, viewport }).promise;
-  };
+  }, [pdfDocument, currentPage, scale]);
 
-  // Simple object management
-  const createText = (x, y, width = 200, height = 40) => {
+  // History Management
+  const saveToHistory = useCallback((newObjects) => {
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push([...newObjects]);
+      return newHistory.slice(-20); // Keep last 20 states
+    });
+    setHistoryIndex(prev => prev + 1);
+  }, [historyIndex]);
+
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      setHistoryIndex(prev => prev - 1);
+      setObjects(history[historyIndex - 1]);
+    }
+  }, [historyIndex, history]);
+
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex(prev => prev + 1);
+      setObjects(history[historyIndex + 1]);
+    }
+  }, [historyIndex, history]);
+
+  // Object Management
+  const addTextObject = useCallback((x = 100, y = 100) => {
     const id = Date.now().toString();
     const newText = {
       id,
       type: 'text',
       x: x / scale,
       y: y / scale,
-      width: width / scale,
-      height: height / scale,
+      width: 200 / scale,
+      height: 40 / scale,
       content: '',
       fontSize: 16,
       color: '#000000',
       page: currentPage
     };
-    setObjects(prev => [...prev, newText]);
+    
+    setObjects(prev => {
+      const newObjects = [...prev, newText];
+      saveToHistory(newObjects);
+      return newObjects;
+    });
     setSelectedId(id);
     setEditingId(id);
-    return newText;
-  };
+  }, [scale, currentPage, saveToHistory]);
 
-  const createSignature = () => {
+  const addSignatureObject = useCallback(() => {
     const id = Date.now().toString();
     const newSig = {
       id,
@@ -102,118 +153,302 @@ function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
       content: null,
       page: currentPage
     };
-    setObjects(prev => [...prev, newSig]);
+    
+    setObjects(prev => {
+      const newObjects = [...prev, newSig];
+      saveToHistory(newObjects);
+      return newObjects;
+    });
     setSelectedId(id);
-    return newSig;
-  };
+  }, [currentPage, saveToHistory]);
 
-  const updateObject = (id, updates) => {
-    setObjects(prev => prev.map(obj => obj.id === id ? { ...obj, ...updates } : obj));
-  };
-
-  const deleteSelected = () => {
-    if (selectedId) {
-      setObjects(prev => prev.filter(obj => obj.id !== selectedId));
-      setSelectedId(null);
-      setEditingId(null);
-    }
-  };
-
-  // Touch-friendly interactions
-  const handleCanvasMouseDown = useCallback((e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // Check if clicking on object
-    const clicked = objects.find(obj => {
-      if (obj.page !== currentPage) return false;
-      const objX = obj.x * scale;
-      const objY = obj.y * scale;
-      const objW = obj.width * scale;
-      const objH = obj.height * scale;
-      return x >= objX && x <= objX + objW && y >= objY && y <= objY + objH;
+  const updateObject = useCallback((id, updates) => {
+    setObjects(prev => {
+      const newObjects = prev.map(obj => obj.id === id ? { ...obj, ...updates } : obj);
+      return newObjects;
     });
-
-    if (clicked) {
-      setSelectedId(clicked.id);
-      // Single tap on text box = edit mode
-      if (clicked.type === 'text') {
-        setEditingId(clicked.id);
-      } else {
-        setEditingId(null);
-      }
-    } else {
-      // Clear selection when clicking empty space
-      setSelectedId(null);
-      setEditingId(null);
-    }
-  }, [objects, currentPage, scale]);
-
-  const handleDoubleClick = useCallback((e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // Double tap on empty space = create new text box
-    const clicked = objects.find(obj => {
-      if (obj.page !== currentPage) return false;
-      const objX = obj.x * scale;
-      const objY = obj.y * scale;
-      const objW = obj.width * scale;
-      const objH = obj.height * scale;
-      return x >= objX && x <= objX + objW && y >= objY && y <= objY + objH;
-    });
-
-    if (!clicked) {
-      // Double tap on empty space - create text box
-      createText(x - 100, y - 20);
-    }
-  }, [objects, currentPage, scale]);
-
-  // Drag handling
-  const startDrag = (type, objectId, e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const obj = objects.find(o => o.id === objectId);
-    setDragState({
-      type,
-      objectId,
-      startX: e.clientX - rect.left,
-      startY: e.clientY - rect.top,
-      originalX: obj.x,
-      originalY: obj.y,
-      originalWidth: obj.width,
-      originalHeight: obj.height
-    });
-  };
-
-  const handleMouseMove = useCallback((e) => {
-    if (!dragState) return;
-
-    const rect = canvasRef.current.getBoundingClientRect();
-    const currentX = e.clientX - rect.left;
-    const currentY = e.clientY - rect.top;
-    const deltaX = (currentX - dragState.startX) / scale;
-    const deltaY = (currentY - dragState.startY) / scale;
-
-    if (dragState.type === 'move') {
-      updateObject(dragState.objectId, {
-        x: dragState.originalX + deltaX,
-        y: dragState.originalY + deltaY
-      });
-    } else if (dragState.type === 'resize') {
-      updateObject(dragState.objectId, {
-        width: Math.max(50, dragState.originalWidth + deltaX),
-        height: Math.max(20, dragState.originalHeight + deltaY)
-      });
-    }
-  }, [dragState, scale]);
-
-  const handleMouseUp = useCallback(() => {
-    setDragState(null);
   }, []);
 
-  // Save
+  const deleteObject = useCallback((id) => {
+    setObjects(prev => {
+      const newObjects = prev.filter(obj => obj.id !== id);
+      saveToHistory(newObjects);
+      return newObjects;
+    });
+    setSelectedId(null);
+    setEditingId(null);
+  }, [saveToHistory]);
+
+  useEffect(() => {
+    loadPDF();
+  }, [loadPDF]);
+
+  useEffect(() => {
+    if (pdfDocument) renderPage();
+  }, [renderPage, pdfDocument]);
+
+  return {
+    canvasRef,
+    pdfLoaded,
+    pdfError,
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    scale,
+    setScale,
+    objects,
+    selectedId,
+    setSelectedId,
+    editingId,
+    setEditingId,
+    addTextObject,
+    addSignatureObject,
+    updateObject,
+    deleteObject,
+    undo,
+    redo,
+    canUndo: historyIndex > 0,
+    canRedo: historyIndex < history.length - 1
+  };
+}
+
+// Editable Object Component
+function EditableObject({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
+  const [content, setContent] = useState(object.content || '');
+  
+  const style = {
+    position: 'absolute',
+    left: `${object.x * scale}px`,
+    top: `${object.y * scale}px`,
+    width: `${object.width * scale}px`,
+    height: `${object.height * scale}px`,
+    cursor: selected ? 'move' : 'pointer',
+    zIndex: selected ? 1000 : 100
+  };
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    onSelect(object.id);
+  };
+
+  const handleDoubleClick = (e) => {
+    e.stopPropagation();
+    if (object.type === 'text') {
+      onStartEdit(object.id);
+    }
+  };
+
+  const handleSave = () => {
+    onUpdate(object.id, { content });
+    onFinishEdit();
+  };
+
+  if (object.type === 'text') {
+    return (
+      <div
+        style={{
+          ...style,
+          background: selected ? 'rgba(0, 123, 255, 0.1)' : 'rgba(255, 255, 255, 0.9)',
+          border: selected ? '2px solid var(--spectrum-global-color-blue-500)' : '1px solid transparent',
+          borderRadius: '4px',
+          padding: '8px',
+          boxShadow: selected ? '0 0 0 2px rgba(0, 123, 255, 0.2)' : 'none'
+        }}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+      >
+        {editing ? (
+          <TextField
+            value={content}
+            onChange={setContent}
+            onBlur={handleSave}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSave();
+              }
+            }}
+            autoFocus
+            placeholder="Type here..."
+            inputProps={{
+              style: {
+                fontSize: `${object.fontSize * scale}px`,
+                color: object.color,
+                border: 'none',
+                background: 'transparent'
+              }
+            }}
+          />
+        ) : (
+          <Text
+            style={{
+              fontSize: `${object.fontSize * scale}px`,
+              color: object.color,
+              userSelect: 'none',
+              opacity: object.content ? 1 : 0.5
+            }}
+          >
+            {object.content || 'Double-click to edit'}
+          </Text>
+        )}
+      </div>
+    );
+  }
+
+  if (object.type === 'signature') {
+    return (
+      <div
+        style={{
+          ...style,
+          background: 'rgba(255, 255, 255, 0.95)',
+          border: selected ? '2px solid var(--spectrum-global-color-green-500)' : '2px dashed #ccc',
+          borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: selected ? '0 0 0 2px rgba(40, 167, 69, 0.2)' : 'none'
+        }}
+        onClick={handleClick}
+      >
+        {object.content ? (
+          <Text>✓ Signature Applied</Text>
+        ) : (
+          <Text UNSAFE_style={{ color: '#666' }}>Click to add signature</Text>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// Signature Dialog Component
+function SignatureDialog({ isOpen, onClose, onSave }) {
+  const canvasRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  const startDrawing = (e) => {
+    setIsDrawing(true);
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext('2d');
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+  };
+
+  const draw = (e) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext('2d');
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const saveSignature = () => {
+    const canvas = canvasRef.current;
+    const dataURL = canvas.toDataURL();
+    onSave(dataURL);
+    onClose();
+  };
+
+  return (
+    <Dialog isOpen={isOpen} onDismiss={onClose}>
+      <Heading>Add Signature</Heading>
+      <Header>
+        <Text>Draw your signature below</Text>
+      </Header>
+      <Content>
+        <View
+          borderWidth="thin"
+          borderColor="gray-300"
+          borderRadius="medium"
+          padding="size-200"
+          backgroundColor="gray-50"
+        >
+          <canvas
+            ref={canvasRef}
+            width={400}
+            height={200}
+            style={{
+              cursor: 'crosshair',
+              display: 'block',
+              background: 'white',
+              borderRadius: '4px'
+            }}
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={stopDrawing}
+            onMouseLeave={stopDrawing}
+          />
+        </View>
+        <Flex direction="row" gap="size-100" marginTop="size-200">
+          <Button variant="secondary" onPress={clearSignature}>
+            Clear
+          </Button>
+          <Button variant="cta" onPress={saveSignature}>
+            Save Signature
+          </Button>
+        </Flex>
+      </Content>
+    </Dialog>
+  );
+}
+
+// Main PDF Editor Component
+function SpectrumPDFEditor({ pdf, job, onClose, onSave }) {
+  const {
+    canvasRef,
+    pdfLoaded,
+    pdfError,
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    scale,
+    setScale,
+    objects,
+    selectedId,
+    setSelectedId,
+    editingId,
+    setEditingId,
+    addTextObject,
+    addSignatureObject,
+    updateObject,
+    deleteObject,
+    undo,
+    redo,
+    canUndo,
+    canRedo
+  } = usePDFEditor(pdf, job);
+
+  const [showSignatureDialog, setShowSignatureDialog] = useState(false);
+  const [tool, setTool] = useState('select');
+
+  const currentObjects = objects.filter(obj => obj.page === currentPage);
+
+  const handleCanvasClick = useCallback((e) => {
+    if (tool === 'text') {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      addTextObject(x, y);
+      setTool('select');
+    } else {
+      setSelectedId(null);
+      setEditingId(null);
+    }
+  }, [tool, addTextObject, canvasRef, setSelectedId, setEditingId]);
+
   const handleSave = () => {
     const saveData = {
       pdfId: pdf.id,
@@ -230,542 +465,233 @@ function AdobeStylePDFEditor({ pdf, job, onClose, onSave }) {
     onSave(saveData);
   };
 
-  // Get current page objects
-  const currentObjects = objects.filter(obj => obj.page === currentPage);
+  const handleSignatureSave = (signatureData) => {
+    if (selectedId) {
+      updateObject(selectedId, { content: signatureData });
+    }
+  };
 
   if (pdfError) {
     return (
-      <div style={styles.errorContainer}>
-        <h3>Error: {pdfError}</h3>
-        <button onClick={onClose} style={styles.button}>← Back</button>
-      </div>
-    );
-  }
-
-  if (!pdfLoaded) {
-    return (
-      <div style={styles.loadingContainer}>
-        <h3>Loading PDF...</h3>
-        <p>{pdf.name}</p>
-      </div>
+      <Provider theme={defaultTheme}>
+        <View padding="size-400">
+          <AlertDialog
+            title="Error Loading PDF"
+            variant="error"
+            primaryActionLabel="Close"
+            onPrimaryAction={onClose}
+          >
+            {pdfError}
+          </AlertDialog>
+        </View>
+      </Provider>
     );
   }
 
   return (
-    <div style={styles.container}>
-      {/* Clean Toolbar */}
-      <div style={styles.toolbar}>
-        <div style={styles.toolbarLeft}>
-          <button onClick={onClose} style={styles.backButton}>← Back</button>
-          <span style={styles.title}>{pdf.name}</span>
-        </div>
-        
-        <div style={styles.toolbarCenter}>
-          <button onClick={createSignature} style={styles.primaryButton}>
-            ✍️ Add Signature
-          </button>
-          
-          {totalPages > 1 && (
-            <div style={styles.pageControls}>
-              <button 
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                style={styles.pageButton}
-              >
-                ◀
-              </button>
-              <span style={styles.pageInfo}>{currentPage} / {totalPages}</span>
-              <button 
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                style={styles.pageButton}
-              >
-                ▶
-              </button>
-            </div>
-          )}
-          
-          <div style={styles.zoomControls}>
-            <button onClick={() => setScale(s => Math.max(0.5, s - 0.2))} style={styles.zoomButton}>-</button>
-            <span style={styles.zoomDisplay}>{Math.round(scale * 100)}%</span>
-            <button onClick={() => setScale(s => Math.min(2, s + 0.2))} style={styles.zoomButton}>+</button>
-          </div>
-        </div>
-        
-        <div style={styles.toolbarRight}>
-          {selectedId && (
-            <button onClick={deleteSelected} style={styles.deleteButton}>Delete</button>
-          )}
-          <button onClick={handleSave} style={styles.saveButton}>Save PDF</button>
-        </div>
-      </div>
-
-      {/* Canvas Area */}
-      <div 
-        style={styles.canvasContainer}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+    <Provider theme={defaultTheme}>
+      <View
+        height="100vh"
+        backgroundColor="gray-100"
+        UNSAFE_style={{ display: 'flex', flexDirection: 'column' }}
       >
-        <div style={styles.canvasWrapper}>
-          <canvas
-            ref={canvasRef}
-            onMouseDown={handleCanvasMouseDown}
-            onDoubleClick={handleDoubleClick}
-            style={styles.canvas}
-          />
-          
-          {/* Render Objects */}
-          {currentObjects.map(obj => (
-            <ObjectElement
-              key={obj.id}
-              object={obj}
-              scale={scale}
-              selected={selectedId === obj.id}
-              editing={editingId === obj.id}
-              onStartDrag={(type, e) => startDrag(type, obj.id, e)}
-              onUpdate={(updates) => updateObject(obj.id, updates)}
-              onFinishEdit={() => setEditingId(null)}
-            />
-          ))}
-        </div>
-      </div>
+        {/* Header */}
+        <View
+          backgroundColor="gray-900"
+          paddingX="size-300"
+          paddingY="size-200"
+          UNSAFE_style={{ color: 'white' }}
+        >
+          <Flex direction="row" alignItems="center" justifyContent="space-between">
+            <Flex direction="row" alignItems="center" gap="size-200">
+              <Button variant="secondary" onPress={onClose}>
+                <Close />
+                <Text>Close</Text>
+              </Button>
+              <View>
+                <Heading level={3} margin={0} UNSAFE_style={{ color: 'white' }}>
+                  {pdf.fileName || pdf.name}
+                </Heading>
+                <Text UNSAFE_style={{ color: 'rgba(255,255,255,0.8)' }}>
+                  Job #{job.number} - {job.title}
+                </Text>
+              </View>
+            </Flex>
+            <Button variant="cta" onPress={handleSave}>
+              <SaveFloppy />
+              <Text>Save PDF</Text>
+            </Button>
+          </Flex>
+        </View>
 
-      {/* Simple Help */}
-      <div style={styles.helpBar}>
-        Double-tap empty space to add text • Single-tap text to edit • Drag handles to move/resize
-      </div>
-    </div>
-  );
-}
+        {/* Toolbar */}
+        <View backgroundColor="gray-50" borderBottomWidth="thin" borderBottomColor="gray-300">
+          <Flex direction="row" alignItems="center" justifyContent="space-between" padding="size-200">
+            <ButtonGroup>
+              <Button
+                variant={tool === 'select' ? 'cta' : 'secondary'}
+                onPress={() => setTool('select')}
+              >
+                <Move />
+                <Text>Select</Text>
+              </Button>
+              <Button
+                variant={tool === 'text' ? 'cta' : 'secondary'}
+                onPress={() => setTool('text')}
+              >
+                <TextAdd />
+                <Text>Add Text</Text>
+              </Button>
+              <Button
+                variant="secondary"
+                onPress={() => {
+                  addSignatureObject();
+                  setShowSignatureDialog(true);
+                }}
+              >
+                <Draw />
+                <Text>Signature</Text>
+              </Button>
+            </ButtonGroup>
 
-// Simple Object Component
-function ObjectElement({ object, scale, selected, editing, onStartDrag, onUpdate, onFinishEdit }) {
-  const [content, setContent] = useState(object.content || '');
+            <Flex direction="row" alignItems="center" gap="size-100">
+              <ButtonGroup>
+                <Button variant="secondary" onPress={undo} isDisabled={!canUndo}>
+                  <Undo />
+                </Button>
+                <Button variant="secondary" onPress={redo} isDisabled={!canRedo}>
+                  <Redo />
+                </Button>
+              </ButtonGroup>
+              <Divider orientation="vertical" size="S" />
+              <ButtonGroup>
+                <Button
+                  variant="secondary"
+                  onPress={() => setScale(prev => Math.max(0.5, prev - 0.1))}
+                >
+                  <ZoomOut />
+                </Button>
+                <Text>{Math.round(scale * 100)}%</Text>
+                <Button
+                  variant="secondary"
+                  onPress={() => setScale(prev => Math.min(3, prev + 0.1))}
+                >
+                  <ZoomIn />
+                </Button>
+              </ButtonGroup>
+            </Flex>
+          </Flex>
+        </View>
 
-  const style = {
-    position: 'absolute',
-    left: `${object.x * scale}px`,
-    top: `${object.y * scale}px`,
-    width: `${object.width * scale}px`,
-    height: `${object.height * scale}px`,
-    border: selected ? '2px solid #007bff' : '1px solid transparent',
-    borderRadius: '4px',
-    zIndex: selected ? 1000 : 100
-  };
+        {/* Content Area */}
+        <View flex={1} backgroundColor="gray-200" overflow="auto">
+          {/* Page Controls */}
+          <View backgroundColor="white" borderBottomWidth="thin" borderBottomColor="gray-300">
+            <Flex direction="row" alignItems="center" justifyContent="center" padding="size-200" gap="size-200">
+              <Button
+                variant="secondary"
+                onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                isDisabled={currentPage <= 1}
+              >
+                <ChevronLeft />
+              </Button>
+              <Text>
+                Page {currentPage} of {totalPages}
+              </Text>
+              <Button
+                variant="secondary"
+                onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                isDisabled={currentPage >= totalPages}
+              >
+                <ChevronRight />
+              </Button>
+            </Flex>
+          </View>
 
-  const handleSave = () => {
-    onUpdate({ content });
-    onFinishEdit();
-  };
+          {/* PDF Canvas */}
+          <View padding="size-400" UNSAFE_style={{ display: 'flex', justifyContent: 'center' }}>
+            <View
+              position="relative"
+              backgroundColor="white"
+              UNSAFE_style={{
+                display: 'inline-block',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                borderRadius: '8px',
+                overflow: 'hidden'
+              }}
+            >
+              {!pdfLoaded && (
+                <View padding="size-800">
+                  <ProgressBar label="Loading PDF..." isIndeterminate />
+                </View>
+              )}
+              
+              <canvas
+                ref={canvasRef}
+                onClick={handleCanvasClick}
+                style={{
+                  display: pdfLoaded ? 'block' : 'none',
+                  cursor: tool === 'text' ? 'crosshair' : 'default'
+                }}
+              />
 
-  if (object.type === 'text') {
-    return (
-      <div style={{ ...style, background: 'rgba(255,255,255,0.9)', padding: '8px' }}>
-        {editing ? (
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onBlur={handleSave}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSave();
+              {/* Render Objects */}
+              {currentObjects.map(obj => (
+                <EditableObject
+                  key={obj.id}
+                  object={obj}
+                  scale={scale}
+                  selected={selectedId === obj.id}
+                  editing={editingId === obj.id}
+                  onUpdate={updateObject}
+                  onSelect={setSelectedId}
+                  onStartEdit={setEditingId}
+                  onFinishEdit={() => setEditingId(null)}
+                />
+              ))}
+            </View>
+          </View>
+        </View>
+
+        {/* Selection Action Bar */}
+        {selectedId && (
+          <ActionBar
+            isEmphasized
+            selectedItemCount="single"
+            onAction={(action) => {
+              if (action === 'delete') {
+                deleteObject(selectedId);
+              } else if (action === 'edit') {
+                setEditingId(selectedId);
+              } else if (action === 'signature') {
+                setShowSignatureDialog(true);
               }
             }}
-            style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-              outline: 'none',
-              background: 'transparent',
-              fontSize: `${object.fontSize * scale}px`,
-              color: object.color,
-              resize: 'none'
-            }}
-            autoFocus
-            placeholder="Type here..."
-          />
-        ) : (
-          <div style={{ 
-            fontSize: `${object.fontSize * scale}px`, 
-            color: object.color,
-            wordWrap: 'break-word',
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            pointerEvents: 'none',
-            opacity: object.content ? 1 : 0.5
-          }}>
-            {object.content || 'Edit'}
-          </div>
+          >
+            <Item key="edit" textValue="Edit">
+              <Edit />
+              <Text>Edit</Text>
+            </Item>
+            <Item key="signature" textValue="Add Signature">
+              <Draw />
+              <Text>Add Signature</Text>
+            </Item>
+            <Item key="delete" textValue="Delete">
+              <Delete />
+              <Text>Delete</Text>
+            </Item>
+          </ActionBar>
         )}
-        
-        {/* Simple Handles */}
-        {selected && !editing && (
-          <>
-            <div
-              onMouseDown={(e) => { e.stopPropagation(); onStartDrag('move', e); }}
-              style={{
-                position: 'absolute',
-                top: '-8px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '16px',
-                height: '16px',
-                background: '#28a745',
-                border: '2px solid white',
-                borderRadius: '50%',
-                cursor: 'move'
-              }}
-            />
-            <div
-              onMouseDown={(e) => { e.stopPropagation(); onStartDrag('resize', e); }}
-              style={{
-                position: 'absolute',
-                bottom: '-4px',
-                right: '-4px',
-                width: '12px',
-                height: '12px',
-                background: '#007bff',
-                border: '1px solid white',
-                borderRadius: '2px',
-                cursor: 'se-resize'
-              }}
-            />
-          </>
-        )}
-      </div>
-    );
-  }
 
-  if (object.type === 'signature') {
-    return (
-      <div style={{ 
-        ...style, 
-        background: 'rgba(255,255,255,0.95)', 
-        border: selected ? '2px solid #28a745' : '2px dashed #ccc',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        {object.content ? (
-          <img src={object.content} alt="Signature" style={{ width: '100%', height: '80%', objectFit: 'contain' }} />
-        ) : (
-          <div style={{ fontSize: '14px', color: '#666', textAlign: 'center' }}>
-            <div style={{ fontSize: '20px', marginBottom: '4px' }}>✍️</div>
-            <div>Sign here</div>
-          </div>
-        )}
-        
-        <SignatureCanvas object={object} scale={scale} onUpdate={onUpdate} />
-        
-        {selected && (
-          <>
-            <div
-              onMouseDown={(e) => { e.stopPropagation(); onStartDrag('move', e); }}
-              style={{
-                position: 'absolute',
-                top: '-8px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '16px',
-                height: '16px',
-                background: '#28a745',
-                border: '2px solid white',
-                borderRadius: '50%',
-                cursor: 'move'
-              }}
-            />
-            <div
-              onMouseDown={(e) => { e.stopPropagation(); onStartDrag('resize', e); }}
-              style={{
-                position: 'absolute',
-                bottom: '-4px',
-                right: '-4px',
-                width: '12px',
-                height: '12px',
-                background: '#28a745',
-                border: '1px solid white',
-                borderRadius: '2px',
-                cursor: 'se-resize'
-              }}
-            />
-          </>
-        )}
-      </div>
-    );
-  }
-
-  return null;
-}
-
-// Simple Signature Canvas
-function SignatureCanvas({ object, scale, onUpdate }) {
-  const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-
-  useEffect(() => {
-    if (object.content && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      img.src = object.content;
-    }
-  }, [object.content]);
-
-  const startDrawing = (e) => {
-    e.stopPropagation();
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const ctx = canvas.getContext('2d');
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-  };
-
-  const draw = (e) => {
-    if (!isDrawing) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const ctx = canvas.getContext('2d');
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-    ctx.stroke();
-  };
-
-  const stopDrawing = (e) => {
-    if (!isDrawing) return;
-    e?.stopPropagation();
-    setIsDrawing(false);
-    const canvas = canvasRef.current;
-    onUpdate({ content: canvas.toDataURL('image/png') });
-  };
-
-  const clearSig = (e) => {
-    e.stopPropagation();
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    onUpdate({ content: null });
-  };
-
-  return (
-    <>
-      <canvas
-        ref={canvasRef}
-        width={object.width * scale}
-        height={object.height * scale * 0.8}
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={stopDrawing}
-        onMouseLeave={stopDrawing}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          cursor: 'crosshair',
-          borderRadius: '4px'
-        }}
-      />
-      {object.content && (
-        <button
-          onClick={clearSig}
-          style={{
-            position: 'absolute',
-            bottom: '2px',
-            right: '2px',
-            background: '#dc3545',
-            color: 'white',
-            border: 'none',
-            padding: '2px 6px',
-            fontSize: '10px',
-            borderRadius: '2px',
-            cursor: 'pointer'
-          }}
-        >
-          Clear
-        </button>
-      )}
-    </>
+        {/* Signature Dialog */}
+        <SignatureDialog
+          isOpen={showSignatureDialog}
+          onClose={() => setShowSignatureDialog(false)}
+          onSave={handleSignatureSave}
+        />
+      </View>
+    </Provider>
   );
 }
 
-// Clean Styles
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    background: '#f5f5f5',
-    fontFamily: 'system-ui, -apple-system, sans-serif'
-  },
-  toolbar: {
-    background: 'white',
-    borderBottom: '1px solid #ddd',
-    padding: '12px 20px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-  },
-  toolbarLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px'
-  },
-  toolbarCenter: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px'
-  },
-  toolbarRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px'
-  },
-  title: {
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#333'
-  },
-  button: {
-    padding: '8px 16px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    background: 'white',
-    cursor: 'pointer',
-    fontSize: '14px'
-  },
-  backButton: {
-    padding: '8px 16px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    background: 'white',
-    cursor: 'pointer',
-    fontSize: '14px'
-  },
-  primaryButton: {
-    padding: '8px 16px',
-    border: 'none',
-    borderRadius: '4px',
-    background: '#007bff',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500'
-  },
-  saveButton: {
-    padding: '8px 20px',
-    border: 'none',
-    borderRadius: '4px',
-    background: '#28a745',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '600'
-  },
-  deleteButton: {
-    padding: '8px 16px',
-    border: 'none',
-    borderRadius: '4px',
-    background: '#dc3545',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '14px'
-  },
-  pageControls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    background: '#f8f9fa',
-    padding: '4px 8px',
-    borderRadius: '4px',
-    border: '1px solid #ddd'
-  },
-  pageButton: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '4px 8px',
-    borderRadius: '2px'
-  },
-  pageInfo: {
-    fontSize: '14px',
-    fontWeight: '500',
-    minWidth: '60px',
-    textAlign: 'center'
-  },
-  zoomControls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    background: '#f8f9fa',
-    padding: '4px',
-    borderRadius: '4px',
-    border: '1px solid #ddd'
-  },
-  zoomButton: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '4px 8px',
-    borderRadius: '2px',
-    fontSize: '14px'
-  },
-  zoomDisplay: {
-    fontSize: '12px',
-    fontWeight: '500',
-    minWidth: '50px',
-    textAlign: 'center'
-  },
-  canvasContainer: {
-    flex: 1,
-    overflow: 'auto',
-    padding: '20px',
-    display: 'flex',
-    justifyContent: 'center'
-  },
-  canvasWrapper: {
-    position: 'relative',
-    background: 'white',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-    borderRadius: '4px'
-  },
-  canvas: {
-    display: 'block',
-    borderRadius: '4px'
-  },
-  helpBar: {
-    background: '#f8f9fa',
-    borderTop: '1px solid #ddd',
-    padding: '8px 20px',
-    fontSize: '13px',
-    color: '#666',
-    textAlign: 'center'
-  },
-  errorContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100vh',
-    background: '#f5f5f5',
-    gap: '20px'
-  },
-  loadingContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100vh',
-    background: '#f5f5f5'
-  }
-};
-
-export default AdobeStylePDFEditor;
+export default SpectrumPDFEditor;

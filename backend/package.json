@@ -1,0 +1,43 @@
+{
+  "name": "titanpdf-backend",
+  "version": "1.0.0",
+  "description": "TitanPDF Backend API Server with Static File Serving",
+  "main": "server.js",
+  "scripts": {
+    "start": "NODE_ENV=production node server.js",
+    "dev": "NODE_ENV=development nodemon server.js",
+    "dev:watch": "NODE_ENV=development nodemon --watch . --ext js server.js",
+    "build": "npm run build:frontend && npm run copy:build",
+    "build:frontend": "cd .. && npm run build",
+    "copy:build": "cp -r ../build . 2>/dev/null || xcopy /E /I ..\\build .\\build",
+    "deploy": "npm run build && npm start",
+    "clean": "rm -rf build",
+    "status": "node -e \"console.log('Environment:', process.env.NODE_ENV || 'development'); console.log('Port:', process.env.PORT || 3005);\""
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.1",
+    "form-data": "^4.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "server.js",
+      "api/",
+      ".env"
+    ],
+    "ext": "js,json",
+    "ignore": [
+      "node_modules/",
+      "build/"
+    ]
+  }
+}
