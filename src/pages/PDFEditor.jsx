@@ -1,6 +1,5 @@
-// src/pages/PDFEditor/PDFEditor.jsx - Simple, User-Friendly PDF Editor
+// Enhanced PDF Editor with improved interactions
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import apiClient from '../services/apiClient';
 
 // Custom hook for PDF operations
 function usePDFEditor(pdf, job) {
@@ -30,7 +29,8 @@ function usePDFEditor(pdf, job) {
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       }
 
-      const downloadUrl = apiClient.getAttachmentDownloadUrl(job.id, pdf.serviceTitanId || pdf.id);
+      // Simulate download URL - replace with actual API call
+      const downloadUrl = `/api/job/${job.id}/attachment/${pdf.serviceTitanId || pdf.id}/download`;
       const response = await fetch(downloadUrl);
       if (!response.ok) throw new Error('Failed to load PDF');
 
@@ -86,7 +86,7 @@ function usePDFEditor(pdf, job) {
     
     setObjects(prev => [...prev, newText]);
     setSelectedId(id);
-    setEditingId(id);
+    // Don't automatically start editing - just select it
   }, [scale, currentPage]);
 
   const addSignatureObject = useCallback((x = 100, y = 100) => {
@@ -270,37 +270,214 @@ function SignatureDialog({ isOpen, onClose, onSave }) {
   );
 }
 
-// Simple Editable Field Component
+// Enhanced Editable Field Component with drag, resize, and multi-line text support
 function EditableField({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
   const [value, setValue] = useState(object.content || '');
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [lastClickTime, setLastClickTime] = useState(0);
   
   useEffect(() => {
     setValue(object.content || '');
   }, [object.content]);
 
-  const style = {
+  // Calculate proper height for multi-line text
+  const calculateTextHeight = () => {
+    const lineHeight = Math.max(16, object.fontSize * scale * 1.2);
+    const lines = (object.content || '').split('\n').length;
+    const textLines = Math.max(1, Math.ceil((object.content || '').length / 25)); // Rough wrap estimation
+    return Math.max(object.height * scale, Math.max(lines, textLines) * lineHeight + 8);
+  };
+
+  const fieldStyle = {
     position: 'absolute',
     left: `${object.x * scale}px`,
     top: `${object.y * scale}px`,
     width: `${object.width * scale}px`,
-    height: `${object.height * scale}px`,
+    height: object.type === 'text' ? `${calculateTextHeight()}px` : `${object.height * scale}px`,
     zIndex: selected ? 1000 : 100,
-    border: selected ? '3px solid #007bff' : '2px solid transparent',
+    border: selected ? '2px solid #007bff' : '1px solid rgba(0,0,0,0.2)',
     borderRadius: '4px',
     background: selected ? 'rgba(0, 123, 255, 0.1)' : 'rgba(255, 255, 255, 0.95)',
-    cursor: 'pointer'
+    cursor: isDragging ? 'grabbing' : 'move',
+    userSelect: 'none',
+    touchAction: 'none',
+    minWidth: '60px',
+    minHeight: '25px'
   };
 
-  const handleClick = (e) => {
+  // Handle mouse down for dragging
+  const handleMouseDown = (e) => {
+    e.preventDefault();
     e.stopPropagation();
-    onSelect(object.id);
-  };
-
-  const handleDoubleClick = (e) => {
-    e.stopPropagation();
-    if (object.type === 'text') {
-      onStartEdit(object.id);
+    
+    if (editing) return;
+    
+    // Get coordinates for resize handle check
+    const fieldRect = e.currentTarget.getBoundingClientRect();
+    const offsetX = e.clientX - fieldRect.left;
+    const offsetY = e.clientY - fieldRect.top;
+    
+    // Check if clicking on resize handle (only if already selected)
+    if (selected && offsetX > fieldRect.width - 15 && offsetY > fieldRect.height - 15) {
+      setIsResizing(true);
+      setResizeHandle('se');
+      return;
     }
+    
+    // If not selected, just select it
+    if (!selected) {
+      onSelect(object.id);
+      return;
+    }
+    
+    // If already selected, start drag preparation
+    const canvasWrapper = e.target.closest('.pdf-wrapper');
+    if (!canvasWrapper) return;
+    
+    // Store the mouse position and field position at the start
+    const initialMouseX = e.clientX;
+    const initialMouseY = e.clientY;
+    const initialFieldX = object.x;
+    const initialFieldY = object.y;
+    
+    // Set up drag detection with a small delay
+    let dragStarted = false;
+    let startTime = Date.now();
+    
+    const handleMouseMove = (e) => {
+      // Start dragging after 150ms or if mouse moved significantly
+      const timePassed = Date.now() - startTime;
+      const mouseMoved = Math.abs(e.clientX - (fieldRect.left + offsetX)) > 3 || 
+                        Math.abs(e.clientY - (fieldRect.top + offsetY)) > 3;
+      
+      if (!dragStarted && (timePassed > 150 || mouseMoved)) {
+        dragStarted = true;
+        setIsDragging(true);
+      }
+      
+      if (dragStarted) {
+        const currentCanvasRect = canvasWrapper.getBoundingClientRect();
+        
+        // Calculate how much the mouse has moved since drag started
+        const deltaX = e.clientX - initialMouseX;
+        const deltaY = e.clientY - initialMouseY;
+        
+        // Apply that movement to the field's initial position
+        const newX = Math.max(0, initialFieldX + (deltaX / scale));
+        const newY = Math.max(0, initialFieldY + (deltaY / scale));
+        
+        onUpdate(object.id, { x: newX, y: newY });
+      }
+    };
+    
+    const handleMouseUp = () => {
+      // If we didn't drag and this was a quick click, check for double-click
+      if (!dragStarted && object.type === 'text') {
+        const currentTime = Date.now();
+        const timeDiff = currentTime - lastClickTime;
+        
+        if (timeDiff < 300) {
+          // Double-click detected
+          onStartEdit(object.id);
+        }
+        setLastClickTime(currentTime);
+      }
+      
+      setIsDragging(false);
+      setIsResizing(false);
+      setResizeHandle(null);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Handle touch events
+  const handleTouchStart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (editing) return;
+    
+    const touch = e.touches[0];
+    const fieldRect = e.currentTarget.getBoundingClientRect();
+    const offsetX = touch.clientX - fieldRect.left;
+    const offsetY = touch.clientY - fieldRect.top;
+    
+    // If not selected, just select it
+    if (!selected) {
+      onSelect(object.id);
+      return;
+    }
+    
+    // If already selected, prepare for drag
+    const canvasWrapper = e.target.closest('.pdf-wrapper');
+    if (!canvasWrapper) return;
+    
+    // Store the touch position and field position at the start
+    const initialTouchX = touch.clientX;
+    const initialTouchY = touch.clientY;
+    const initialFieldX = object.x;
+    const initialFieldY = object.y;
+    
+    // For touch, start dragging after a short delay
+    let dragStarted = false;
+    const startTime = Date.now();
+    
+    const handleTouchMove = (e) => {
+      if (!dragStarted) {
+        const timePassed = Date.now() - startTime;
+        if (timePassed > 200) { // 200ms delay for touch
+          dragStarted = true;
+          setIsDragging(true);
+        }
+      }
+      
+      if (dragStarted && e.touches[0]) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        
+        // Calculate how much the touch has moved since drag started
+        const deltaX = touch.clientX - initialTouchX;
+        const deltaY = touch.clientY - initialTouchY;
+        
+        // Apply that movement to the field's initial position
+        const newX = Math.max(0, initialFieldX + (deltaX / scale));
+        const newY = Math.max(0, initialFieldY + (deltaY / scale));
+        
+        onUpdate(object.id, { x: newX, y: newY });
+      }
+    };
+    
+    const handleTouchEnd = (e) => {
+      // Check for double-tap on text elements
+      if (!dragStarted && object.type === 'text') {
+        const currentTime = Date.now();
+        const timeDiff = currentTime - lastClickTime;
+        
+        if (timeDiff < 300) {
+          onStartEdit(object.id);
+        }
+        setLastClickTime(currentTime);
+      }
+      
+      setIsDragging(false);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+    
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+  };
+
+  const handleTouchEnd = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
   };
 
   const handleSave = () => {
@@ -308,47 +485,120 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     onFinishEdit();
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
       handleSave();
     }
   };
 
   if (object.type === 'text') {
     return (
-      <div style={style} onClick={handleClick} onDoubleClick={handleDoubleClick}>
-        {editing ? (
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onBlur={handleSave}
-            onKeyPress={handleKeyPress}
-            placeholder="Enter text here..."
-            autoFocus
-            style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-              background: 'transparent',
-              fontSize: `${Math.max(12, object.fontSize * scale)}px`,
+      <div style={fieldStyle}>
+        {/* Main field area */}
+        <div
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          style={{
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            cursor: editing ? 'text' : 'move'
+          }}
+        >
+          {editing ? (
+            <textarea
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onBlur={handleSave}
+              onKeyDown={handleKeyDown}
+              placeholder="Enter text here... (Shift+Enter for new line)"
+              autoFocus
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                background: 'transparent',
+                fontSize: `12px`,
+                color: object.color,
+                outline: 'none',
+                padding: '4px',
+                cursor: 'text',
+                resize: 'none',
+                fontFamily: 'inherit',
+                lineHeight: '1.2',
+                wordWrap: 'break-word',
+                overflow: 'hidden'
+              }}
+            />
+          ) : (
+            <div style={{
+              padding: '4px',
+              fontSize: `12px`,
               color: object.color,
-              outline: 'none',
-              padding: '2px'
+              height: '100%',
+              width: '100%',
+              opacity: object.content ? 1 : 0.6,
+              pointerEvents: 'none',
+              lineHeight: '1.2',
+              wordWrap: 'break-word',
+              whiteSpace: 'pre-wrap',
+              overflow: 'hidden'
+            }}>
+              {object.content || 'Double-click to edit'}
+            </div>
+          )}
+        </div>
+        
+        {/* Resize handle */}
+        {selected && !editing && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '-4px',
+              right: '-4px',
+              width: '12px',
+              height: '12px',
+              background: '#007bff',
+              border: '2px solid white',
+              borderRadius: '50%',
+              cursor: 'se-resize',
+              zIndex: 1001,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsResizing(true);
+              setResizeHandle('se');
+              
+              // Get proper coordinates for resize
+              const canvasWrapper = e.target.closest('.pdf-wrapper');
+              if (!canvasWrapper) return;
+              
+              const canvasRect = canvasWrapper.getBoundingClientRect();
+              
+              const handleMouseMove = (e) => {
+                // Calculate new size based on mouse position relative to field's top-left
+                const fieldLeft = object.x * scale + canvasRect.left;
+                const fieldTop = object.y * scale + canvasRect.top;
+                
+                const newWidth = Math.max(60, (e.clientX - fieldLeft) / scale);
+                const newHeight = Math.max(25, (e.clientY - fieldTop) / scale);
+                onUpdate(object.id, { width: newWidth, height: newHeight });
+              };
+              
+              const handleMouseUp = () => {
+                setIsResizing(false);
+                setResizeHandle(null);
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+              };
+              
+              document.addEventListener('mousemove', handleMouseMove);
+              document.addEventListener('mouseup', handleMouseUp);
             }}
           />
-        ) : (
-          <div style={{
-            padding: '2px',
-            fontSize: `${Math.max(12, object.fontSize * scale)}px`,
-            color: object.color,
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            opacity: object.content ? 1 : 0.6
-          }}>
-            {object.content || 'Click to edit text'}
-          </div>
         )}
       </div>
     );
@@ -358,14 +608,15 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     return (
       <div
         style={{
-          ...style,
+          ...fieldStyle,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          border: selected ? '3px solid #28a745' : '2px dashed #ccc',
+          border: selected ? '2px solid #28a745' : '2px dashed #ccc',
           background: selected ? 'rgba(40, 167, 69, 0.1)' : 'rgba(255, 255, 255, 0.95)'
         }}
-        onClick={handleClick}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
       >
         {object.content ? (
           <img 
@@ -374,13 +625,63 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             style={{ 
               maxWidth: '100%', 
               maxHeight: '100%',
-              objectFit: 'contain'
+              objectFit: 'contain',
+              pointerEvents: 'none'
             }} 
           />
         ) : (
-          <span style={{ color: '#666', fontSize: '14px', textAlign: 'center' }}>
-            Click to add<br/>signature
+          <span style={{ color: '#666', fontSize: '14px', textAlign: 'center', pointerEvents: 'none' }}>
+            Drag to move<br/>Double-click to sign
           </span>
+        )}
+        
+        {/* Resize handle for signatures too */}
+        {selected && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '-4px',
+              right: '-4px',
+              width: '12px',
+              height: '12px',
+              background: '#28a745',
+              border: '2px solid white',
+              borderRadius: '50%',
+              cursor: 'se-resize',
+              zIndex: 1001,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsResizing(true);
+              
+              // Get proper coordinates for resize
+              const canvasWrapper = e.target.closest('.pdf-wrapper');
+              if (!canvasWrapper) return;
+              
+              const canvasRect = canvasWrapper.getBoundingClientRect();
+              
+              const handleMouseMove = (e) => {
+                // Calculate new size based on mouse position relative to field's top-left
+                const fieldLeft = object.x * scale + canvasRect.left;
+                const fieldTop = object.y * scale + canvasRect.top;
+                
+                const newWidth = Math.max(60, (e.clientX - fieldLeft) / scale);
+                const newHeight = Math.max(25, (e.clientY - fieldTop) / scale);
+                onUpdate(object.id, { width: newWidth, height: newHeight });
+              };
+              
+              const handleMouseUp = () => {
+                setIsResizing(false);
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+              };
+              
+              document.addEventListener('mousemove', handleMouseMove);
+              document.addEventListener('mouseup', handleMouseUp);
+            }}
+          />
         )}
       </div>
     );
@@ -414,16 +715,18 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
 
   const [showSignatureDialog, setShowSignatureDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [showHelp, setShowHelp] = useState(true);
 
   const currentObjects = objects.filter(obj => obj.page === currentPage);
 
   const handleCanvasClick = useCallback((e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    addTextObject(x, y);
-  }, [addTextObject, canvasRef]);
+    // Clear selection when clicking on empty canvas
+    setSelectedId(null);
+    setEditingId(null);
+  }, []);
+
+  const handleAddTextBox = () => {
+    addTextObject(100, 100);
+  };
 
   const handleAddSignature = () => {
     addSignatureObject(100, 100);
@@ -434,10 +737,15 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     try {
       setIsSaving(true);
       
+      // Create completed filename
+      const originalName = pdf.fileName || pdf.name || 'Document';
+      const completedFileName = `Completed - ${originalName}`;
+      
       const saveData = {
         pdfId: pdf.id,
         serviceTitanId: pdf.serviceTitanId || pdf.id,
-        originalFileName: pdf.fileName || pdf.name,
+        originalFileName: originalName,
+        completedFileName: completedFileName,
         editableElements: objects,
         jobInfo: {
           jobId: job.id,
@@ -447,6 +755,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         savedAt: new Date().toISOString()
       };
       
+      console.log('💾 Saving completed form as:', completedFileName);
       await onSave(saveData);
     } catch (error) {
       console.error('❌ Save error:', error);
@@ -511,27 +820,15 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         </div>
       </div>
 
-      {/* Help Instructions */}
-      {showHelp && (
-        <div className="help-banner">
-          <div className="help-content">
-            <h4>📝 How to Fill This Form:</h4>
-            <div className="help-steps">
-              <span>1️⃣ Click anywhere to add text</span>
-              <span>2️⃣ Use "Add Signature" button</span>
-              <span>3️⃣ Click fields to edit them</span>
-              <span>4️⃣ Save when done</span>
-            </div>
-            <button onClick={() => setShowHelp(false)} className="help-close">
-              Got it! ✕
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Simple Toolbar */}
       <div className="editor-toolbar">
         <div className="toolbar-left">
+          <button 
+            onClick={handleAddTextBox}
+            className="btn btn-primary"
+          >
+            📝 Add Text Box
+          </button>
           <button 
             onClick={handleAddSignature}
             className="btn btn-primary"
@@ -616,7 +913,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
               onClick={handleCanvasClick}
               className="pdf-canvas"
               style={{
-                cursor: 'crosshair',
+                cursor: 'default',
                 maxWidth: '100%',
                 height: 'auto'
               }}
@@ -646,22 +943,11 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         onClose={() => setShowSignatureDialog(false)}
         onSave={handleSignatureSave}
       />
-
-      {/* Floating Help Button */}
-      {!showHelp && (
-        <button 
-          onClick={() => setShowHelp(true)}
-          className="help-float-btn"
-          title="Show help"
-        >
-          ❓
-        </button>
-      )}
     </div>
   );
 }
 
-// Simple, clean styles
+// Styles
 const editorStyles = `
 .pdf-editor-simple {
   height: 100vh;
@@ -706,44 +992,6 @@ const editorStyles = `
   font-size: 0.9rem;
   color: #1976d2;
   border: 1px solid #bbdefb;
-}
-
-.help-banner {
-  background: linear-gradient(135deg, #4CAF50, #45a049);
-  color: white;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.help-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.help-steps {
-  display: flex;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.help-steps span {
-  background: rgba(255,255,255,0.2);
-  padding: 0.25rem 0.75rem;
-  border-radius: 15px;
-  font-size: 0.9rem;
-}
-
-.help-close {
-  background: rgba(255,255,255,0.2);
-  border: 1px solid rgba(255,255,255,0.3);
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  cursor: pointer;
-  font-weight: bold;
 }
 
 .editor-toolbar {
@@ -887,22 +1135,6 @@ const editorStyles = `
   margin-top: 1.5rem;
 }
 
-.help-float-btn {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: #007bff;
-  color: white;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0,123,255,0.3);
-  z-index: 1000;
-}
-
 .btn {
   padding: 0.5rem 1rem;
   border: none;
@@ -954,9 +1186,6 @@ const editorStyles = `
     flex-wrap: wrap;
   }
   
-  .help-steps {
-    justify-content: center;
-  }
   .signature-dialog {
     margin: 1rem;
     width: auto;
@@ -965,9 +1194,9 @@ const editorStyles = `
 `;
 
 // Inject styles
-if (typeof document !== 'undefined' && !document.getElementById('simple-pdf-editor-styles')) {
+if (typeof document !== 'undefined' && !document.getElementById('pdf-editor-styles')) {
   const style = document.createElement('style');
-  style.id = 'simple-pdf-editor-styles';
+  style.id = 'pdf-editor-styles';
   style.textContent = editorStyles;
   document.head.appendChild(style);
 }
