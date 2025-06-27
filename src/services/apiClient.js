@@ -1,4 +1,4 @@
-// src/services/apiClient.js - Updated with ServiceTitan Upload
+// src/services/apiClient.js - Updated with PDF Binary Handling and ServiceTitan Upload
 import sessionManager from './sessionManager';
 
 class ApiClient {
@@ -168,44 +168,86 @@ class ApiClient {
     return `${this.baseUrl}/api/job/${jobId}/attachment/${attachmentId}/download`;
   }
 
-  // 🚀 NEW: Upload completed PDF form to ServiceTitan
+  // ✅ UPDATED: Save completed PDF form with in-app notification (no download)
   async saveCompletedPDFForm(jobId, attachmentId, formData) {
     try {
-      console.log(`🚀 Uploading completed PDF form to ServiceTitan...`);
-      console.log(`📋 Job: ${jobId}, Attachment: ${attachmentId}`);
-      console.log(`📄 File: ${formData.completedFileName}`);
+      console.log(`💾 Saving completed PDF form: ${attachmentId} for job: ${jobId}`);
       
-      const response = await this.apiCall(`/api/job/${jobId}/attachment/${attachmentId}/save`, {
+      const url = `${this.baseUrl}/api/job/${jobId}/attachment/${attachmentId}/save`;
+      
+      const fetchOptions = {
         method: 'POST',
-        body: formData,
-        timeout: 120000 // 2 minutes timeout for upload
-      });
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json', // ✅ CHANGED: Expect JSON response now
+        },
+        credentials: 'include',
+        body: JSON.stringify(formData)
+      };
+
+      console.log(`📡 API Call: POST ${url}`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      fetchOptions.signal = controller.signal;
+
+      const response = await fetch(url, fetchOptions);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+        } catch {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      // ✅ CHANGED: Always expect JSON response (no more PDF downloads)
+      const result = await response.json();
+      console.log(`✅ PDF form processing result:`, result);
       
-      console.log(`✅ PDF form uploaded successfully to ServiceTitan!`);
-      console.log(`📊 Upload details:`, response.uploadDetails);
-      
-      return response;
+      return result;
       
     } catch (error) {
-      console.error('❌ Error uploading PDF form to ServiceTitan:', error);
-      
-      // Enhanced error handling for upload failures
-      if (error.message.includes('timeout')) {
-        throw new Error('Upload timed out - please check your connection and try again');
-      } else if (error.message.includes('400')) {
-        throw new Error('Invalid file format or data - please check your form and try again');
-      } else if (error.message.includes('401') || error.message.includes('403')) {
-        throw new Error('Permission denied - please check your ServiceTitan access');
-      } else if (error.message.includes('413')) {
-        throw new Error('File too large - please reduce the number of form elements');
-      } else if (error.message.includes('500')) {
-        throw new Error('ServiceTitan server error - please try again later');
-      } else if (error.message.includes('502') || error.message.includes('503')) {
-        throw new Error('ServiceTitan service temporarily unavailable - please try again');
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timeout after 60 seconds`);
       }
-      
-      throw new Error(`Failed to upload PDF form: ${error.message}`);
+      console.error('❌ Error saving PDF form:', error);
+      throw new Error(`Failed to save PDF form: ${error.message}`);
     }
+  }
+
+  // ✅ HELPER: Extract filename from response headers
+  getFileNameFromResponse(response) {
+    const contentDisposition = response.headers.get('content-disposition');
+    if (contentDisposition) {
+      const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
+      if (matches != null && matches[1]) {
+        let filename = matches[1].replace(/['"]/g, '');
+        // ✅ FIXED: Don't add .pdf if filename already ends with .pdf
+        return filename.endsWith('.pdf') ? filename : filename + '.pdf';
+      }
+    }
+    return 'Completed_Form.pdf'; // ✅ Default filename with proper extension
+  }
+
+  // ✅ HELPER: Download blob as file
+  downloadBlob(blob, filename) {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
 
   // 📄 NEW: Get saved forms for a job
