@@ -17,7 +17,7 @@ router.get('/technician/:technicianId/jobs', async (req, res) => {
     console.log(`📋 Fetching jobs for technician ID: ${technicianId}`);
     
     // Use global serviceTitan date range helper
-    const { startDate, endDate } = global.serviceTitan.getDateRange(2);
+    const { startDate, endDate } = global.serviceTitan.getDateRange(3);
     
     console.log(`📅 Date Range: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
     
@@ -190,7 +190,7 @@ router.get('/technician/:technicianId/jobs', async (req, res) => {
       dateRange: {
         start: startDate.toISOString(),
         end: endDate.toISOString(),
-        description: '2 days back to today'
+        description: '3 days back to today'
       },
       metadata: {
         totalJobsFound: allJobs.length,
@@ -329,6 +329,42 @@ router.get('/job/:jobId', async (req, res) => {
       success: false,
       error: 'Server error fetching job details',
       jobId: req.params.jobId
+    });
+  }
+});
+
+// ✅ GET CUSTOMER DETAILS endpoint
+router.get('/customer/:customerId', async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    
+    console.log(`👤 Fetching customer details: ${customerId}`);
+    
+    const endpoint = global.serviceTitan.buildTenantUrl('crm') + `/customers/${customerId}`;
+    const customerData = await global.serviceTitan.apiCall(endpoint);
+    
+    console.log(`✅ Customer details fetched: ${customerData.name}`);
+    
+    res.json({
+      success: true,
+      data: customerData
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching customer details:', error);
+    
+    if (error.message.includes('404')) {
+      return res.status(404).json({
+        success: false,
+        error: 'Customer not found',
+        customerId: req.params.customerId
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error fetching customer details',
+      customerId: req.params.customerId
     });
   }
 });

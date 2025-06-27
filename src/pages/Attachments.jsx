@@ -1,4 +1,4 @@
-// src/pages/Attachments/Attachments.jsx - Side-by-Side Layout
+// src/pages/Attachments/Attachments.jsx - Side-by-Side Layout with Fixed ID Handling
 import React, { useState, useEffect } from 'react';
 import PDFEditor from './PDFEditor';
 import apiClient from '../services/apiClient';
@@ -79,45 +79,78 @@ export default function Attachments({ job, onBack }) {
     }
   }, [job]);
 
+  // ✅ FIXED: Proper PDF opening with ID handling
   const handleOpenPDF = (attachment) => {
     console.log(`📖 Opening PDF: ${attachment.name}`);
-    setSelectedPDF(attachment);
+    console.log('📋 Original attachment data:', attachment);
+    
+    // ✅ Ensure the attachment has the required IDs
+    const pdfData = {
+      ...attachment,
+      // Ensure we have both id and serviceTitanId for compatibility
+      id: attachment.id || attachment.serviceTitanId,
+      serviceTitanId: attachment.serviceTitanId || attachment.id
+    };
+    
+    console.log('📋 Processed PDF data for editor:', pdfData);
+    console.log('🔑 PDF ID:', pdfData.id, 'ServiceTitan ID:', pdfData.serviceTitanId);
+    
+    setSelectedPDF(pdfData);
   };
 
+  // ✅ FIXED: Proper PDF closing
   const handleClosePDF = () => {
     console.log(`❌ Closing PDF editor`);
     setSelectedPDF(null);
   };
 
+  // ✅ FIXED: Proper PDF saving with attachment ID extraction
   const handleSavePDF = async (pdfData) => {
     try {
-      console.log('💾 Saving PDF:', pdfData);
+      console.log('💾 Saving PDF in Attachments.jsx:', pdfData);
       
-      // Save the PDF data back to ServiceTitan
+      // ✅ Extract the attachment ID from multiple possible sources
+      const attachmentId = pdfData.attachmentId || 
+                          selectedPDF?.serviceTitanId || 
+                          selectedPDF?.id ||
+                          pdfData.serviceTitanId ||
+                          pdfData.pdfId;
+      
+      if (!attachmentId) {
+        console.error('❌ Missing attachment ID. Available data:', {
+          pdfData: Object.keys(pdfData),
+          selectedPDF: selectedPDF ? Object.keys(selectedPDF) : 'null',
+          pdfDataAttachmentId: pdfData.attachmentId,
+          selectedPDFServiceTitanId: selectedPDF?.serviceTitanId,
+          selectedPDFId: selectedPDF?.id
+        });
+        throw new Error('Missing attachment ID - cannot identify which PDF to save');
+      }
+      
+      console.log('🔗 Using attachment ID:', attachmentId, 'for job:', job.id);
+      console.log('📋 Complete save data:', pdfData);
+      
+      // Save the PDF data to ServiceTitan
       const result = await apiClient.saveCompletedPDFForm(
-        pdfData.jobInfo.jobId,
-        pdfData.serviceTitanId,
-        {
-          elements: pdfData.editableElements,
-          metadata: {
-            savedAt: pdfData.savedAt,
-            elementCount: pdfData.editableElements.length
-          }
-        }
+        job.id,
+        attachmentId,
+        pdfData
       );
       
       if (result.success) {
-        // Show success message
-        console.log('✅ PDF saved successfully');
-        // You could add a toast notification here
+        console.log('✅ PDF saved successfully:', result);
         
+        // Show success message
+        alert(`✅ Successfully uploaded "${pdfData.completedFileName}" to ServiceTitan!`);
+        
+        // Close the PDF editor and return to attachments list
         setSelectedPDF(null);
       }
       
     } catch (error) {
       console.error('❌ Error saving PDF:', error);
-      // Handle save error - could show error toast
-      alert(`Error saving PDF: ${error.message}`);
+      // Show user-friendly error message
+      alert(`❌ Error saving PDF: ${error.message}`);
     }
   };
 
@@ -339,10 +372,14 @@ export default function Attachments({ job, onBack }) {
                           <span>{attachment.category}</span>
                         </div>
                       )}
+                      <div className="meta-line">
+                        <span className="meta-label">ID:</span>
+                        <span className="text-xs">{attachment.serviceTitanId || attachment.id}</span>
+                      </div>
                     </div>
                     
                     <button className="btn btn-primary btn-sm pdf-action-btn">
-                      💾 Fill & Save PDF →
+                      🚀 Fill & Upload to ServiceTitan →
                     </button>
                   </div>
                 ))}
