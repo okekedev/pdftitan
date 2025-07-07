@@ -1,4 +1,4 @@
-/* src/App.css - Comprehensive Global Styles */
+/* src/App.css - Comprehensive Global Styles with Enhanced PDF Editor */
 
 /* ===== CSS VARIABLES ===== */
 :root {
@@ -311,11 +311,6 @@ body {
 .loading-content p {
   opacity: 0.9;
   font-size: 1rem;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 
 /* ===== BUTTONS ===== */
@@ -641,6 +636,547 @@ body {
 .p-3 { padding: var(--spacing-md); }
 .p-4 { padding: var(--spacing-lg); }
 
+/* ===== ENHANCED PDF EDITOR STYLES ===== */
+
+.pdf-editor-simple {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+  font-family: var(--font-family);
+}
+
+/* ===== SUCCESS POPUP ===== */
+.success-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 3000;
+  backdrop-filter: blur(2px);
+}
+
+.success-popup {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  animation: successPopupAppear 0.3s ease-out;
+}
+
+.success-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  animation: successIconBounce 0.6s ease-out;
+}
+
+.success-popup h3 {
+  margin: 0 0 1rem 0;
+  color: #2d3748;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.success-message {
+  color: #4a5568;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+  white-space: pre-line;
+}
+
+.success-ok-btn {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  min-width: 100px;
+}
+
+@keyframes successPopupAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes successIconBounce {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* ===== PDF WRAPPER AND CANVAS ===== */
+.pdf-wrapper {
+  position: relative;
+  background: white;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.rendering-overlay {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  z-index: 1500;
+}
+
+.rendering-overlay .loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* ===== HEADER AND TOOLBAR ===== */
+.editor-header {
+  background: white;
+  border-bottom: 2px solid #e9ecef;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.pdf-info h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #333;
+}
+
+.pdf-info p {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.completion-status {
+  background: #e3f2fd;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  color: #1976d2;
+  border: 1px solid #bbdefb;
+}
+
+/* ===== ENHANCED TOOLBAR ===== */
+.editor-toolbar {
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.toolbar-left, .toolbar-center, .toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* ✅ NEW: Tool Groups for better organization */
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.tool-group-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #495057;
+  margin-right: 0.5rem;
+  padding-right: 0.5rem;
+  border-right: 1px solid #dee2e6;
+}
+
+/* ✅ ENHANCED: Field type specific button styling */
+.tool-group .btn {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.tool-group .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* Field type specific colors */
+.tool-group .btn:nth-child(2) { /* Text */
+  background: #007bff;
+  border-color: #0056b3;
+}
+
+.tool-group .btn:nth-child(3) { /* Signature */
+  background: #28a745;
+  border-color: #1e7e34;
+}
+
+.tool-group .btn:nth-child(4) { /* Date */
+  background: #17a2b8;
+  border-color: #117a8b;
+}
+
+.tool-group .btn:nth-child(5) { /* Timestamp */
+  background: #6f42c1;
+  border-color: #59359a;
+}
+
+.tool-group .btn:nth-child(6) { /* Checkbox */
+  background: #fd7e14;
+  border-color: #e55100;
+}
+
+.page-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
+  border: 1px solid #dee2e6;
+}
+
+.page-info {
+  font-weight: 600;
+  color: #495057;
+  min-width: 120px;
+  text-align: center;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
+  border: 1px solid #dee2e6;
+}
+
+.zoom-level {
+  min-width: 60px;
+  text-align: center;
+  font-weight: 600;
+  color: #495057;
+}
+
+/* ===== PDF CONTAINER ===== */
+.pdf-container {
+  flex: 1;
+  overflow: auto;
+  padding: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: #e9ecef;
+}
+
+.pdf-canvas {
+  display: block;
+}
+
+/* ===== SIGNATURE DIALOG ===== */
+.signature-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.signature-dialog {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 16px 64px rgba(0,0,0,0.2);
+  max-width: 90%;
+  max-height: 90%;
+  width: 500px;
+}
+
+.signature-dialog h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+}
+
+.signature-area {
+  border: 3px dashed #dee2e6;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  background: #f8f9fa;
+}
+
+.signature-canvas {
+  display: block;
+  width: 100%;
+  background: white;
+  border-radius: 4px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.signature-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+/* ===== ENHANCED EDITABLE FIELDS ===== */
+
+/* ✅ NEW: Improved drag handles for better UX */
+.drag-handle {
+  transition: all 0.2s ease;
+}
+
+.drag-handle:hover {
+  background: rgba(0, 123, 255, 0.1);
+  border: 2px dashed rgba(0, 123, 255, 0.5) !important;
+}
+
+/* ✅ Base field styling with type-specific enhancements */
+.editable-field {
+  position: absolute;
+  border-radius: 4px;
+  user-select: none;
+  touch-action: none;
+  transition: all 0.2s ease;
+}
+
+/* ✅ Field type specific styling */
+.editable-field[data-type="text"] {
+  border: 2px solid rgba(0, 123, 255, 0.3);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.editable-field[data-type="text"]:hover {
+  border-color: rgba(0, 123, 255, 0.6);
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+}
+
+.editable-field[data-type="text"].selected {
+  border-color: #007bff;
+  background: rgba(0, 123, 255, 0.1);
+}
+
+.editable-field[data-type="signature"] {
+  border: 2px dashed rgba(40, 167, 69, 0.5);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.editable-field[data-type="signature"]:hover {
+  border-color: rgba(40, 167, 69, 0.8);
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+}
+
+.editable-field[data-type="signature"].selected {
+  border-color: #28a745;
+  background: rgba(40, 167, 69, 0.1);
+}
+
+.editable-field[data-type="date"],
+.editable-field[data-type="timestamp"] {
+  border: 2px solid rgba(23, 162, 184, 0.4);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.editable-field[data-type="date"]:hover,
+.editable-field[data-type="timestamp"]:hover {
+  border-color: rgba(23, 162, 184, 0.7);
+  box-shadow: 0 2px 8px rgba(23, 162, 184, 0.2);
+}
+
+.editable-field[data-type="date"].selected,
+.editable-field[data-type="timestamp"].selected {
+  border-color: #17a2b8;
+  background: rgba(23, 162, 184, 0.1);
+}
+
+.editable-field[data-type="checkbox"] {
+  border: 2px solid rgba(253, 126, 20, 0.4);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+}
+
+.editable-field[data-type="checkbox"]:hover {
+  border-color: rgba(253, 126, 20, 0.7);
+  box-shadow: 0 2px 8px rgba(253, 126, 20, 0.2);
+  transform: scale(1.05);
+}
+
+.editable-field[data-type="checkbox"].selected {
+  border-color: #fd7e14;
+  background: rgba(253, 126, 20, 0.1);
+}
+
+/* ✅ Enhanced resize handle styling */
+.field-resize-handle {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid white;
+  border-radius: 50%;
+  cursor: se-resize;
+  z-index: 1001;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: all 0.2s ease;
+}
+
+.field-resize-handle:hover {
+  transform: scale(1.2);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+}
+
+.field-resize-handle[data-type="text"] {
+  background: #007bff;
+}
+
+.field-resize-handle[data-type="signature"] {
+  background: #28a745;
+}
+
+.field-resize-handle[data-type="date"],
+.field-resize-handle[data-type="timestamp"] {
+  background: #17a2b8;
+}
+
+/* ✅ Field content styling */
+.field-content {
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  font-size: 12px;
+  line-height: 1.2;
+  word-wrap: break-word;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.field-content.editing textarea,
+.field-content.editing input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  padding: 0;
+}
+
+.field-content.placeholder {
+  opacity: 0.6;
+  font-style: italic;
+  color: #6c757d;
+}
+
+/* ✅ Checkbox specific styling */
+.checkbox-display {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.checkbox-display:hover {
+  transform: scale(1.1);
+}
+
+.checkbox-display.checked {
+  color: #28a745;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.checkbox-display.unchecked {
+  color: #6c757d;
+}
+
+/* ✅ Date/Timestamp styling */
+.date-display {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 12px;
+  color: #495057;
+}
+
+.date-display .date-icon {
+  font-size: 14px;
+  color: #17a2b8;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fieldAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.editable-field {
+  animation: fieldAppear 0.2s ease-out;
+}
+
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 768px) {
   .header-container {
@@ -682,6 +1218,50 @@ body {
   .grid-cols-4 {
     grid-template-columns: 1fr;
   }
+
+  /* PDF Editor Responsive */
+  .editor-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .header-left, .header-right {
+    justify-content: center;
+  }
+  
+  .editor-toolbar {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .toolbar-left, .toolbar-center, .toolbar-right {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .tool-group {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .tool-group-label {
+    width: 100%;
+    text-align: center;
+    border-right: none;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 0.25rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .signature-dialog {
+    margin: 1rem;
+    width: auto;
+  }
+  
+  .pdf-container {
+    padding: 1rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -695,5 +1275,26 @@ body {
   
   .app-main {
     padding: var(--spacing-sm) 0;
+  }
+
+  /* PDF Editor Mobile */
+  .tool-group .btn {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.6rem;
+  }
+  
+  .completion-status {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .editable-field {
+    min-width: 50px;
+    min-height: 20px;
+  }
+  
+  .field-resize-handle {
+    width: 10px;
+    height: 10px;
   }
 }

@@ -1,4 +1,4 @@
-// Enhanced PDF Editor with fixed canvas rendering
+// Enhanced PDF Editor with fixed positioning and new field types
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 // Custom hook for PDF operations with proper canvas management
@@ -13,7 +13,7 @@ function usePDFEditor(pdf, job) {
   const [objects, setObjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [isRendering, setIsRendering] = useState(false); // ✅ NEW: Track rendering state
+  const [isRendering, setIsRendering] = useState(false);
 
   // PDF Loading
   const loadPDF = useCallback(async () => {
@@ -33,7 +33,6 @@ function usePDFEditor(pdf, job) {
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       }
 
-      // Simulate download URL - replace with actual API call
       const downloadUrl = `/api/job/${job.id}/attachment/${pdf.serviceTitanId || pdf.id}/download`;
       const response = await fetch(downloadUrl);
       if (!response.ok) throw new Error('Failed to load PDF');
@@ -55,43 +54,37 @@ function usePDFEditor(pdf, job) {
   // ✅ FIXED: Page Rendering with proper canvas management
   const renderPage = useCallback(async () => {
     if (!pdfDocument || !canvasRef.current || isRendering) {
-      console.log('⏭️ Skipping render - not ready or already rendering');
       return;
     }
     
     try {
-      setIsRendering(true); // ✅ Set rendering flag
+      setIsRendering(true);
       
       const page = await pdfDocument.getPage(currentPage);
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
       const viewport = page.getViewport({ scale });
       
-      // ✅ Clear any existing content
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       context.clearRect(0, 0, canvas.width, canvas.height);
       
-      // ✅ Create render context with cleanup
       const renderContext = {
         canvasContext: context,
         viewport: viewport
       };
       
-      // ✅ Wait for render to complete before allowing new renders
       await page.render(renderContext).promise;
-      
       console.log(`✅ Page ${currentPage} rendered successfully`);
       
     } catch (error) {
       console.error('❌ Page rendering error:', error);
-      // Don't throw here, just log the error
     } finally {
-      setIsRendering(false); // ✅ Clear rendering flag
+      setIsRendering(false);
     }
   }, [pdfDocument, currentPage, scale, isRendering]);
 
-  // Object Management
+  // ✅ NEW: Add different types of objects
   const addTextObject = useCallback((x = 100, y = 100) => {
     const id = Date.now().toString();
     const newText = {
@@ -128,6 +121,67 @@ function usePDFEditor(pdf, job) {
     setSelectedId(id);
   }, [scale, currentPage]);
 
+  // ✅ NEW: Add date object with current date
+  const addDateObject = useCallback((x = 100, y = 100) => {
+    const id = Date.now().toString();
+    const currentDate = new Date().toLocaleDateString();
+    const newDate = {
+      id,
+      type: 'date',
+      x: x / scale,
+      y: y / scale,
+      width: 120 / scale,
+      height: 25 / scale,
+      content: currentDate,
+      fontSize: 12,
+      color: '#000000',
+      page: currentPage
+    };
+    
+    setObjects(prev => [...prev, newDate]);
+    setSelectedId(id);
+  }, [scale, currentPage]);
+
+  // ✅ NEW: Add timestamp object with current date and time
+  const addTimestampObject = useCallback((x = 100, y = 100) => {
+    const id = Date.now().toString();
+    const now = new Date();
+    const timestamp = now.toLocaleString();
+    const newTimestamp = {
+      id,
+      type: 'timestamp',
+      x: x / scale,
+      y: y / scale,
+      width: 160 / scale,
+      height: 25 / scale,
+      content: timestamp,
+      fontSize: 12,
+      color: '#000000',
+      page: currentPage
+    };
+    
+    setObjects(prev => [...prev, newTimestamp]);
+    setSelectedId(id);
+  }, [scale, currentPage]);
+
+  // ✅ NEW: Add checkbox object
+  const addCheckboxObject = useCallback((x = 100, y = 100) => {
+    const id = Date.now().toString();
+    const newCheckbox = {
+      id,
+      type: 'checkbox',
+      x: x / scale,
+      y: y / scale,
+      width: 20 / scale,
+      height: 20 / scale,
+      content: false, // false = unchecked, true = checked
+      page: currentPage
+    };
+    
+    setObjects(prev => [...prev, newCheckbox]);
+    setSelectedId(id);
+  }, [scale, currentPage]);
+
   const updateObject = useCallback((id, updates) => {
     setObjects(prev => prev.map(obj => obj.id === id ? { ...obj, ...updates } : obj));
   }, []);
@@ -144,7 +198,6 @@ function usePDFEditor(pdf, job) {
     setEditingId(null);
   }, []);
 
-  // ✅ FIXED: Load PDF only once on mount
   useEffect(() => {
     let isMounted = true;
     
@@ -161,7 +214,6 @@ function usePDFEditor(pdf, job) {
     };
   }, [loadPDF]);
 
-  // ✅ FIXED: Render page with proper dependencies and cleanup
   useEffect(() => {
     let isMounted = true;
     
@@ -176,7 +228,7 @@ function usePDFEditor(pdf, job) {
     return () => {
       isMounted = false;
     };
-  }, [pdfDocument, currentPage, scale]); // Removed renderPage and isRendering from deps to avoid loops
+  }, [pdfDocument, currentPage, scale]);
 
   return {
     canvasRef,
@@ -194,14 +246,398 @@ function usePDFEditor(pdf, job) {
     setEditingId,
     addTextObject,
     addSignatureObject,
+    addDateObject,        // ✅ NEW
+    addTimestampObject,   // ✅ NEW
+    addCheckboxObject,    // ✅ NEW
     updateObject,
     deleteObject,
     clearAllObjects,
-    isRendering // ✅ Expose rendering state
+    isRendering
   };
 }
 
-// Simple Signature Pad Component
+// Enhanced Editable Field Component with all field types and FIXED positioning
+function EditableField({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
+  const [value, setValue] = useState(object.content || '');
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [lastClickTime, setLastClickTime] = useState(0);
+  
+  useEffect(() => {
+    setValue(object.content || '');
+  }, [object.content]);
+
+  // ✅ FIXED: Better height calculation for different field types
+  const calculateFieldHeight = () => {
+    switch (object.type) {
+      case 'text':
+        const lineHeight = Math.max(16, object.fontSize * scale * 1.2);
+        const lines = (object.content || '').split('\n').length;
+        const textLines = Math.max(1, Math.ceil((object.content || '').length / 25));
+        return Math.max(object.height * scale, Math.max(lines, textLines) * lineHeight + 8);
+      case 'checkbox':
+        return Math.max(20, object.height * scale);
+      default:
+        return object.height * scale;
+    }
+  };
+
+  const fieldStyle = {
+    position: 'absolute',
+    left: `${object.x * scale}px`,
+    top: `${object.y * scale}px`,
+    width: `${object.width * scale}px`,
+    height: `${calculateFieldHeight()}px`,
+    zIndex: selected ? 1000 : 100,
+    border: selected ? '2px solid #007bff' : '1px solid rgba(0,0,0,0.2)',
+    borderRadius: '4px',
+    background: selected ? 'rgba(0, 123, 255, 0.1)' : 'rgba(255, 255, 255, 0.95)',
+    cursor: isDragging ? 'grabbing' : 'move',
+    userSelect: 'none',
+    touchAction: 'none',
+    minWidth: object.type === 'checkbox' ? '20px' : '60px',
+    minHeight: object.type === 'checkbox' ? '20px' : '25px'
+  };
+
+  // Handle mouse down for dragging (same as before but with better coordinate handling)
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (editing) return;
+    
+    const fieldRect = e.currentTarget.getBoundingClientRect();
+    const offsetX = e.clientX - fieldRect.left;
+    const offsetY = e.clientY - fieldRect.top;
+    
+    // Check for resize handle
+    if (selected && offsetX > fieldRect.width - 15 && offsetY > fieldRect.height - 15) {
+      setIsResizing(true);
+      return;
+    }
+    
+    if (!selected) {
+      onSelect(object.id);
+      return;
+    }
+    
+    // ✅ IMPROVED: Better drag handling with canvas bounds
+    const canvasWrapper = e.target.closest('.pdf-wrapper');
+    if (!canvasWrapper) return;
+    
+    const initialMouseX = e.clientX;
+    const initialMouseY = e.clientY;
+    const initialFieldX = object.x;
+    const initialFieldY = object.y;
+    
+    let dragStarted = false;
+    let startTime = Date.now();
+    
+    const handleMouseMove = (e) => {
+      const timePassed = Date.now() - startTime;
+      const mouseMoved = Math.abs(e.clientX - initialMouseX) > 3 || 
+                        Math.abs(e.clientY - initialMouseY) > 3;
+      
+      if (!dragStarted && (timePassed > 150 || mouseMoved)) {
+        dragStarted = true;
+        setIsDragging(true);
+      }
+      
+      if (dragStarted) {
+        // ✅ FIXED: Better coordinate calculation
+        const canvasRect = canvasWrapper.getBoundingClientRect();
+        const canvas = canvasWrapper.querySelector('canvas');
+        
+        if (canvas) {
+          // Get mouse position relative to canvas
+          const mouseX = e.clientX - canvasRect.left;
+          const mouseY = e.clientY - canvasRect.top;
+          
+          // Convert to PDF coordinates and constrain to canvas bounds
+          const newX = Math.max(0, Math.min((canvas.width / scale) - object.width, mouseX / scale));
+          const newY = Math.max(0, Math.min((canvas.height / scale) - object.height, mouseY / scale));
+          
+          onUpdate(object.id, { x: newX, y: newY });
+        }
+      }
+    };
+    
+    const handleMouseUp = () => {
+      if (!dragStarted && object.type === 'text') {
+        const currentTime = Date.now();
+        const timeDiff = currentTime - lastClickTime;
+        
+        if (timeDiff < 300) {
+          onStartEdit(object.id);
+        }
+        setLastClickTime(currentTime);
+      }
+      
+      setIsDragging(false);
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleSave = () => {
+    onUpdate(object.id, { content: value });
+    onFinishEdit();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSave();
+    }
+  };
+
+  // ✅ NEW: Render different field types
+  const renderFieldContent = () => {
+    switch (object.type) {
+      case 'text':
+        return editing ? (
+          <textarea
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            placeholder="Enter text here... (Shift+Enter for new line)"
+            autoFocus
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              background: 'transparent',
+              fontSize: `12px`,
+              color: object.color,
+              outline: 'none',
+              padding: '4px',
+              cursor: 'text',
+              resize: 'none',
+              fontFamily: 'inherit',
+              lineHeight: '1.2',
+              wordWrap: 'break-word',
+              overflow: 'hidden'
+            }}
+          />
+        ) : (
+          <div style={{
+            padding: '4px',
+            fontSize: `12px`,
+            color: object.color,
+            height: '100%',
+            width: '100%',
+            opacity: object.content ? 1 : 0.6,
+            pointerEvents: 'none',
+            lineHeight: '1.2',
+            wordWrap: 'break-word',
+            whiteSpace: 'pre-wrap',
+            overflow: 'hidden'
+          }}>
+            {object.content || 'Double-click to edit'}
+          </div>
+        );
+
+      case 'date':
+      case 'timestamp':
+        return editing ? (
+          <input
+            type={object.type === 'date' ? 'date' : 'datetime-local'}
+            value={object.type === 'date' 
+              ? (object.content ? new Date(object.content).toISOString().split('T')[0] : '') 
+              : (object.content ? new Date(object.content).toISOString().slice(0, 16) : '')
+            }
+            onChange={(e) => {
+              const newValue = object.type === 'date' 
+                ? new Date(e.target.value).toLocaleDateString()
+                : new Date(e.target.value).toLocaleString();
+              setValue(newValue);
+              onUpdate(object.id, { content: newValue });
+            }}
+            onBlur={handleSave}
+            autoFocus
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              background: 'transparent',
+              fontSize: '12px',
+              color: object.color,
+              outline: 'none',
+              padding: '4px'
+            }}
+          />
+        ) : (
+          <div style={{
+            padding: '4px',
+            fontSize: '12px',
+            color: object.color,
+            height: '100%',
+            width: '100%',
+            opacity: object.content ? 1 : 0.6,
+            pointerEvents: 'none',
+            lineHeight: '1.2',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            📅 {object.content || (object.type === 'date' ? 'Click to set date' : 'Click to set timestamp')}
+          </div>
+        );
+
+      case 'checkbox':
+        return (
+          <div 
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              userSelect: 'none',
+              pointerEvents: 'auto', // ✅ Allow checkbox clicks
+              position: 'relative',
+              zIndex: 10 // ✅ Put checkbox above drag handle
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onUpdate(object.id, { content: !object.content });
+            }}
+          >
+            {object.content ? '✓' : '☐'}
+          </div>
+        );
+
+      case 'signature':
+        return object.content ? (
+          <img 
+            src={object.content} 
+            alt="Signature" 
+            style={{ 
+              maxWidth: '100%', 
+              maxHeight: '100%',
+              objectFit: 'contain',
+              pointerEvents: 'none'
+            }} 
+          />
+        ) : (
+          <span style={{ color: '#666', fontSize: '14px', textAlign: 'center', pointerEvents: 'none' }}>
+            Drag to move<br/>Double-click to sign
+          </span>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div style={fieldStyle}>
+      {/* ✅ UPDATED: Smarter drag handle that doesn't interfere with checkbox clicks */}
+      <div
+        className="drag-handle"
+        onMouseDown={(e) => {
+          // ✅ For checkboxes, only handle drag from edges, not center
+          if (object.type === 'checkbox') {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const distanceFromCenter = Math.sqrt(
+              Math.pow(e.clientX - centerX, 2) + Math.pow(e.clientY - centerY, 2)
+            );
+            
+            // If clicking near center of checkbox, let the checkbox handle it
+            if (distanceFromCenter < 15) {
+              return;
+            }
+          }
+          
+          handleMouseDown(e);
+        }}
+        style={{
+          position: 'absolute',
+          top: '-10px',
+          left: '-10px',
+          right: '-10px',
+          bottom: '-10px',
+          cursor: editing ? 'text' : (object.type === 'checkbox' ? 'move' : 'move'),
+          zIndex: 1,
+          // Visual indicator when selected
+          border: selected ? '2px dashed rgba(0, 123, 255, 0.3)' : 'none',
+          borderRadius: '8px'
+        }}
+        title={`${object.type} field - ${object.type === 'checkbox' ? 'Click center to toggle, drag edges to move' : 'Click to select, drag to move'}${object.type === 'text' ? ', double-click to edit' : ''}`}
+      />
+      
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+          pointerEvents: editing || object.type === 'checkbox' ? 'auto' : 'none' // ✅ Allow interaction for editing or checkboxes
+        }}
+      >
+        {renderFieldContent()}
+      </div>
+      
+      {/* Resize handle for non-checkbox fields */}
+      {selected && !editing && object.type !== 'checkbox' && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '-4px',
+            right: '-4px',
+            width: '12px',
+            height: '12px',
+            background: object.type === 'signature' ? '#28a745' : '#007bff',
+            border: '2px solid white',
+            borderRadius: '50%',
+            cursor: 'se-resize',
+            zIndex: 1001,
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsResizing(true);
+            
+            const canvasWrapper = e.target.closest('.pdf-wrapper');
+            if (!canvasWrapper) return;
+            
+            const canvasRect = canvasWrapper.getBoundingClientRect();
+            
+            const handleMouseMove = (e) => {
+              const fieldLeft = object.x * scale + canvasRect.left;
+              const fieldTop = object.y * scale + canvasRect.top;
+              
+              const newWidth = Math.max(60, (e.clientX - fieldLeft) / scale);
+              const newHeight = Math.max(25, (e.clientY - fieldTop) / scale);
+              onUpdate(object.id, { width: newWidth, height: newHeight });
+            };
+            
+            const handleMouseUp = () => {
+              setIsResizing(false);
+              document.removeEventListener('mousemove', handleMouseMove);
+              document.removeEventListener('mouseup', handleMouseUp);
+            };
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Simple Signature Pad Component (unchanged)
 function SignatureDialog({ isOpen, onClose, onSave }) {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -319,427 +755,7 @@ function SignatureDialog({ isOpen, onClose, onSave }) {
   );
 }
 
-// Enhanced Editable Field Component with drag, resize, and multi-line text support
-function EditableField({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
-  const [value, setValue] = useState(object.content || '');
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [resizeHandle, setResizeHandle] = useState(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [lastClickTime, setLastClickTime] = useState(0);
-  
-  useEffect(() => {
-    setValue(object.content || '');
-  }, [object.content]);
-
-  // Calculate proper height for multi-line text
-  const calculateTextHeight = () => {
-    const lineHeight = Math.max(16, object.fontSize * scale * 1.2);
-    const lines = (object.content || '').split('\n').length;
-    const textLines = Math.max(1, Math.ceil((object.content || '').length / 25)); // Rough wrap estimation
-    return Math.max(object.height * scale, Math.max(lines, textLines) * lineHeight + 8);
-  };
-
-  const fieldStyle = {
-    position: 'absolute',
-    left: `${object.x * scale}px`,
-    top: `${object.y * scale}px`,
-    width: `${object.width * scale}px`,
-    height: object.type === 'text' ? `${calculateTextHeight()}px` : `${object.height * scale}px`,
-    zIndex: selected ? 1000 : 100,
-    border: selected ? '2px solid #007bff' : '1px solid rgba(0,0,0,0.2)',
-    borderRadius: '4px',
-    background: selected ? 'rgba(0, 123, 255, 0.1)' : 'rgba(255, 255, 255, 0.95)',
-    cursor: isDragging ? 'grabbing' : 'move',
-    userSelect: 'none',
-    touchAction: 'none',
-    minWidth: '60px',
-    minHeight: '25px'
-  };
-
-  // Handle mouse down for dragging
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (editing) return;
-    
-    // Get coordinates for resize handle check
-    const fieldRect = e.currentTarget.getBoundingClientRect();
-    const offsetX = e.clientX - fieldRect.left;
-    const offsetY = e.clientY - fieldRect.top;
-    
-    // Check if clicking on resize handle (only if already selected)
-    if (selected && offsetX > fieldRect.width - 15 && offsetY > fieldRect.height - 15) {
-      setIsResizing(true);
-      setResizeHandle('se');
-      return;
-    }
-    
-    // If not selected, just select it
-    if (!selected) {
-      onSelect(object.id);
-      return;
-    }
-    
-    // If already selected, start drag preparation
-    const canvasWrapper = e.target.closest('.pdf-wrapper');
-    if (!canvasWrapper) return;
-    
-    // Store the mouse position and field position at the start
-    const initialMouseX = e.clientX;
-    const initialMouseY = e.clientY;
-    const initialFieldX = object.x;
-    const initialFieldY = object.y;
-    
-    // Set up drag detection with a small delay
-    let dragStarted = false;
-    let startTime = Date.now();
-    
-    const handleMouseMove = (e) => {
-      // Start dragging after 150ms or if mouse moved significantly
-      const timePassed = Date.now() - startTime;
-      const mouseMoved = Math.abs(e.clientX - (fieldRect.left + offsetX)) > 3 || 
-                        Math.abs(e.clientY - (fieldRect.top + offsetY)) > 3;
-      
-      if (!dragStarted && (timePassed > 150 || mouseMoved)) {
-        dragStarted = true;
-        setIsDragging(true);
-      }
-      
-      if (dragStarted) {
-        const currentCanvasRect = canvasWrapper.getBoundingClientRect();
-        
-        // Calculate how much the mouse has moved since drag started
-        const deltaX = e.clientX - initialMouseX;
-        const deltaY = e.clientY - initialMouseY;
-        
-        // Apply that movement to the field's initial position
-        const newX = Math.max(0, initialFieldX + (deltaX / scale));
-        const newY = Math.max(0, initialFieldY + (deltaY / scale));
-        
-        onUpdate(object.id, { x: newX, y: newY });
-      }
-    };
-    
-    const handleMouseUp = () => {
-      // If we didn't drag and this was a quick click, check for double-click
-      if (!dragStarted && object.type === 'text') {
-        const currentTime = Date.now();
-        const timeDiff = currentTime - lastClickTime;
-        
-        if (timeDiff < 300) {
-          // Double-click detected
-          onStartEdit(object.id);
-        }
-        setLastClickTime(currentTime);
-      }
-      
-      setIsDragging(false);
-      setIsResizing(false);
-      setResizeHandle(null);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  // Handle touch events
-  const handleTouchStart = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (editing) return;
-    
-    const touch = e.touches[0];
-    const fieldRect = e.currentTarget.getBoundingClientRect();
-    const offsetX = touch.clientX - fieldRect.left;
-    const offsetY = touch.clientY - fieldRect.top;
-    
-    // If not selected, just select it
-    if (!selected) {
-      onSelect(object.id);
-      return;
-    }
-    
-    // If already selected, prepare for drag
-    const canvasWrapper = e.target.closest('.pdf-wrapper');
-    if (!canvasWrapper) return;
-    
-    // Store the touch position and field position at the start
-    const initialTouchX = touch.clientX;
-    const initialTouchY = touch.clientY;
-    const initialFieldX = object.x;
-    const initialFieldY = object.y;
-    
-    // For touch, start dragging after a short delay
-    let dragStarted = false;
-    const startTime = Date.now();
-    
-    const handleTouchMove = (e) => {
-      if (!dragStarted) {
-        const timePassed = Date.now() - startTime;
-        if (timePassed > 200) { // 200ms delay for touch
-          dragStarted = true;
-          setIsDragging(true);
-        }
-      }
-      
-      if (dragStarted && e.touches[0]) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        
-        // Calculate how much the touch has moved since drag started
-        const deltaX = touch.clientX - initialTouchX;
-        const deltaY = touch.clientY - initialTouchY;
-        
-        // Apply that movement to the field's initial position
-        const newX = Math.max(0, initialFieldX + (deltaX / scale));
-        const newY = Math.max(0, initialFieldY + (deltaY / scale));
-        
-        onUpdate(object.id, { x: newX, y: newY });
-      }
-    };
-    
-    const handleTouchEnd = (e) => {
-      // Check for double-tap on text elements
-      if (!dragStarted && object.type === 'text') {
-        const currentTime = Date.now();
-        const timeDiff = currentTime - lastClickTime;
-        
-        if (timeDiff < 300) {
-          onStartEdit(object.id);
-        }
-        setLastClickTime(currentTime);
-      }
-      
-      setIsDragging(false);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-    
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd);
-  };
-
-  const handleTouchEnd = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleSave = () => {
-    onUpdate(object.id, { content: value });
-    onFinishEdit();
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSave();
-    }
-  };
-
-  if (object.type === 'text') {
-    return (
-      <div style={fieldStyle}>
-        {/* Main field area */}
-        <div
-          onMouseDown={handleMouseDown}
-          onTouchStart={handleTouchStart}
-          style={{
-            width: '100%',
-            height: '100%',
-            position: 'relative',
-            cursor: editing ? 'text' : 'move'
-          }}
-        >
-          {editing ? (
-            <textarea
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onBlur={handleSave}
-              onKeyDown={handleKeyDown}
-              placeholder="Enter text here... (Shift+Enter for new line)"
-              autoFocus
-              style={{
-                width: '100%',
-                height: '100%',
-                border: 'none',
-                background: 'transparent',
-                fontSize: `12px`,
-                color: object.color,
-                outline: 'none',
-                padding: '4px',
-                cursor: 'text',
-                resize: 'none',
-                fontFamily: 'inherit',
-                lineHeight: '1.2',
-                wordWrap: 'break-word',
-                overflow: 'hidden'
-              }}
-            />
-          ) : (
-            <div style={{
-              padding: '4px',
-              fontSize: `12px`,
-              color: object.color,
-              height: '100%',
-              width: '100%',
-              opacity: object.content ? 1 : 0.6,
-              pointerEvents: 'none',
-              lineHeight: '1.2',
-              wordWrap: 'break-word',
-              whiteSpace: 'pre-wrap',
-              overflow: 'hidden'
-            }}>
-              {object.content || 'Double-click to edit'}
-            </div>
-          )}
-        </div>
-        
-        {/* Resize handle */}
-        {selected && !editing && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '-4px',
-              right: '-4px',
-              width: '12px',
-              height: '12px',
-              background: '#007bff',
-              border: '2px solid white',
-              borderRadius: '50%',
-              cursor: 'se-resize',
-              zIndex: 1001,
-              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsResizing(true);
-              setResizeHandle('se');
-              
-              // Get proper coordinates for resize
-              const canvasWrapper = e.target.closest('.pdf-wrapper');
-              if (!canvasWrapper) return;
-              
-              const canvasRect = canvasWrapper.getBoundingClientRect();
-              
-              const handleMouseMove = (e) => {
-                // Calculate new size based on mouse position relative to field's top-left
-                const fieldLeft = object.x * scale + canvasRect.left;
-                const fieldTop = object.y * scale + canvasRect.top;
-                
-                const newWidth = Math.max(60, (e.clientX - fieldLeft) / scale);
-                const newHeight = Math.max(25, (e.clientY - fieldTop) / scale);
-                onUpdate(object.id, { width: newWidth, height: newHeight });
-              };
-              
-              const handleMouseUp = () => {
-                setIsResizing(false);
-                setResizeHandle(null);
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-              };
-              
-              document.addEventListener('mousemove', handleMouseMove);
-              document.addEventListener('mouseup', handleMouseUp);
-            }}
-          />
-        )}
-      </div>
-    );
-  }
-
-  if (object.type === 'signature') {
-    return (
-      <div
-        style={{
-          ...fieldStyle,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: selected ? '2px solid #28a745' : '2px dashed #ccc',
-          background: selected ? 'rgba(40, 167, 69, 0.1)' : 'rgba(255, 255, 255, 0.95)'
-        }}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
-      >
-        {object.content ? (
-          <img 
-            src={object.content} 
-            alt="Signature" 
-            style={{ 
-              maxWidth: '100%', 
-              maxHeight: '100%',
-              objectFit: 'contain',
-              pointerEvents: 'none'
-            }} 
-          />
-        ) : (
-          <span style={{ color: '#666', fontSize: '14px', textAlign: 'center', pointerEvents: 'none' }}>
-            Drag to move<br/>Double-click to sign
-          </span>
-        )}
-        
-        {/* Resize handle for signatures too */}
-        {selected && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '-4px',
-              right: '-4px',
-              width: '12px',
-              height: '12px',
-              background: '#28a745',
-              border: '2px solid white',
-              borderRadius: '50%',
-              cursor: 'se-resize',
-              zIndex: 1001,
-              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsResizing(true);
-              
-              // Get proper coordinates for resize
-              const canvasWrapper = e.target.closest('.pdf-wrapper');
-              if (!canvasWrapper) return;
-              
-              const canvasRect = canvasWrapper.getBoundingClientRect();
-              
-              const handleMouseMove = (e) => {
-                // Calculate new size based on mouse position relative to field's top-left
-                const fieldLeft = object.x * scale + canvasRect.left;
-                const fieldTop = object.y * scale + canvasRect.top;
-                
-                const newWidth = Math.max(60, (e.clientX - fieldLeft) / scale);
-                const newHeight = Math.max(25, (e.clientY - fieldTop) / scale);
-                onUpdate(object.id, { width: newWidth, height: newHeight });
-              };
-              
-              const handleMouseUp = () => {
-                setIsResizing(false);
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-              };
-              
-              document.addEventListener('mousemove', handleMouseMove);
-              document.addEventListener('mouseup', handleMouseUp);
-            }}
-          />
-        )}
-      </div>
-    );
-  }
-
-  return null;
-}
-
-// Main PDF Editor Component
+// Main PDF Editor Component with enhanced toolbar
 export default function PDFEditor({ pdf, job, onClose, onSave }) {
   const {
     canvasRef,
@@ -757,6 +773,9 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     setEditingId,
     addTextObject,
     addSignatureObject,
+    addDateObject,        // ✅ NEW
+    addTimestampObject,   // ✅ NEW
+    addCheckboxObject,    // ✅ NEW
     updateObject,
     deleteObject,
     clearAllObjects,
@@ -776,31 +795,28 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     setEditingId(null);
   }, [isRendering]);
 
-  const handleAddTextBox = () => {
-    addTextObject(100, 100);
-  };
-
+  // ✅ NEW: Enhanced toolbar actions
+  const handleAddTextBox = () => addTextObject(100, 100);
   const handleAddSignature = () => {
     addSignatureObject(100, 100);
     setShowSignatureDialog(true);
   };
+  const handleAddDate = () => addDateObject(100, 100);
+  const handleAddTimestamp = () => addTimestampObject(100, 100);
+  const handleAddCheckbox = () => addCheckboxObject(100, 100);
 
   const handleSave = async () => {
     try {
       setIsSaving(true);
       
-      // ✅ REMOVE FOLDER PATH and clean up filename
       const originalName = pdf.fileName || pdf.name || 'Document';
-      let cleanName = originalName.replace(/\.pdf$/i, ''); // Remove .pdf extension
+      let cleanName = originalName.replace(/\.pdf$/i, '');
       
-      // Remove folder path prefix (e.g., "Attaches/" from "Attaches/S2502270659@@3-...")
       if (cleanName.includes('/')) {
-        cleanName = cleanName.split('/').pop(); // Get everything after the last slash
+        cleanName = cleanName.split('/').pop();
       }
       
-      // Remove everything after @@X pattern (e.g., remove "-_Gy1Go5m29TYQ~I8RbKS" from "S2502270659@@3-_Gy1Go5m29TYQ~I8RbKS")
       cleanName = cleanName.replace(/@@\d+.*$/, match => {
-        // Keep just the @@X part, remove everything after it
         const atMatch = match.match(/@@\d+/);
         return atMatch ? atMatch[0] : '';
       });
@@ -824,7 +840,6 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
       console.log('💾 Saving completed form as:', completedFileName);
       const result = await onSave(saveData);
       
-      // ✅ Show custom UI popup instead of browser alert
       if (result && result.success) {
         setSuccessMessage(`PDF form has been completed and uploaded to ServiceTitan successfully!\n\nSaved as: ${result.fileName}`);
         setShowSuccessPopup(true);
@@ -850,7 +865,10 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
 
   const getCompletionStatus = () => {
     const total = objects.length;
-    const filled = objects.filter(obj => obj.content && obj.content.trim() !== '').length;
+    const filled = objects.filter(obj => {
+      if (obj.type === 'checkbox') return true; // Checkboxes are always "complete"
+      return obj.content && obj.content.toString().trim() !== '';
+    }).length;
     return { total, filled, percentage: total > 0 ? Math.round((filled / total) * 100) : 0 };
   };
 
@@ -890,7 +908,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
           </div>
           <button 
             onClick={handleSave}
-            disabled={isSaving || isRendering} // ✅ Disable if rendering
+            disabled={isSaving || isRendering}
             className="btn btn-success btn-lg"
           >
             {isSaving ? '💾 Saving...' : '💾 Save Completed Form'}
@@ -898,40 +916,75 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         </div>
       </div>
 
-      {/* Simple Toolbar */}
+      {/* ✅ ENHANCED: Expanded Toolbar with new field types */}
       <div className="editor-toolbar">
         <div className="toolbar-left">
-          <button 
-            onClick={handleAddTextBox}
-            className="btn btn-primary"
-            disabled={isRendering} // ✅ Disable if rendering
-          >
-            📝 Add Text Box
-          </button>
-          <button 
-            onClick={handleAddSignature}
-            className="btn btn-primary"
-            disabled={isRendering} // ✅ Disable if rendering
-          >
-            ✍️ Add Signature
-          </button>
+          <div className="tool-group">
+            <span className="tool-group-label">Add Fields:</span>
+            <button 
+              onClick={handleAddTextBox}
+              className="btn btn-primary"
+              disabled={isRendering}
+              title="Add text input field"
+            >
+              📝 Text
+            </button>
+            <button 
+              onClick={handleAddSignature}
+              className="btn btn-primary"
+              disabled={isRendering}
+              title="Add signature field"
+            >
+              ✍️ Signature
+            </button>
+            <button 
+              onClick={handleAddDate}
+              className="btn btn-primary"
+              disabled={isRendering}
+              title="Add current date"
+            >
+              📅 Date
+            </button>
+            <button 
+              onClick={handleAddTimestamp}
+              className="btn btn-primary"
+              disabled={isRendering}
+              title="Add current date and time"
+            >
+              🕐 Timestamp
+            </button>
+            <button 
+              onClick={handleAddCheckbox}
+              className="btn btn-primary"
+              disabled={isRendering}
+              title="Add checkbox"
+            >
+              ☐ Checkbox
+            </button>
+          </div>
+          
           {selectedId && (
-            <button
-              onClick={() => deleteObject(selectedId)}
-              className="btn btn-error"
-              disabled={isRendering} // ✅ Disable if rendering
-            >
-              🗑️ Delete Selected
-            </button>
+            <div className="tool-group">
+              <button
+                onClick={() => deleteObject(selectedId)}
+                className="btn btn-error"
+                disabled={isRendering}
+              >
+                🗑️ Delete Selected
+              </button>
+            </div>
           )}
+          
           {objects.length > 0 && (
-            <button
-              onClick={clearAllObjects}
-              className="btn btn-warning"
-              disabled={isRendering} // ✅ Disable if rendering
-            >
-              🧹 Clear All
-            </button>
+            <div className="tool-group">
+              <button
+                onClick={clearAllObjects}
+                className="btn btn-warning"
+                disabled={isRendering}
+              >
+                🧹 Clear All
+              </button>
+            </div>
           )}
         </div>
 
@@ -940,7 +993,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             <div className="page-controls">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage <= 1 || isRendering} // ✅ Disable if rendering
+                disabled={currentPage <= 1 || isRendering}
                 className="btn btn-ghost"
               >
                 ← Prev
@@ -950,7 +1003,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
               </span>
               <button
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage >= totalPages || isRendering} // ✅ Disable if rendering
+                disabled={currentPage >= totalPages || isRendering}
                 className="btn btn-ghost"
               >
                 Next →
@@ -964,7 +1017,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             <button
               onClick={() => setScale(prev => Math.max(0.8, prev - 0.2))}
               className="btn btn-ghost"
-              disabled={isRendering} // ✅ Disable if rendering
+              disabled={isRendering}
             >
               🔍-
             </button>
@@ -972,7 +1025,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             <button
               onClick={() => setScale(prev => Math.min(2, prev + 0.2))}
               className="btn btn-ghost"
-              disabled={isRendering} // ✅ Disable if rendering
+              disabled={isRendering}
             >
               🔍+
             </button>
@@ -992,7 +1045,6 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         
         {pdfLoaded && (
           <div className="pdf-wrapper">
-            {/* ✅ Show rendering indicator */}
             {isRendering && (
               <div className="rendering-overlay">
                 <div className="loading-spinner"></div>
@@ -1005,14 +1057,13 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
               onClick={handleCanvasClick}
               className="pdf-canvas"
               style={{
-                cursor: isRendering ? 'wait' : 'default', // ✅ Show wait cursor when rendering
+                cursor: isRendering ? 'wait' : 'default',
                 maxWidth: '100%',
                 height: 'auto',
-                opacity: isRendering ? 0.7 : 1 // ✅ Dim canvas when rendering
+                opacity: isRendering ? 0.7 : 1
               }}
             />
 
-            {/* Render Editable Fields only when not rendering */}
             {!isRendering && currentObjects.map(obj => (
               <EditableField
                 key={obj.id}
@@ -1030,7 +1081,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         )}
       </div>
 
-      {/* Custom Success Popup */}
+      {/* Success Popup */}
       {showSuccessPopup && (
         <div className="success-popup-overlay">
           <div className="success-popup">
@@ -1055,351 +1106,4 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
       />
     </div>
   );
-}
-
-// ✅ Enhanced styles with rendering overlay and custom success popup
-const editorStyles = `
-.pdf-editor-simple {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #f8f9fa;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.success-popup-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 3000;
-  backdrop-filter: blur(2px);
-}
-
-.success-popup {
-  background: white;
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-  max-width: 400px;
-  width: 90%;
-  text-align: center;
-  animation: successPopupAppear 0.3s ease-out;
-}
-
-.success-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  animation: successIconBounce 0.6s ease-out;
-}
-
-.success-popup h3 {
-  margin: 0 0 1rem 0;
-  color: #2d3748;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.success-message {
-  color: #4a5568;
-  line-height: 1.5;
-  margin-bottom: 1.5rem;
-  white-space: pre-line;
-}
-
-.success-ok-btn {
-  padding: 0.75rem 2rem;
-  font-size: 1rem;
-  font-weight: 600;
-  min-width: 100px;
-}
-
-@keyframes successPopupAppear {
-  from {
-    opacity: 0;
-    transform: scale(0.8) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes successIconBounce {
-  0% { transform: scale(0); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-
-.pdf-wrapper {
-  position: relative;
-  background: white;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.rendering-overlay {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  z-index: 1500;
-}
-
-.rendering-overlay .loading-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top: 2px solid white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.editor-header {
-  background: white;
-  border-bottom: 2px solid #e9ecef;
-  padding: 1rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.pdf-info h2 {
-  margin: 0;
-  font-size: 1.2rem;
-  color: #333;
-}
-
-.pdf-info p {
-  margin: 0;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.completion-status {
-  background: #e3f2fd;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  color: #1976d2;
-  border: 1px solid #bbdefb;
-}
-
-.editor-toolbar {
-  background: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
-  padding: 0.75rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.toolbar-left, .toolbar-center, .toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.page-controls {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  background: white;
-  padding: 0.5rem 1rem;
-  border-radius: 25px;
-  border: 1px solid #dee2e6;
-}
-
-.page-info {
-  font-weight: 600;
-  color: #495057;
-  min-width: 120px;
-  text-align: center;
-}
-
-.zoom-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: white;
-  padding: 0.5rem 1rem;
-  border-radius: 25px;
-  border: 1px solid #dee2e6;
-}
-
-.zoom-level {
-  min-width: 60px;
-  text-align: center;
-  font-weight: 600;
-  color: #495057;
-}
-
-.pdf-container {
-  flex: 1;
-  overflow: auto;
-  padding: 2rem;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  background: #e9ecef;
-}
-
-.pdf-canvas {
-  display: block;
-}
-
-.loading-content {
-  text-align: center;
-  padding: 4rem 2rem;
-  color: #6c757d;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  margin: 0 auto 1rem;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #007bff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.signature-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 2000;
-}
-
-.signature-dialog {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 16px 64px rgba(0,0,0,0.2);
-  max-width: 90%;
-  max-height: 90%;
-  width: 500px;
-}
-
-.signature-dialog h3 {
-  margin: 0 0 1rem 0;
-  color: #333;
-}
-
-.signature-area {
-  border: 3px dashed #dee2e6;
-  border-radius: 8px;
-  padding: 1rem;
-  margin: 1rem 0;
-  background: #f8f9fa;
-}
-
-.signature-canvas {
-  display: block;
-  width: 100%;
-  background: white;
-  border-radius: 4px;
-  cursor: crosshair;
-  touch-action: none;
-}
-
-.signature-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-  margin-top: 1.5rem;
-}
-
-.btn {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: all 0.2s ease;
-}
-
-.btn-primary { background: #007bff; color: white; }
-.btn-secondary { background: #6c757d; color: white; }
-.btn-success { background: #28a745; color: white; }
-.btn-error { background: #dc3545; color: white; }
-.btn-warning { background: #ffc107; color: #333; }
-.btn-ghost { background: transparent; color: #6c757d; border: 1px solid #dee2e6; }
-
-.btn-lg { padding: 0.75rem 1.5rem; font-size: 1.1rem; }
-
-.btn:hover:not(:disabled) { transform: translateY(-1px); opacity: 0.9; }
-.btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-@media (max-width: 768px) {
-  .editor-header {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: stretch;
-  }
-  
-  .header-left, .header-right {
-    justify-content: center;
-  }
-  
-  .editor-toolbar {
-    flex-direction: column;
-    gap: 1rem;
-  }
-  
-  .toolbar-left, .toolbar-center, .toolbar-right {
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  
-  .signature-dialog {
-    margin: 1rem;
-    width: auto;
-  }
-}
-`;
-
-// Inject styles
-if (typeof document !== 'undefined' && !document.getElementById('pdf-editor-styles')) {
-  const style = document.createElement('style');
-  style.id = 'pdf-editor-styles';
-  style.textContent = editorStyles;
-  document.head.appendChild(style);
 }
