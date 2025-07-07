@@ -104,7 +104,7 @@ export default function Attachments({ job, onBack }) {
     setSelectedPDF(null);
   };
 
-  // ✅ FIXED: Proper PDF saving with attachment ID extraction
+  // ✅ FIXED: Remove browser alerts and let PDFEditor handle all UI feedback
   const handleSavePDF = async (pdfData) => {
     try {
       console.log('💾 Saving PDF in Attachments.jsx:', pdfData);
@@ -137,20 +137,25 @@ export default function Attachments({ job, onBack }) {
         pdfData
       );
       
+      // ✅ FIXED: Let PDFEditor handle success UI - no browser alert
       if (result.success) {
         console.log('✅ PDF saved successfully:', result);
+        console.log(`📤 Upload completed: ${result.fileName}`);
         
-        // Show success message
-        alert(`✅ Successfully uploaded "${pdfData.completedFileName}" to ServiceTitan!`);
-        
-        // Close the PDF editor and return to attachments list
-        setSelectedPDF(null);
+        // The PDFEditor will show its custom success popup
+        // and then call onClose() which triggers setSelectedPDF(null)
+        // No need to manually close here or show alert
+        return result; // ✅ Return result to PDFEditor
       }
+      
+      return result;
       
     } catch (error) {
       console.error('❌ Error saving PDF:', error);
-      // Show user-friendly error message
-      alert(`❌ Error saving PDF: ${error.message}`);
+      
+      // ✅ FIXED: Remove browser alert for errors too
+      // Let PDFEditor handle error display in its custom popup
+      throw error; // ✅ Throw error back to PDFEditor for custom error handling
     }
   };
 

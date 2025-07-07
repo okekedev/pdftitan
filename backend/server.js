@@ -307,7 +307,8 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 if (isDevelopment) {
   app.use(cors({
     origin: [
-      'http://localhost:3000',  // React dev server
+      'http://localhost:3000',
+      'http://localhost:3001',  // React dev server
       'http://localhost:3002',
       'http://localhost:3003',
       'http://localhost:3004'
