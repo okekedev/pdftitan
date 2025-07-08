@@ -1,4 +1,4 @@
-# Streamlined TitanPDF Dockerfile
+# TitanPDF Dockerfile - Fixed npm commands
 FROM node:18-alpine AS builder
 
 # Build React frontend
@@ -14,13 +14,20 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install backend dependencies
+# Copy backend package files first
 COPY backend/package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
 
-# Copy backend code and built frontend
+# Install all dependencies first (including dev for potential build steps)
+RUN npm ci
+
+# Copy backend source code
 COPY backend/ ./
+
+# Copy built frontend from builder stage
 COPY --from=builder /app/build ./build
+
+# Now remove dev dependencies to reduce image size
+RUN npm ci --only=production && npm cache clean --force
 
 # Expose port and start
 EXPOSE 3004
