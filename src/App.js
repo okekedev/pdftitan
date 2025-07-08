@@ -1,15 +1,12 @@
-// src/App.js - Simplified for Technician-Only Portal
+// src/App.js - Modern JSX with Simplified Navigation
 import React, { useState, useEffect } from "react";
-import sessionManager from "./services/sessionManger";
-import apiClient from "./services/apiClient";
-import Login from "./pages/Login/Login";
-import Header from "./components/Layout/Header/Header";
-import Footer from "./components/Layout/Footer/Footer";
-import Jobs from "./pages/Jobs/Jobs";
-import Attachments from "./pages/Attachments/Attachments";
+import sessionManager from "./services/sessionManager";
+import Login from "./pages/Login";
+import Jobs from "./pages/Jobs";
+import Attachments from "./pages/Attachments";
 import "./App.css";
 
-function App() {
+export default function App() {
   const [technician, setTechnician] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState("jobs");
@@ -17,47 +14,29 @@ function App() {
 
   // Check for existing session on app load
   useEffect(() => {
-    console.log("🔍 Checking for existing technician session...");
-
     const existingSession = sessionManager.getTechnicianSession();
     if (existingSession) {
-      console.log(
-        "✅ Found existing technician session:",
-        existingSession.technician?.name
-      );
+      console.log("✅ Found existing session:", existingSession.technician?.name);
       setTechnician(existingSession.technician);
-      setCurrentPage("jobs"); // Technicians always start with jobs
-    } else {
-      console.log("❌ No existing technician session found");
+      setCurrentPage("jobs");
     }
-
     setIsLoading(false);
   }, []);
 
   const handleLogin = (userData) => {
-    console.log("👤 Technician logged in:", userData.technician?.name);
-
-    // Save to session storage
     sessionManager.setTechnicianSession(userData);
     setTechnician(userData.technician);
-
-    // Technicians always go to jobs page
     setCurrentPage("jobs");
   };
 
   const handleLogout = () => {
-    console.log("🚪 Logging out technician");
-
-    // Clear session storage
     sessionManager.clearTechnicianSession();
-
     setTechnician(null);
     setSelectedJob(null);
     setCurrentPage("jobs");
   };
 
   const handleSelectJob = (job) => {
-    console.log("👷 Job selected:", job.number);
     setSelectedJob(job);
     setCurrentPage("attachments");
   };
@@ -67,79 +46,94 @@ function App() {
     setCurrentPage("jobs");
   };
 
-  // Show loading spinner while checking session
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Loading TitanPDF...</p>
+      <div className="loading-screen">
+        <div className="loading-content">
+          <div className="loading-spinner"></div>
+          <h2>Loading TitanPDF...</h2>
+          <p>Checking your session...</p>
         </div>
       </div>
     );
   }
 
-  // Show login page if technician is not logged in
   if (!technician) {
     return <Login onLogin={handleLogin} />;
   }
 
-  // Render current page content for authenticated technicians
-  const renderPageContent = () => {
-    switch (currentPage) {
-      case "jobs":
-        return <Jobs technician={technician} onSelectJob={handleSelectJob} />;
-
-      case "attachments":
-        return <Attachments job={selectedJob} onBack={handleBackToJobs} />;
-
-      default:
-        return <Jobs technician={technician} onSelectJob={handleSelectJob} />;
-    }
-  };
-
-  // Simple breadcrumb navigation for technicians
-  const getBreadcrumbs = () => {
-    return [
-      {
-        id: "jobs",
-        label: "My Jobs",
-        active: currentPage === "jobs" || currentPage === "attachments",
-      },
-      {
-        id: "attachments",
-        label: "Forms",
-        active: currentPage === "attachments",
-      },
-    ];
-  };
-
-  const handleNavigate = (page) => {
-    console.log("🧭 Navigating to:", page);
-
-    if (page === "jobs") {
-      setSelectedJob(null);
-      setCurrentPage("jobs");
-    }
-    // Technicians can't navigate to attachments without selecting a job first
-  };
-
   return (
-    <div className="App">
-      <Header
-        user={technician}
-        onLogout={handleLogout}
-        currentPage={currentPage}
-        onNavigate={handleNavigate}
-        breadcrumbs={getBreadcrumbs()}
-        userType="technician"
-      />
+    <div className="app">
+      {/* Header with Navigation */}
+      <header className="app-header">
+        <div className="header-container">
+          <div className="header-left">
+            <button 
+              className="logo-btn"
+              onClick={() => handleBackToJobs()}
+              aria-label="Go to jobs"
+            >
+              <span className="logo-icon">📋</span>
+              <h1>TitanPDF</h1>
+            </button>
+            
+            {/* Breadcrumb Navigation */}
+            <nav className="breadcrumb-nav" aria-label="Navigation">
+              <button 
+                className={`breadcrumb-item ${currentPage === "jobs" ? "active" : ""}`}
+                onClick={() => handleBackToJobs()}
+              >
+                📅 My Jobs
+              </button>
+              {selectedJob && (
+                <>
+                  <span className="breadcrumb-separator">→</span>
+                  <span className="breadcrumb-item active">
+                    📎 {selectedJob.title}
+                  </span>
+                </>
+              )}
+            </nav>
+          </div>
 
-      <main className="main-content">{renderPageContent()}</main>
+          <div className="header-right">
+            <div className="user-info">
+              <span className="user-icon">👷</span>
+              <div className="user-details">
+                <span className="user-name">{technician.name}</span>
+                <span className="user-role">Technician</span>
+              </div>
+            </div>
+            <button 
+              className="logout-btn"
+              onClick={handleLogout}
+              aria-label="Logout"
+            >
+              🚪 Logout
+            </button>
+          </div>
+        </div>
+      </header>
 
-      <Footer />
+      {/* Main Content */}
+      <main className="app-main">
+        {currentPage === "jobs" ? (
+          <Jobs technician={technician} onSelectJob={handleSelectJob} />
+        ) : (
+          <Attachments job={selectedJob} onBack={handleBackToJobs} />
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="app-footer">
+        <div className="footer-container">
+          <p>&copy; 2024 TitanPDF - Technician Portal</p>
+          <div className="footer-status">
+            <span className="status-indicator online"></span>
+            <span>Connected to ServiceTitan</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
-
-export default App;

@@ -1,0 +1,117 @@
+name: Build and Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write  # Required for OIDC
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    # ✅ Standard approach: GITHUB_TOKEN for build/push
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Create short SHA
+      id: short_sha
+      run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      
+    - name: Extract metadata for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        # ✅ Dynamic repository reference
+        images: ghcr.io/${{ github.repository_owner }}/azure-dev
+        tags: |
+          type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+          type=raw,value=v${{ github.run_number }},enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+          type=raw,value=${{ steps.short_sha.outputs.sha }},enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+          
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    # Deploy only on main branch
+    - name: Azure Login with OIDC
+      if: github.ref == 'refs/heads/main'
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        
+    - name: Deploy to Azure Container Apps
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo "🚀 Deploying to Azure Container Apps..."
+        
+        # Create unique revision suffix with date and short commit
+        REVISION_SUFFIX=$(date +%Y%m%d-%H%M%S)-${{ steps.short_sha.outputs.sha }}
+        echo "📋 Creating revision: $REVISION_SUFFIX"
+        
+        az containerapp update \
+          --name azure-dev-app \
+          --resource-group azure-dev \
+          --image ghcr.io/${{ github.repository_owner }}/azure-dev:latest \
+          --revision-suffix $REVISION_SUFFIX
+        
+        echo "✅ Deployment completed successfully!"
+        
+    - name: Verify deployment and check app health
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo "🔍 Verifying deployment status..."
+        sleep 30
+      
+        az containerapp revision list \
+          --name azure-dev-app \
+          --resource-group azure-dev \
+          --query '[0].{Name:name,Active:properties.active,CreatedTime:properties.createdTime,Image:properties.template.containers[0].image,TrafficWeight:properties.trafficWeight}' \
+          --output table
+        
+        APP_URL=$(az containerapp show \
+          --name azure-dev-app \
+          --resource-group azure-dev \
+          --query 'properties.configuration.ingress.fqdn' \
+          --output tsv)
+        
+        if [ ! -z "$APP_URL" ]; then
+          echo "🌐 Application available at: https://$APP_URL"
+          
+          if curl -f -s --max-time 30 "https://$APP_URL" > /dev/null; then
+            echo "✅ Application is responding successfully!"
+          else
+            echo "⚠️ Application may still be starting up. Check logs in Azure portal."
+          fi
+        fi
+        
+        echo "📊 Deployment summary:"
+        echo "- Image: ghcr.io/${{ github.repository_owner }}/azure-dev:latest"
+        echo "- Build: v${{ github.run_number }}"
+        echo "- Commit: ${{ steps.short_sha.outputs.sha }}"
+        echo "- Registry: GitHub Container Registry (ghcr.io)"
+        echo "- Status: ✅ Deployed"

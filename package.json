@@ -6,20 +6,21 @@
     "@adobe/react-spectrum": "^3.42.2",
     "@spectrum-icons/workflow": "^4.2.22",
     "axios": "^1.10.0",
+    "pdf-lib": "^1.17.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.6.2",
     "react-scripts": "5.0.1"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "set PORT=3003 && react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "backend": "cd backend && npm run dev",
-    "backend:start": "cd backend && npm start",
-    "dev": "concurrently \"npm run backend\" \"npm start\"",
-    "dev:backend-only": "cd backend && npm run dev",
+    "backend": "cd backend && set PORT=3004 && npm run dev",
+    "backend:start": "cd backend && set PORT=3004 && npm start",
+    "dev": "concurrently \"npm run backend\" \"set PORT=3003 && react-scripts start\"",
+    "dev:backend-only": "cd backend && set PORT=3004 && npm run dev",
     "build:full": "npm run build && cd backend && npm run build",
     "install:all": "npm install && cd backend && npm install"
   },
@@ -43,5 +44,5 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:3005"
+  "proxy": "http://localhost:3004"
 }
