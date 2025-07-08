@@ -1,4 +1,4 @@
-// src/pages/PDFEditor.jsx - Final clean version with simplified field types
+// src/pages/PDFEditor.jsx - COMPLETE FILE with transparent fields and no borders
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 // Custom hook for PDF operations with proper canvas management
@@ -245,7 +245,7 @@ function usePDFEditor(pdf, job) {
   };
 }
 
-// Enhanced Editable Field Component - Adobe-style behavior
+// ✅ FIXED: Enhanced Editable Field Component - Transparent with no grey borders
 function EditableField({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
   const [value, setValue] = useState(object.content || '');
   const [isDragging, setIsDragging] = useState(false);
@@ -269,6 +269,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     }
   };
 
+  // ✅ FIXED: More transparent styling with no grey borders
   const fieldStyle = {
     position: 'absolute',
     left: `${object.x * scale}px`,
@@ -276,14 +277,18 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     width: `${object.width * scale}px`,
     height: `${calculateFieldHeight()}px`,
     zIndex: selected ? 1000 : 100,
-    border: selected ? '2px solid #007bff' : '1px solid rgba(0,0,0,0.2)',
+    // ✅ FIXED: Only show border when selected, no border otherwise
+    border: selected ? '2px solid #007bff' : 'none',
     borderRadius: '4px',
-    background: selected ? 'rgba(0, 123, 255, 0.1)' : 'rgba(255, 255, 255, 0.95)',
+    // ✅ FIXED: Much more transparent background (5% vs 95% previously)
+    background: selected ? 'rgba(0, 123, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)',
     cursor: editing ? 'text' : (isDragging ? 'grabbing' : 'grab'),
     userSelect: 'none',
     touchAction: 'none',
     minWidth: object.type === 'checkbox' ? '20px' : '60px',
-    minHeight: object.type === 'checkbox' ? '20px' : '25px'
+    minHeight: object.type === 'checkbox' ? '20px' : '25px',
+    // ✅ NEW: Smooth transitions for better UX
+    transition: 'background-color 0.2s ease, border-color 0.2s ease'
   };
 
   // Adobe-style click/drag behavior
@@ -424,7 +429,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
               height: '100%',
               border: 'none',
               background: 'transparent',
-              fontSize: `${11 * scale}px`, // ✅ Scale font with zoom level
+              fontSize: `${11 * scale}px`,
               color: object.color,
               outline: 'none',
               padding: '4px',
@@ -435,7 +440,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
         ) : (
           <div style={{
             padding: '4px',
-            fontSize: `${11 * scale}px`, // ✅ Scale font with zoom level
+            fontSize: `${11 * scale}px`,
             color: object.color,
             height: '100%',
             width: '100%',
@@ -465,7 +470,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
               height: '100%',
               border: 'none',
               background: 'transparent',
-              fontSize: `${11 * scale}px`, // ✅ Scale font with zoom level
+              fontSize: `${11 * scale}px`,
               outline: 'none',
               padding: '4px'
             }}
@@ -473,7 +478,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
         ) : (
           <div style={{
             padding: '4px',
-            fontSize: `${11 * scale}px`, // ✅ Scale font with zoom level
+            fontSize: `${11 * scale}px`,
             color: object.color,
             height: '100%',
             width: '100%',
@@ -495,10 +500,10 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: `${10 * scale}px`, // ✅ Scale checkbox with zoom level
-            fontWeight: 'normal', // ✅ Removed bold
-            pointerEvents: 'none', // Let parent handle clicks
-            paddingLeft: '1px' // Slight offset to center the X better
+            fontSize: `${10 * scale}px`,
+            fontWeight: 'normal',
+            pointerEvents: 'none',
+            paddingLeft: '1px'
           }}>
             {isChecked ? 'X' : '☐'}
           </div>
@@ -523,7 +528,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             justifyContent: 'center',
             height: '100%',
             color: '#666',
-            fontSize: `${12 * scale}px`, // ✅ Scale font with zoom level
+            fontSize: `${12 * scale}px`,
             textAlign: 'center',
             pointerEvents: 'none'
           }}>
@@ -540,6 +545,17 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     <div 
       style={fieldStyle}
       onMouseDown={handleMouseDown}
+      // ✅ NEW: Subtle hover effect for better UX
+      onMouseEnter={(e) => {
+        if (!selected) {
+          e.target.style.background = 'rgba(255, 255, 255, 0.15)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!selected) {
+          e.target.style.background = 'rgba(255, 255, 255, 0.05)';
+        }
+      }}
     >
       {renderFieldContent()}
       
