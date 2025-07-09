@@ -118,7 +118,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 1000;
-  border-bottom: 3px solid #0052cc;
+  /* border-bottom: 3px solid #0052cc; */
 }
 
 .header-container {
@@ -136,6 +136,20 @@ body {
   align-items: center;
   gap: var(--spacing-xl);
   flex: 1;
+}
+
+.header-center {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .logo-btn {
