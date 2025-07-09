@@ -22,13 +22,13 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       
-    # ✅ Enhanced approach: Support both GHCR_TOKEN and GITHUB_TOKEN for build/push
+    # ✅ Standard approach: GITHUB_TOKEN for build/push
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
         
     - name: Create short SHA
       id: short_sha
@@ -82,6 +82,7 @@ jobs:
           --set-env-vars \
             "NODE_ENV=production" \
             "PORT=3004" \
+            "GHCR_TOKEN=${{ secrets.GHCR_TOKEN }}" \
             "REACT_APP_SERVICETITAN_CLIENT_ID=${{ secrets.REACT_APP_SERVICETITAN_CLIENT_ID }}" \
             "REACT_APP_SERVICETITAN_CLIENT_SECRET=${{ secrets.REACT_APP_SERVICETITAN_CLIENT_SECRET }}" \
             "REACT_APP_SERVICETITAN_APP_KEY=${{ secrets.REACT_APP_SERVICETITAN_APP_KEY }}" \
