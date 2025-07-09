@@ -22,13 +22,13 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       
-    # ✅ Standard approach: GITHUB_TOKEN for build/push
+    # ✅ Enhanced approach: Support both GHCR_TOKEN and GITHUB_TOKEN for build/push
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
         
     - name: Create short SHA
       id: short_sha
