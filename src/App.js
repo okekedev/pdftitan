@@ -77,23 +77,23 @@ export default function App() {
               aria-label="Go to jobs"
             >
               <img
-                src="\images\favicon.svg"
+                src="/images/favicon.svg"
                 alt="1-A Services"
                 className="logo-image"
-              ></img>
+              />
               <span className="logo-icon"></span>
             </button>
 
             {/* Breadcrumb Navigation */}
             <nav className="breadcrumb-nav" aria-label="Navigation">
-              <button
+              {/* <button
                 className={`breadcrumb-item ${
                   currentPage === "jobs" ? "active" : ""
                 }`}
                 onClick={() => handleBackToJobs()}
               >
                 My Jobs
-              </button>
+              </button> */}
               {selectedJob && (
                 <>
                   <span className="breadcrumb-separator">→</span>
@@ -105,7 +105,8 @@ export default function App() {
             </nav>
           </div>
 
-          <div className="header-right">
+          {/* Center - Technician Info */}
+          <div className="header-center">
             <div className="user-info">
               <span className="user-icon"></span>
               <div className="user-details">
@@ -113,6 +114,9 @@ export default function App() {
                 <span className="user-role">Technician</span>
               </div>
             </div>
+          </div>
+
+          <div className="header-right">
             <button
               className="logout-btn"
               onClick={handleLogout}
