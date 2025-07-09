@@ -29,8 +29,8 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy backend source code
 COPY backend/ ./
 
-# Copy built React app from builder stage
-COPY --from=builder /app/build ./build
+# Copy built React app from builder stage to the expected location
+COPY --from=builder /app/build ../build
 
 # Expose port 3000 (matching your Azure config)
 EXPOSE 3000
