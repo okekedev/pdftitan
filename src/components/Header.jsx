@@ -1,19 +1,25 @@
 // src/components/Layout/Header/Header.jsx - Modern JSX with Global Styles
-import React from 'react';
-import sessionManager from '../../../services/sessionManager';
+import React from "react";
+import sessionManager from "../../../services/sessionManager";
 
-export default function Header({ user, onLogout, currentPage, onNavigate, breadcrumbs = [] }) {
+export default function Header({
+  user,
+  onLogout,
+  currentPage,
+  onNavigate,
+  breadcrumbs = [],
+}) {
   const handleLogoClick = () => {
-    onNavigate('jobs');
+    onNavigate("jobs");
   };
 
   const canNavigateToItem = (item, index) => {
-    const currentIndex = breadcrumbs.findIndex(nav => nav.active);
+    const currentIndex = breadcrumbs.findIndex((nav) => nav.active);
     return index <= currentIndex;
   };
 
   const getTechnicianName = () => {
-    return user?.name || sessionManager.getTechnicianName() || 'Technician';
+    return user?.name || sessionManager.getTechnicianName() || "Technician";
   };
 
   const getSessionStatus = () => {
@@ -27,25 +33,33 @@ export default function Header({ user, onLogout, currentPage, onNavigate, breadc
     <header className="app-header">
       <div className="header-container">
         <div className="header-left">
-          <button 
+          <button
             className="logo-btn"
             onClick={handleLogoClick}
             aria-label="Go to jobs dashboard"
           >
-            <span className="logo-icon">📋</span>
+            <span className="logo-icon"></span>
             <h1>TitanPDF</h1>
           </button>
-          
+
           {breadcrumbs.length > 0 && (
             <nav className="breadcrumb-nav" aria-label="Navigation breadcrumb">
               {breadcrumbs.map((item, index) => (
                 <React.Fragment key={item.id}>
                   {index > 0 && <span className="breadcrumb-separator">→</span>}
                   <button
-                    className={`breadcrumb-item ${item.active ? 'active' : ''}`}
-                    onClick={() => canNavigateToItem(item, index) ? onNavigate(item.id) : null}
+                    className={`breadcrumb-item ${item.active ? "active" : ""}`}
+                    onClick={() =>
+                      canNavigateToItem(item, index)
+                        ? onNavigate(item.id)
+                        : null
+                    }
                     disabled={!canNavigateToItem(item, index)}
-                    title={canNavigateToItem(item, index) ? `Go to ${item.label}` : 'Not available yet'}
+                    title={
+                      canNavigateToItem(item, index)
+                        ? `Go to ${item.label}`
+                        : "Not available yet"
+                    }
                   >
                     {item.label}
                   </button>
@@ -57,7 +71,7 @@ export default function Header({ user, onLogout, currentPage, onNavigate, breadc
 
         <div className="header-right">
           <div className="user-info">
-            <span className="user-icon">👷</span>
+            <span className="user-icon"></span>
             <div className="user-details">
               <span className="user-name">{getTechnicianName()}</span>
               <span className="user-role">Technician</span>
@@ -67,19 +81,19 @@ export default function Header({ user, onLogout, currentPage, onNavigate, breadc
           {/* Session Status Indicator */}
           <div className="session-status" title={sessionStatus.message}>
             <span className={`status-indicator ${sessionStatus.status}`}></span>
-            {sessionStatus.status === 'expiring_soon' && (
+            {sessionStatus.status === "expiring_soon" && (
               <span className="session-warning">
                 {sessionStatus.timeRemaining}
               </span>
             )}
           </div>
 
-          <button 
-            onClick={onLogout} 
+          <button
+            onClick={onLogout}
             className="logout-btn"
             aria-label="Logout from TitanPDF"
           >
-            🚪 Logout
+            Logout
           </button>
         </div>
       </div>
@@ -145,9 +159,12 @@ const headerStyles = `
 `;
 
 // Inject styles
-if (typeof document !== 'undefined' && !document.getElementById('header-styles')) {
-  const style = document.createElement('style');
-  style.id = 'header-styles';
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById("header-styles")
+) {
+  const style = document.createElement("style");
+  style.id = "header-styles";
   style.textContent = headerStyles;
   document.head.appendChild(style);
 }
