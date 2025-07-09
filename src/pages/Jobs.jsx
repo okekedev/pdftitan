@@ -1,28 +1,31 @@
 // src/pages/Jobs/Jobs.jsx - Enhanced for job-focused API with customer data
-import React, { useState, useEffect } from 'react';
-import apiClient from '../services/apiClient';
+import React, { useState, useEffect } from "react";
+import apiClient from "../services/apiClient";
 
 export default function Jobs({ technician, onSelectJob }) {
   const [groupedJobs, setGroupedJobs] = useState({});
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const loadJobs = async () => {
       try {
         setIsLoading(true);
-        setError('');
-        
+        setError("");
+
         console.log(`🔧 Loading jobs for technician: ${technician?.name}`);
-        
+
         // ✅ Updated to use job-focused API
         const response = await apiClient.getMyJobs();
         setGroupedJobs(response.groupedByDate || {});
-        
-        console.log(`✅ Loaded jobs grouped into ${Object.keys(response.groupedByDate || {}).length} days`);
-        
+
+        console.log(
+          `✅ Loaded jobs grouped into ${
+            Object.keys(response.groupedByDate || {}).length
+          } days`
+        );
       } catch (error) {
-        console.error('❌ Error loading jobs:', error);
+        console.error("❌ Error loading jobs:", error);
         setError(`Failed to load jobs: ${error.message}`);
       } finally {
         setIsLoading(false);
@@ -37,46 +40,73 @@ export default function Jobs({ technician, onSelectJob }) {
   const getStatusIcon = (status) => {
     const statusName = status?.toLowerCase?.() || status;
     switch (statusName) {
-      case 'scheduled': return '📅';
-      case 'dispatched': return '🚚';
-      case 'inprogress': case 'in progress': return '🔧';
-      case 'working': return '🔧';
-      case 'hold': return '⏸️';
-      case 'completed': case 'done': return '✅';
-      case 'canceled': case 'cancelled': return '❌';
-      default: return '📋';
+      case "scheduled":
+        return "📅";
+      case "dispatched":
+        return "🚚";
+      case "inprogress":
+      case "in progress":
+        return "🔧";
+      case "working":
+        return "🔧";
+      case "hold":
+        return "⏸️";
+      case "completed":
+      case "done":
+        return "✅";
+      case "canceled":
+      case "cancelled":
+        return "❌";
+      default:
+        return "📋";
     }
   };
 
   const getStatusClass = (status) => {
     const statusName = status?.toLowerCase?.() || status;
     switch (statusName) {
-      case 'scheduled': return 'status-scheduled';
-      case 'dispatched': return 'status-dispatched';
-      case 'inprogress': case 'in progress': case 'working': return 'status-working';
-      case 'hold': return 'status-hold';
-      case 'completed': case 'done': return 'status-done';
-      case 'canceled': case 'cancelled': return 'status-canceled';
-      default: return 'status-default';
+      case "scheduled":
+        return "status-scheduled";
+      case "dispatched":
+        return "status-dispatched";
+      case "inprogress":
+      case "in progress":
+      case "working":
+        return "status-working";
+      case "hold":
+        return "status-hold";
+      case "completed":
+      case "done":
+        return "status-done";
+      case "canceled":
+      case "cancelled":
+        return "status-canceled";
+      default:
+        return "status-default";
     }
   };
 
   const getPriorityIcon = (priority) => {
     switch (priority?.toLowerCase()) {
-      case 'urgent': return '🚨';
-      case 'high': return '🔴';
-      case 'normal': return '🟡';
-      case 'low': return '🟢';
-      default: return '🟡';
+      case "urgent":
+        return "🚨";
+      case "high":
+        return "🔴";
+      case "normal":
+        return "🟡";
+      case "low":
+        return "🟢";
+      default:
+        return "🟡";
     }
   };
 
   const formatTime = (dateString) => {
-    if (!dateString) return 'No time set';
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
+    if (!dateString) return "No time set";
+    return new Date(dateString).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
     });
   };
 
@@ -89,10 +119,10 @@ export default function Jobs({ technician, onSelectJob }) {
       status: job.status,
       priority: job.priority,
       customer: job.customer,
-      nextAppointment: job.nextAppointment
+      nextAppointment: job.nextAppointment,
     };
 
-    console.log('🔧 Selected job:', jobData);
+    console.log("🔧 Selected job:", jobData);
     onSelectJob(jobData);
   };
 
@@ -102,7 +132,9 @@ export default function Jobs({ technician, onSelectJob }) {
         <div className="loading-content text-center">
           <div className="loading-spinner"></div>
           <h2>Loading Your Jobs</h2>
-          <p className="text-gray-600">Fetching your latest job assignments...</p>
+          <p className="text-gray-600">
+            Fetching your latest job assignments...
+          </p>
         </div>
       </div>
     );
@@ -119,7 +151,7 @@ export default function Jobs({ technician, onSelectJob }) {
           </div>
         </div>
         <div className="text-center mt-4">
-          <button 
+          <button
             className="btn btn-primary"
             onClick={() => window.location.reload()}
           >
@@ -131,21 +163,19 @@ export default function Jobs({ technician, onSelectJob }) {
   }
 
   const dateKeys = Object.keys(groupedJobs);
-  
+
   if (dateKeys.length === 0) {
     return (
       <div className="page-container">
         <div className="empty-state">
           <div className="empty-icon">📋</div>
           <h2>No Jobs Found</h2>
-          <p className="text-gray-600">
-            No jobs found for the last 2 days.
-          </p>
-          <button 
+          <p className="text-gray-600">No jobs found for the last 2 days.</p>
+          <button
             className="btn btn-primary mt-3"
             onClick={() => window.location.reload()}
           >
-            🔄 Refresh
+            Refresh
           </button>
         </div>
       </div>
@@ -158,10 +188,14 @@ export default function Jobs({ technician, onSelectJob }) {
       <div className="page-header text-center mb-4">
         <h2>📋 Your Jobs</h2>
         <p className="text-gray-600">
-          Showing jobs from 2 days ago to today • {' '}
+          Showing jobs from 2 days ago to today •{" "}
           <strong>
-            {Object.values(groupedJobs).reduce((total, group) => total + group.appointments.length, 0)}
-          </strong> total jobs
+            {Object.values(groupedJobs).reduce(
+              (total, group) => total + group.appointments.length,
+              0
+            )}
+          </strong>{" "}
+          total jobs
         </p>
       </div>
 
@@ -169,26 +203,37 @@ export default function Jobs({ technician, onSelectJob }) {
       <div className="jobs-timeline">
         {dateKeys.map((dateKey, index) => {
           const dateGroup = groupedJobs[dateKey];
-          const { displayDate, isToday, isYesterday, appointments: jobs } = dateGroup; // Note: still called "appointments" for API compatibility
-          
+          const {
+            displayDate,
+            isToday,
+            isYesterday,
+            appointments: jobs,
+          } = dateGroup; // Note: still called "appointments" for API compatibility
+
           return (
             <div key={dateKey} className="date-section">
               {/* Date Header */}
               <div className="date-header">
                 <div className="date-indicator">
-                  <div className={`date-dot ${isToday ? 'today' : isYesterday ? 'yesterday' : 'past'}`}></div>
-                  {index < dateKeys.length - 1 && <div className="date-line"></div>}
+                  <div
+                    className={`date-dot ${
+                      isToday ? "today" : isYesterday ? "yesterday" : "past"
+                    }`}
+                  ></div>
+                  {index < dateKeys.length - 1 && (
+                    <div className="date-line"></div>
+                  )}
                 </div>
                 <div className="date-info">
                   <h3 className="date-title">
-                    {isToday && '🎯 '}
-                    {isYesterday && '⏮️ '}
+                    {isToday && "🎯 "}
+                    {isYesterday && "⏮️ "}
                     {displayDate}
-                    {isToday && ' (Today)'}
-                    {isYesterday && ' (Yesterday)'}
+                    {isToday && " (Today)"}
+                    {isYesterday && " (Yesterday)"}
                   </h3>
                   <span className="job-count status-badge status-default">
-                    {jobs.length} job{jobs.length !== 1 ? 's' : ''}
+                    {jobs.length} job{jobs.length !== 1 ? "s" : ""}
                   </span>
                 </div>
               </div>
@@ -203,7 +248,7 @@ export default function Jobs({ technician, onSelectJob }) {
                     role="button"
                     tabIndex={0}
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+                      if (e.key === "Enter" || e.key === " ") {
                         handleJobSelection(job);
                       }
                     }}
@@ -213,16 +258,21 @@ export default function Jobs({ technician, onSelectJob }) {
                       <div className="job-identifier">
                         {/* ✅ Customer Name where Job ID was */}
                         <h4 className="customer-name font-bold text-lg">
-                          {job.customer?.name || 'Unknown Customer'}
+                          {job.customer?.name || "Unknown Customer"}
                         </h4>
                         <span className="job-number">#{job.number}</span>
-                        {job.priority && job.priority !== 'Normal' && (
-                          <span className="priority-indicator" title={`Priority: ${job.priority}`}>
+                        {job.priority && job.priority !== "Normal" && (
+                          <span
+                            className="priority-indicator"
+                            title={`Priority: ${job.priority}`}
+                          >
                             {getPriorityIcon(job.priority)}
                           </span>
                         )}
                       </div>
-                      <span className={`status-badge ${getStatusClass(job.status)}`}>
+                      <span
+                        className={`status-badge ${getStatusClass(job.status)}`}
+                      >
                         {getStatusIcon(job.status)} {job.status}
                       </span>
                     </div>
@@ -234,23 +284,28 @@ export default function Jobs({ technician, onSelectJob }) {
                         <h5 className="job-title font-semibold mb-2">
                           {job.title}
                         </h5>
-                        
+
                         {/* ✅ Customer address below title */}
                         {job.customer?.address?.fullAddress && (
                           <div className="customer-address text-gray-600 mb-3">
                             📍 {job.customer.address.fullAddress}
                           </div>
                         )}
-                        
+
                         {/* ✅ Centered next appointment info (removed $ amount and appointment count) */}
                         {job.nextAppointment && (
                           <div className="next-appointment-centered text-center">
                             <div className="appointment-time text-gray-700 font-medium">
                               🕐 {formatTime(job.nextAppointment.start)}
-                              {job.nextAppointment.end && ` - ${formatTime(job.nextAppointment.end)}`}
+                              {job.nextAppointment.end &&
+                                ` - ${formatTime(job.nextAppointment.end)}`}
                             </div>
                             {job.nextAppointment.status && (
-                              <span className={`appointment-status-badge ${getStatusClass(job.nextAppointment.status)}`}>
+                              <span
+                                className={`appointment-status-badge ${getStatusClass(
+                                  job.nextAppointment.status
+                                )}`}
+                              >
                                 {job.nextAppointment.status}
                               </span>
                             )}
@@ -531,9 +586,12 @@ const jobsStyles = `
 `;
 
 // Inject styles
-if (typeof document !== 'undefined' && !document.getElementById('jobs-styles')) {
-  const style = document.createElement('style');
-  style.id = 'jobs-styles';
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById("jobs-styles")
+) {
+  const style = document.createElement("style");
+  style.id = "jobs-styles";
   style.textContent = jobsStyles;
   document.head.appendChild(style);
 }
