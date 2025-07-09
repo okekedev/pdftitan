@@ -1,12 +1,18 @@
-# TitanPDF Dockerfile - Fixed npm commands
+# TitanPDF Dockerfile - Fixed to properly build React app
 FROM node:18-alpine AS builder
 
 # Build React frontend
 WORKDIR /app
+
+# Copy package files for frontend
 COPY package*.json ./
 RUN npm ci
+
+# Copy frontend source code
 COPY src/ ./src/
 COPY public/ ./public/
+
+# Build the React app (this creates the /build directory)
 RUN npm run build
 
 # Production stage
@@ -14,21 +20,20 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy backend package files first
+# Copy backend package files
 COPY backend/package*.json ./
 
-# Install all dependencies first (including dev for potential build steps)
-RUN npm ci
+# Install backend dependencies
+RUN npm ci --only=production && npm cache clean --force
 
 # Copy backend source code
 COPY backend/ ./
 
-# Copy built frontend from builder stage
+# Copy built React app from builder stage
 COPY --from=builder /app/build ./build
 
-# Now remove dev dependencies to reduce image size
-RUN npm ci --only=production && npm cache clean --force
-
-# Expose port and start
+# Expose port 3000 (matching your Azure config)
 EXPOSE 3000
+
+# Start the server
 CMD ["node", "server.js"]
