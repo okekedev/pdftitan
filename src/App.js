@@ -16,7 +16,10 @@ export default function App() {
   useEffect(() => {
     const existingSession = sessionManager.getTechnicianSession();
     if (existingSession) {
-      console.log("✅ Found existing session:", existingSession.technician?.name);
+      console.log(
+        "✅ Found existing session:",
+        existingSession.technician?.name
+      );
       setTechnician(existingSession.technician);
       setCurrentPage("jobs");
     }
@@ -68,22 +71,29 @@ export default function App() {
       <header className="app-header">
         <div className="header-container">
           <div className="header-left">
-            <button 
+            <button
               className="logo-btn"
               onClick={() => handleBackToJobs()}
               aria-label="Go to jobs"
             >
-              <span className="logo-icon">📋</span>
+              <img
+                src="\images\favicon.svg"
+                alt="1-A Services"
+                className="logo-image"
+              ></img>
+              <span className="logo-icon"></span>
               <h1>TitanPDF</h1>
             </button>
-            
+
             {/* Breadcrumb Navigation */}
             <nav className="breadcrumb-nav" aria-label="Navigation">
-              <button 
-                className={`breadcrumb-item ${currentPage === "jobs" ? "active" : ""}`}
+              <button
+                className={`breadcrumb-item ${
+                  currentPage === "jobs" ? "active" : ""
+                }`}
                 onClick={() => handleBackToJobs()}
               >
-                📅 My Jobs
+                My Jobs
               </button>
               {selectedJob && (
                 <>
@@ -98,18 +108,18 @@ export default function App() {
 
           <div className="header-right">
             <div className="user-info">
-              <span className="user-icon">👷</span>
+              <span className="user-icon"></span>
               <div className="user-details">
                 <span className="user-name">{technician.name}</span>
                 <span className="user-role">Technician</span>
               </div>
             </div>
-            <button 
+            <button
               className="logout-btn"
               onClick={handleLogout}
               aria-label="Logout"
             >
-              🚪 Logout
+              Logout
             </button>
           </div>
         </div>
