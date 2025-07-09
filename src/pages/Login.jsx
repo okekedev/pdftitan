@@ -275,6 +275,10 @@ const loginStyles = `
   text-transform: none;
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .login-btn:hover:not(:disabled) {
