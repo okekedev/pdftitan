@@ -111,6 +111,11 @@ export default function Login({ onLogin }) {
                 src="\images\favicon.svg"
                 alt="1-A Services"
                 className="logo-image"
+                style={{
+                  height: "150px",
+                  width: "auto",
+                  marginRight: "1rem",
+                }}
               ></img>
             </div>
             <p className="login-subtitle">PDF Editor</p>
@@ -264,12 +269,6 @@ const loginStyles = `
   font-size: 0.9rem;
   color: var(--gray-500);
   margin: var(--spacing-xs) 0 0 0;
-}
-
-.logo-image {
-  height: 75px;
-  width: auto;
-  margin-right: var(--spacing-md);
 }
 
 .login-form {

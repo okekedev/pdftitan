@@ -82,7 +82,6 @@ export default function App() {
                 className="logo-image"
               ></img>
               <span className="logo-icon"></span>
-              <h1>TitanPDF</h1>
             </button>
 
             {/* Breadcrumb Navigation */}
@@ -136,8 +135,32 @@ export default function App() {
 
       {/* Footer */}
       <footer className="app-footer">
-        <div className="footer-container">
-          <p>&copy; 2024 TitanPDF - Technician Portal</p>
+        <div
+          className="footer-container"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          <p style={{ margin: 0 }}>
+            © 2025 Built by{" "}
+            <a
+              href="https://sundai.us/"
+              style={{ color: "white", textDecoration: "underline" }}
+            >
+              {" "}
+              Okeke LLC
+            </a>
+            . Design By{" "}
+            <a
+              href="https://beamish-pastelito-94935e.netlify.app/"
+              style={{ color: "white", textDecoration: "underline" }}
+            >
+              Blaine Curren
+            </a>
+          </p>
           <div className="footer-status">
             <span className="status-indicator online"></span>
             <span>Connected to ServiceTitan</span>
