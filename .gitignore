@@ -95,7 +95,7 @@ dist
 
 # Gatsby files
 .cache/
-public
+
 
 # Vuepress build output
 .vuepress/dist
@@ -169,9 +169,6 @@ pids
 .DS_Store
 .AppleDouble
 .LSOverride
-
-# Icon must end with two \r
-Icon
 
 # Thumbnails
 ._*
