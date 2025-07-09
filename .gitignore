@@ -272,7 +272,6 @@ api-keys.json
 # OS generated files
 .DS_Store?
 ehthumbs.db
-Icon?
 Thumbs.db
 
 # Dependency lock files (uncomment if you want to ignore them)
