@@ -1,12 +1,12 @@
 // src/pages/Login.jsx - Fixed server port reference
-import React, { useState, useEffect } from 'react';
-import apiClient from '../services/apiClient';
+import React, { useState, useEffect } from "react";
+import apiClient from "../services/apiClient";
 
 export default function Login({ onLogin }) {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [username, setUsername] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [error, setError] = useState("");
+  const [username, setUsername] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   // Test server connection on mount
   useEffect(() => {
@@ -14,12 +14,15 @@ export default function Login({ onLogin }) {
       try {
         const connectionTest = await apiClient.testConnection();
         if (!connectionTest.connected) {
-          console.warn('⚠️ Server connection test failed:', connectionTest.error);
+          console.warn(
+            "⚠️ Server connection test failed:",
+            connectionTest.error
+          );
         } else {
-          console.log('✅ Server connection successful');
+          console.log("✅ Server connection successful");
         }
       } catch (error) {
-        console.warn('⚠️ Could not test server connection:', error);
+        console.warn("⚠️ Could not test server connection:", error);
       }
     };
 
@@ -28,53 +31,62 @@ export default function Login({ onLogin }) {
 
   const handleLogin = async () => {
     if (!username.trim() || !phoneNumber.trim()) {
-      setError('Please enter both your username and phone number');
+      setError("Please enter both your username and phone number");
       return;
     }
 
     setIsLoading(true);
-    setError('');
-    
+    setError("");
+
     try {
-      console.log('👤 Authenticating technician...');
-      
+      console.log("👤 Authenticating technician...");
+
       const result = await apiClient.validateTechnician(username, phoneNumber);
-      
+
       if (result.success) {
-        console.log('✅ Technician authenticated:', result.technician.name);
-        
+        console.log("✅ Technician authenticated:", result.technician.name);
+
         const userData = {
           technician: result.technician,
           company: result.company,
           environment: result.environment,
           loginTime: Date.now(),
-          userType: 'technician'
+          userType: "technician",
         };
 
         onLogin(userData);
       } else {
-        setError(result.error || 'Authentication failed');
+        setError(result.error || "Authentication failed");
       }
-      
     } catch (error) {
-      console.error('❌ Authentication error:', error);
-      
+      console.error("❌ Authentication error:", error);
+
       // Enhanced error handling with user-friendly messages
-      if (error.message.includes('No technician found')) {
-        setError(`Technician "${username}" not found. Please check your username.`);
-      } else if (error.message.includes('Phone number does not match')) {
-        setError('Phone number does not match our records for this technician.');
-      } else if (error.message.includes('ServiceTitan authentication failed')) {
-        setError('Failed to connect to ServiceTitan API. Please try again later.');
-      } else if (error.message.includes('404')) {
-        setError('Server endpoint not found. Please make sure the server is running.');
-      } else if (error.message.includes('timeout')) {
-        setError('Connection timeout. Please try again.');
-      } else if (error.message.includes('connect')) {
+      if (error.message.includes("No technician found")) {
+        setError(
+          `Technician "${username}" not found. Please check your username.`
+        );
+      } else if (error.message.includes("Phone number does not match")) {
+        setError(
+          "Phone number does not match our records for this technician."
+        );
+      } else if (error.message.includes("ServiceTitan authentication failed")) {
+        setError(
+          "Failed to connect to ServiceTitan API. Please try again later."
+        );
+      } else if (error.message.includes("404")) {
+        setError(
+          "Server endpoint not found. Please make sure the server is running."
+        );
+      } else if (error.message.includes("timeout")) {
+        setError("Connection timeout. Please try again.");
+      } else if (error.message.includes("connect")) {
         // ✅ FIXED: Updated port to match your server
-        setError('Cannot connect to server. Make sure the server is running on localhost:3004');
+        setError(
+          "Cannot connect to server. Make sure the server is running on localhost:3004"
+        );
       } else {
-        setError(error.message || 'An unexpected error occurred');
+        setError(error.message || "An unexpected error occurred");
       }
     } finally {
       setIsLoading(false);
@@ -82,7 +94,7 @@ export default function Login({ onLogin }) {
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !isLoading) {
+    if (e.key === "Enter" && !isLoading) {
       handleLogin();
     }
   };
@@ -94,13 +106,13 @@ export default function Login({ onLogin }) {
           {/* Header */}
           <div className="login-header">
             <div className="logo-section">
-              <span className="logo-icon">📋</span>
+              <span className="logo-icon"></span>
               <h1>TitanPDF</h1>
             </div>
             <p className="login-subtitle">Technician Portal</p>
             <p className="company-name">MrBackflow TX</p>
           </div>
-          
+
           {/* Error Message */}
           {error && (
             <div className="alert alert-error">
@@ -111,12 +123,12 @@ export default function Login({ onLogin }) {
               </div>
             </div>
           )}
-          
+
           {/* Login Form */}
           <form className="login-form" onSubmit={(e) => e.preventDefault()}>
             <div className="form-group">
               <label htmlFor="username" className="form-label">
-                👤 Technician Username
+                Username
               </label>
               <input
                 type="text"
@@ -124,7 +136,7 @@ export default function Login({ onLogin }) {
                 className="form-input"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your ServiceTitan username"
+                placeholder=""
                 disabled={isLoading}
                 onKeyPress={handleKeyPress}
                 autoComplete="username"
@@ -134,7 +146,7 @@ export default function Login({ onLogin }) {
 
             <div className="form-group">
               <label htmlFor="phoneNumber" className="form-label">
-                📱 Phone Number
+                Phone Number
               </label>
               <input
                 type="tel"
@@ -142,16 +154,16 @@ export default function Login({ onLogin }) {
                 className="form-input"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="Enter your phone number"
+                placeholder=""
                 disabled={isLoading}
                 onKeyPress={handleKeyPress}
                 autoComplete="tel"
               />
             </div>
-            
-            <button 
-              type="button" 
-              className={`btn btn-lg login-btn ${isLoading ? 'loading' : ''}`}
+
+            <button
+              type="button"
+              className={`btn btn-lg login-btn ${isLoading ? "loading" : ""}`}
               disabled={isLoading || !username.trim() || !phoneNumber.trim()}
               onClick={handleLogin}
             >
@@ -161,14 +173,12 @@ export default function Login({ onLogin }) {
                   Authenticating...
                 </>
               ) : (
-                <>
-                  🔧 Login as Technician
-                </>
+                <>Login</>
               )}
             </button>
           </form>
-          
-          {/* Footer */}
+
+          {/* Footer
           <div className="login-footer">
             <p className="text-center text-gray-600">
               Enter your ServiceTitan technician credentials to access your jobs
@@ -187,7 +197,7 @@ export default function Login({ onLogin }) {
                 </p>
               </div>
             )}
-          </div>
+          </div> */}
         </div>
       </div>
     </div>
@@ -317,9 +327,12 @@ const loginStyles = `
 `;
 
 // Inject styles if they don't exist
-if (typeof document !== 'undefined' && !document.getElementById('login-styles')) {
-  const style = document.createElement('style');
-  style.id = 'login-styles';
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById("login-styles")
+) {
+  const style = document.createElement("style");
+  style.id = "login-styles";
   style.textContent = loginStyles;
   document.head.appendChild(style);
 }
