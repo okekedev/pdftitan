@@ -107,10 +107,13 @@ export default function Login({ onLogin }) {
           <div className="login-header">
             <div className="logo-section">
               <span className="logo-icon"></span>
-              <h1>TitanPDF</h1>
+              <img
+                src="\images\favicon.svg"
+                alt="1-A Services"
+                className="logo-image"
+              ></img>
             </div>
-            <p className="login-subtitle">Technician Portal</p>
-            <p className="company-name">MrBackflow TX</p>
+            <p className="login-subtitle">PDF Editor</p>
           </div>
 
           {/* Error Message */}
@@ -211,7 +214,7 @@ const loginStyles = `
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  
   padding: var(--spacing-lg);
 }
 
@@ -263,13 +266,19 @@ const loginStyles = `
   margin: var(--spacing-xs) 0 0 0;
 }
 
+.logo-image {
+  height: 75px;
+  width: auto;
+  margin-right: var(--spacing-md);
+}
+
 .login-form {
   margin-bottom: var(--spacing-xl);
 }
 
 .login-btn {
   width: 100%;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+ 
   border: none;
   font-weight: 600;
   text-transform: none;
@@ -282,7 +291,6 @@ const loginStyles = `
 }
 
 .login-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--secondary-color) 100%);
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
