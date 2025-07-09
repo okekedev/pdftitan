@@ -30,5 +30,5 @@ COPY --from=builder /app/build ./build
 RUN npm ci --only=production && npm cache clean --force
 
 # Expose port and start
-EXPOSE 3004
+EXPOSE 3000
 CMD ["node", "server.js"]
