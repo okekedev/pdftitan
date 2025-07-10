@@ -258,7 +258,7 @@ body {
 }
 
 .logout-btn {
-  background: #ff2d2d; /* Red from logo */
+  background: #004aad; /* Red from logo */
   color: white;
   border: none;
   padding: var(--spacing-sm) var(--spacing-md);
