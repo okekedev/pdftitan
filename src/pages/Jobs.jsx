@@ -186,7 +186,7 @@ export default function Jobs({ technician, onSelectJob }) {
     <div className="page-container">
       {/* Page Header */}
       <div className="page-header text-center mb-4">
-        <h2>📋 Your Jobs</h2>
+        <h2> Your Jobs</h2>
         <p className="text-gray-600">
           Showing jobs from 2 days ago to today •{" "}
           <strong>
@@ -227,7 +227,7 @@ export default function Jobs({ technician, onSelectJob }) {
                 <div className="date-info">
                   <h3 className="date-title">
                     {isToday && "🎯 "}
-                    {isYesterday && "⏮️ "}
+                    {isYesterday && "⏮ "}
                     {displayDate}
                     {isToday && " (Today)"}
                     {isYesterday && " (Yesterday)"}
@@ -296,7 +296,7 @@ export default function Jobs({ technician, onSelectJob }) {
                         {job.nextAppointment && (
                           <div className="next-appointment-centered text-center">
                             <div className="appointment-time text-gray-700 font-medium">
-                              🕐 {formatTime(job.nextAppointment.start)}
+                              {formatTime(job.nextAppointment.start)}
                               {job.nextAppointment.end &&
                                 ` - ${formatTime(job.nextAppointment.end)}`}
                             </div>
@@ -323,7 +323,7 @@ export default function Jobs({ technician, onSelectJob }) {
                       </div>
                       <div className="view-forms-btn">
                         <span className="btn btn-sm btn-primary">
-                          📎 View Forms →
+                          View Forms →
                         </span>
                       </div>
                     </div>
