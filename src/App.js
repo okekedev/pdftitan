@@ -77,7 +77,7 @@ export default function App() {
               aria-label="Go to jobs"
             >
               <img
-                src="/images/favicon.svg"
+                src="/web-app-manifest-192x192.png"
                 alt="1-A Services"
                 className="logo-image"
               />

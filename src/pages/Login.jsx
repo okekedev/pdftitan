@@ -108,7 +108,7 @@ export default function Login({ onLogin }) {
             <div className="logo-section">
               <span className="logo-icon"></span>
               <img
-                src="\images\favicon.svg"
+                src="/web-app-manifest-192x192.png"
                 alt="1-A Services"
                 className="logo-image"
                 style={{
