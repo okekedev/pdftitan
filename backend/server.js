@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3004;
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
-// ================ SERVICETITAN CLIENT ================
+// ================ SERVICETITAN CLIENT ===============
 class ServiceTitanClient {
   constructor() {
     this.clientId = process.env.REACT_APP_SERVICETITAN_CLIENT_ID;
