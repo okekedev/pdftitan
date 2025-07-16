@@ -1,4 +1,4 @@
-// src/pages/PDFEditor.jsx - COMPLETE FILE with transparent fields and no borders
+// src/pages/PDFEditor.jsx - COMPLETE FILE with transparent fields and touch support
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 // Custom hook for PDF operations with proper canvas management
@@ -245,7 +245,7 @@ function usePDFEditor(pdf, job) {
   };
 }
 
-// ✅ FIXED: Enhanced Editable Field Component - Transparent with no grey borders
+// ✅ FIXED: Enhanced Editable Field Component with proper touch support for iPad
 function EditableField({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
   const [value, setValue] = useState(object.content || '');
   const [isDragging, setIsDragging] = useState(false);
@@ -291,18 +291,33 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     transition: 'background-color 0.2s ease, border-color 0.2s ease'
   };
 
-  // Adobe-style click/drag behavior
-  const handleMouseDown = (e) => {
+  // ✅ NEW: Universal event coordinate extraction for both mouse and touch
+  const getEventCoordinates = (e) => {
+    if (e.touches && e.touches[0]) {
+      return {
+        clientX: e.touches[0].clientX,
+        clientY: e.touches[0].clientY
+      };
+    }
+    return {
+      clientX: e.clientX,
+      clientY: e.clientY
+    };
+  };
+
+  // ✅ FIXED: Enhanced click/touch handler with proper touch support
+  const handleInteractionStart = (e) => {
     e.preventDefault();
     e.stopPropagation();
     
     if (editing) return;
     
+    const coords = getEventCoordinates(e);
     const rect = e.currentTarget.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left;
-    const offsetY = e.clientY - rect.top;
+    const offsetX = coords.clientX - rect.left;
+    const offsetY = coords.clientY - rect.top;
     
-    // Check if clicking on resize handle (bottom-right corner)
+    // Check if clicking/touching on resize handle (bottom-right corner)
     if (selected && object.type !== 'checkbox' && 
         offsetX > rect.width - 20 && offsetY > rect.height - 20) {
       setIsResizing(true);
@@ -316,7 +331,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
       return;
     }
     
-    // Handle double-click for editing/toggling
+    // Handle double-click/tap for editing/toggling
     const currentTime = Date.now();
     const timeDiff = currentTime - lastClickTime;
     if (timeDiff < 300) {
@@ -325,7 +340,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
         return;
       }
       if (object.type === 'checkbox') {
-        // Double-click to toggle checkbox
+        // Double-tap to toggle checkbox
         const newValue = !object.content;
         onUpdate(object.id, { content: newValue });
         return;
@@ -337,21 +352,26 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     handleDrag(e);
   };
 
+  // ✅ FIXED: Enhanced drag handler with touch support
   const handleDrag = (e) => {
     const canvasWrapper = e.target.closest('.pdf-wrapper');
     const canvas = canvasWrapper?.querySelector('canvas');
     if (!canvas) return;
     
-    const startX = e.clientX;
-    const startY = e.clientY;
+    const coords = getEventCoordinates(e);
+    const startX = coords.clientX;
+    const startY = coords.clientY;
     const startFieldX = object.x;
     const startFieldY = object.y;
     
     setIsDragging(true);
     
-    const handleMouseMove = (e) => {
-      const deltaX = (e.clientX - startX) / scale;
-      const deltaY = (e.clientY - startY) / scale;
+    // ✅ NEW: Universal move handler for both mouse and touch
+    const handleMove = (e) => {
+      e.preventDefault(); // Prevent scrolling on touch devices
+      const coords = getEventCoordinates(e);
+      const deltaX = (coords.clientX - startX) / scale;
+      const deltaY = (coords.clientY - startY) / scale;
       
       const newX = Math.max(0, Math.min(canvas.width / scale - object.width, startFieldX + deltaX));
       const newY = Math.max(0, Math.min(canvas.height / scale - object.height, startFieldY + deltaY));
@@ -359,30 +379,44 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
       onUpdate(object.id, { x: newX, y: newY });
     };
     
-    const handleMouseUp = () => {
+    // ✅ NEW: Universal end handler for both mouse and touch
+    const handleEnd = (e) => {
+      e.preventDefault();
       setIsDragging(false);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      
+      // Remove both mouse and touch listeners
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove, { passive: false });
+      document.removeEventListener('touchend', handleEnd);
     };
     
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    // ✅ NEW: Add both mouse and touch event listeners
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
   };
 
+  // ✅ FIXED: Enhanced resize handler with touch support
   const handleResize = (e) => {
     const canvasWrapper = e.target.closest('.pdf-wrapper');
     if (!canvasWrapper) return;
     
-    const startX = e.clientX;
-    const startY = e.clientY;
+    const coords = getEventCoordinates(e);
+    const startX = coords.clientX;
+    const startY = coords.clientY;
     const startWidth = object.width;
     const startHeight = object.height;
     
     setIsResizing(true);
     
-    const handleMouseMove = (e) => {
-      const deltaX = (e.clientX - startX) / scale;
-      const deltaY = (e.clientY - startY) / scale;
+    // ✅ NEW: Universal resize move handler
+    const handleResizeMove = (e) => {
+      e.preventDefault();
+      const coords = getEventCoordinates(e);
+      const deltaX = (coords.clientX - startX) / scale;
+      const deltaY = (coords.clientY - startY) / scale;
       
       const newWidth = Math.max(60, startWidth + deltaX);
       const newHeight = Math.max(25, startHeight + deltaY);
@@ -390,14 +424,23 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
       onUpdate(object.id, { width: newWidth, height: newHeight });
     };
     
-    const handleMouseUp = () => {
+    // ✅ NEW: Universal resize end handler
+    const handleResizeEnd = (e) => {
+      e.preventDefault();
       setIsResizing(false);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      
+      // Remove both mouse and touch listeners
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+      document.removeEventListener('touchmove', handleResizeMove, { passive: false });
+      document.removeEventListener('touchend', handleResizeEnd);
     };
     
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    // ✅ NEW: Add both mouse and touch event listeners for resize
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+    document.addEventListener('touchmove', handleResizeMove, { passive: false });
+    document.addEventListener('touchend', handleResizeEnd);
   };
 
   const handleSave = () => {
@@ -449,7 +492,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             whiteSpace: 'pre-wrap',
             overflow: 'hidden'
           }}>
-            {object.content || 'Double-click to edit'}
+            {object.content || 'Double-tap to edit'}
           </div>
         );
 
@@ -487,7 +530,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             display: 'flex',
             alignItems: 'center'
           }}>
-            {object.content || 'Double-click to edit'}
+            {object.content || 'Double-tap to edit'}
           </div>
         );
 
@@ -532,7 +575,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             textAlign: 'center',
             pointerEvents: 'none'
           }}>
-            Double-click to sign
+            Double-tap to sign
           </div>
         );
 
@@ -544,7 +587,9 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
   return (
     <div 
       style={fieldStyle}
-      onMouseDown={handleMouseDown}
+      // ✅ NEW: Add both mouse and touch event handlers
+      onMouseDown={handleInteractionStart}
+      onTouchStart={handleInteractionStart}
       // ✅ NEW: Subtle hover effect for better UX
       onMouseEnter={(e) => {
         if (!selected) {
@@ -559,7 +604,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     >
       {renderFieldContent()}
       
-      {/* Resize handle - bottom right corner */}
+      {/* ✅ ENHANCED: Resize handle with touch support */}
       {selected && !editing && object.type !== 'checkbox' && (
         <div
           style={{
@@ -573,7 +618,19 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             borderRadius: '50%',
             cursor: 'se-resize',
             zIndex: 1001,
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            // ✅ NEW: Make resize handle larger on touch devices for easier interaction
+            minWidth: '16px',
+            minHeight: '16px'
+          }}
+          // ✅ NEW: Add touch support to resize handle
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            handleResize(e);
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            handleResize(e);
           }}
         />
       )}
