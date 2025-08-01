@@ -1,5 +1,5 @@
 // src/pages/PDFEditor.jsx - COMPLETE FILE with transparent fields and touch support
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from "react";
 
 // Custom hook for PDF operations with proper canvas management
 function usePDFEditor(pdf, job) {
@@ -20,33 +20,38 @@ function usePDFEditor(pdf, job) {
     try {
       setPdfError(null);
       setPdfLoaded(false);
-      
+
       if (!window.pdfjsLib) {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        const script = document.createElement("script");
+        script.src =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
         await new Promise((resolve, reject) => {
           script.onload = resolve;
           script.onerror = reject;
           document.head.appendChild(script);
         });
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
       }
 
-      const downloadUrl = `/api/job/${job.id}/attachment/${pdf.serviceTitanId || pdf.id}/download`;
+      const downloadUrl = `/api/job/${job.id}/attachment/${
+        pdf.serviceTitanId || pdf.id
+      }/download`;
       const response = await fetch(downloadUrl);
-      if (!response.ok) throw new Error('Failed to load PDF');
+      if (!response.ok) throw new Error("Failed to load PDF");
 
       const arrayBuffer = await response.arrayBuffer();
-      const pdfDoc = await window.pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
-      
+      const pdfDoc = await window.pdfjsLib.getDocument(
+        new Uint8Array(arrayBuffer)
+      ).promise;
+
       setPdfDocument(pdfDoc);
       setTotalPages(pdfDoc.numPages);
       setPdfLoaded(true);
-      
+
       console.log(`✅ PDF loaded: ${pdfDoc.numPages} pages`);
     } catch (error) {
-      console.error('❌ PDF loading error:', error);
+      console.error("❌ PDF loading error:", error);
       setPdfError(error.message);
     }
   }, [pdf, job]);
@@ -56,128 +61,149 @@ function usePDFEditor(pdf, job) {
     if (!pdfDocument || !canvasRef.current || isRendering) {
       return;
     }
-    
+
     try {
       setIsRendering(true);
-      
+
       const page = await pdfDocument.getPage(currentPage);
       const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
+      const context = canvas.getContext("2d");
       const viewport = page.getViewport({ scale });
-      
+
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       context.clearRect(0, 0, canvas.width, canvas.height);
-      
+
       const renderContext = {
         canvasContext: context,
-        viewport: viewport
+        viewport: viewport,
       };
-      
+
       await page.render(renderContext).promise;
       console.log(`✅ Page ${currentPage} rendered successfully`);
-      
     } catch (error) {
-      console.error('❌ Page rendering error:', error);
+      console.error("❌ Page rendering error:", error);
     } finally {
       setIsRendering(false);
     }
   }, [pdfDocument, currentPage, scale, isRendering]);
 
   // Add different types of objects
-  const addTextObject = useCallback((x = 100, y = 100) => {
-    const id = Date.now().toString();
-    const newText = {
-      id,
-      type: 'text',
-      x: x / scale,
-      y: y / scale,
-      width: 200 / scale,
-      height: 30 / scale,
-      content: '',
-      fontSize: 11, // Default 11px
-      color: '#000000',
-      page: currentPage
-    };
-    
-    setObjects(prev => [...prev, newText]);
-    setSelectedId(id);
-  }, [scale, currentPage]);
+  const addTextObject = useCallback(
+    (x = 100, y = 100) => {
+      const id = Date.now().toString();
+      const newText = {
+        id,
+        type: "text",
+        x: x / scale,
+        y: y / scale,
+        width: 200 / scale,
+        height: 30 / scale,
+        content: "",
+        fontSize: 11, // Default 11px
+        color: "#000000",
+        page: currentPage,
+      };
 
-  const addSignatureObject = useCallback((x = 100, y = 100) => {
-    const id = Date.now().toString();
-    const newSig = {
-      id,
-      type: 'signature',
-      x: x / scale,
-      y: y / scale,
-      width: 200 / scale,
-      height: 80 / scale,
-      content: null,
-      page: currentPage
-    };
-    
-    setObjects(prev => [...prev, newSig]);
-    setSelectedId(id);
-  }, [scale, currentPage]);
+      setObjects((prev) => [...prev, newText]);
+      setSelectedId(id);
+    },
+    [scale, currentPage]
+  );
 
-  const addDateObject = useCallback((x = 100, y = 100) => {
-    const id = Date.now().toString();
-    const currentDate = new Date().toLocaleDateString();
-    const newDate = {
-      id,
-      type: 'date',
-      x: x / scale,
-      y: y / scale,
-      width: 120 / scale,
-      height: 25 / scale,
-      content: currentDate,
-      fontSize: 11, // Default 11px
-      color: '#000000',
-      page: currentPage
-    };
-    
-    setObjects(prev => [...prev, newDate]);
-    setSelectedId(id);
-  }, [scale, currentPage]);
+  const addSignatureObject = useCallback(
+    (x = 100, y = 100) => {
+      const id = Date.now().toString();
+      const newSig = {
+        id,
+        type: "signature",
+        x: x / scale,
+        y: y / scale,
+        width: 200 / scale,
+        height: 80 / scale,
+        content: null,
+        page: currentPage,
+      };
 
-  const addCheckboxObject = useCallback((x = 100, y = 100) => {
-    const id = Date.now().toString();
-    const newCheckbox = {
-      id,
-      type: 'checkbox',
-      x: x / scale,
-      y: y / scale,
-      width: 20 / scale,
-      height: 20 / scale,
-      content: false, // Always start with explicit boolean false
-      page: currentPage
-    };
-    
-    setObjects(prev => [...prev, newCheckbox]);
-    setSelectedId(id);
-    console.log('✅ Added checkbox with content:', newCheckbox.content, typeof newCheckbox.content);
-  }, [scale, currentPage]);
+      setObjects((prev) => [...prev, newSig]);
+      setSelectedId(id);
+    },
+    [scale, currentPage]
+  );
+
+  const addDateObject = useCallback(
+    (x = 100, y = 100) => {
+      const id = Date.now().toString();
+      const currentDate = new Date().toLocaleDateString();
+      const newDate = {
+        id,
+        type: "date",
+        x: x / scale,
+        y: y / scale,
+        width: 120 / scale,
+        height: 25 / scale,
+        content: currentDate,
+        fontSize: 11, // Default 11px
+        color: "#000000",
+        page: currentPage,
+      };
+
+      setObjects((prev) => [...prev, newDate]);
+      setSelectedId(id);
+    },
+    [scale, currentPage]
+  );
+
+  const addCheckboxObject = useCallback(
+    (x = 100, y = 100) => {
+      const id = Date.now().toString();
+      const newCheckbox = {
+        id,
+        type: "checkbox",
+        x: x / scale,
+        y: y / scale,
+        width: 20 / scale,
+        height: 20 / scale,
+        content: false, // Always start with explicit boolean false
+        page: currentPage,
+      };
+
+      setObjects((prev) => [...prev, newCheckbox]);
+      setSelectedId(id);
+      console.log(
+        "✅ Added checkbox with content:",
+        newCheckbox.content,
+        typeof newCheckbox.content
+      );
+    },
+    [scale, currentPage]
+  );
 
   const updateObject = useCallback((id, updates) => {
-    setObjects(prev => prev.map(obj => {
-      if (obj.id === id) {
-        const updated = { ...obj, ...updates };
-        
-        // Ensure checkbox content is always boolean
-        if (updated.type === 'checkbox' && 'content' in updates) {
-          updated.content = Boolean(updates.content);
-          console.log(`✅ Checkbox ${id} updated to:`, updated.content, typeof updated.content);
+    setObjects((prev) =>
+      prev.map((obj) => {
+        if (obj.id === id) {
+          const updated = { ...obj, ...updates };
+
+          // Ensure checkbox content is always boolean
+          if (updated.type === "checkbox" && "content" in updates) {
+            updated.content = Boolean(updates.content);
+            console.log(
+              `✅ Checkbox ${id} updated to:`,
+              updated.content,
+              typeof updated.content
+            );
+          }
+
+          return updated;
         }
-        
-        return updated;
-      }
-      return obj;
-    }));
+        return obj;
+      })
+    );
   }, []);
 
   const deleteObject = useCallback((id) => {
-    setObjects(prev => prev.filter(obj => obj.id !== id));
+    setObjects((prev) => prev.filter((obj) => obj.id !== id));
     setSelectedId(null);
     setEditingId(null);
   }, []);
@@ -190,15 +216,15 @@ function usePDFEditor(pdf, job) {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const initializePDF = async () => {
       if (isMounted) {
         await loadPDF();
       }
     };
-    
+
     initializePDF();
-    
+
     return () => {
       isMounted = false;
     };
@@ -206,15 +232,15 @@ function usePDFEditor(pdf, job) {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const doRender = async () => {
       if (isMounted && pdfDocument && !isRendering) {
         await renderPage();
       }
     };
-    
+
     doRender();
-    
+
     return () => {
       isMounted = false;
     };
@@ -241,28 +267,37 @@ function usePDFEditor(pdf, job) {
     updateObject,
     deleteObject,
     clearAllObjects,
-    isRendering
+    isRendering,
   };
 }
 
 // ✅ FIXED: Enhanced Editable Field Component with proper touch support for iPad
-function EditableField({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
-  const [value, setValue] = useState(object.content || '');
+function EditableField({
+  object,
+  scale,
+  selected,
+  editing,
+  onUpdate,
+  onSelect,
+  onStartEdit,
+  onFinishEdit,
+}) {
+  const [value, setValue] = useState(object.content || "");
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [lastClickTime, setLastClickTime] = useState(0);
-  
+
   useEffect(() => {
-    setValue(object.content || '');
+    setValue(object.content || "");
   }, [object.content]);
 
   const calculateFieldHeight = () => {
     switch (object.type) {
-      case 'text':
+      case "text":
         const lineHeight = Math.max(16, object.fontSize * scale * 1.2);
-        const lines = (object.content || '').split('\n').length;
+        const lines = (object.content || "").split("\n").length;
         return Math.max(object.height * scale, lines * lineHeight + 8);
-      case 'checkbox':
+      case "checkbox":
         return Math.max(20, object.height * scale);
       default:
         return object.height * scale;
@@ -271,24 +306,27 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
 
   // ✅ FIXED: More transparent styling with no grey borders
   const fieldStyle = {
-    position: 'absolute',
+    position: "absolute",
     left: `${object.x * scale}px`,
     top: `${object.y * scale}px`,
     width: `${object.width * scale}px`,
     height: `${calculateFieldHeight()}px`,
     zIndex: selected ? 1000 : 100,
     // ✅ FIXED: Only show border when selected, no border otherwise
-    border: selected ? '2px solid #007bff' : 'none',
-    borderRadius: '4px',
+    border: selected ? "2px solid #007bff" : "none",
+    borderRadius: "4px",
     // ✅ FIXED: Much more transparent background (5% vs 95% previously)
-    background: selected ? 'rgba(0, 123, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)',
-    cursor: editing ? 'text' : (isDragging ? 'grabbing' : 'grab'),
-    userSelect: 'none',
-    touchAction: 'none',
-    minWidth: object.type === 'checkbox' ? '20px' : '60px',
-    minHeight: object.type === 'checkbox' ? '20px' : '25px',
+    background: selected
+      ? "rgba(0, 123, 255, 0.1)"
+      : "rgba(255, 255, 255, 0.05)",
+    cursor: editing ? "text" : isDragging ? "grabbing" : "grab",
+    userSelect: "none",
+    touchAction: "none",
+    minWidth: object.type === "checkbox" ? "20px" : "60px",
+    minHeight: object.type === "checkbox" ? "20px" : "25px",
     // ✅ NEW: Smooth transitions for better UX
-    transition: 'background-color 0.2s ease, border-color 0.2s ease'
+    transition: "background-color 0.2s ease, border-color 0.2s ease",
+    color: "#4169E1",
   };
 
   // ✅ NEW: Universal event coordinate extraction for both mouse and touch
@@ -296,12 +334,12 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     if (e.touches && e.touches[0]) {
       return {
         clientX: e.touches[0].clientX,
-        clientY: e.touches[0].clientY
+        clientY: e.touches[0].clientY,
       };
     }
     return {
       clientX: e.clientX,
-      clientY: e.clientY
+      clientY: e.clientY,
     };
   };
 
@@ -309,37 +347,41 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
   const handleInteractionStart = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (editing) return;
-    
+
     const coords = getEventCoordinates(e);
     const rect = e.currentTarget.getBoundingClientRect();
     const offsetX = coords.clientX - rect.left;
     const offsetY = coords.clientY - rect.top;
-    
+
     // Check if clicking/touching on resize handle (bottom-right corner)
-    if (selected && object.type !== 'checkbox' && 
-        offsetX > rect.width - 20 && offsetY > rect.height - 20) {
+    if (
+      selected &&
+      object.type !== "checkbox" &&
+      offsetX > rect.width - 20 &&
+      offsetY > rect.height - 20
+    ) {
       setIsResizing(true);
       handleResize(e);
       return;
     }
-    
+
     // Select field if not selected
     if (!selected) {
       onSelect(object.id);
       return;
     }
-    
+
     // Handle double-click/tap for editing/toggling
     const currentTime = Date.now();
     const timeDiff = currentTime - lastClickTime;
     if (timeDiff < 300) {
-      if (object.type === 'text' || object.type === 'date') {
+      if (object.type === "text" || object.type === "date") {
         onStartEdit(object.id);
         return;
       }
-      if (object.type === 'checkbox') {
+      if (object.type === "checkbox") {
         // Double-tap to toggle checkbox
         const newValue = !object.content;
         onUpdate(object.id, { content: newValue });
@@ -347,100 +389,110 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
       }
     }
     setLastClickTime(currentTime);
-    
+
     // Start dragging (for all field types including checkbox)
     handleDrag(e);
   };
 
   // ✅ FIXED: Enhanced drag handler with touch support
   const handleDrag = (e) => {
-    const canvasWrapper = e.target.closest('.pdf-wrapper');
-    const canvas = canvasWrapper?.querySelector('canvas');
+    const canvasWrapper = e.target.closest(".pdf-wrapper");
+    const canvas = canvasWrapper?.querySelector("canvas");
     if (!canvas) return;
-    
+
     const coords = getEventCoordinates(e);
     const startX = coords.clientX;
     const startY = coords.clientY;
     const startFieldX = object.x;
     const startFieldY = object.y;
-    
+
     setIsDragging(true);
-    
+
     // ✅ NEW: Universal move handler for both mouse and touch
     const handleMove = (e) => {
       e.preventDefault(); // Prevent scrolling on touch devices
       const coords = getEventCoordinates(e);
       const deltaX = (coords.clientX - startX) / scale;
       const deltaY = (coords.clientY - startY) / scale;
-      
-      const newX = Math.max(0, Math.min(canvas.width / scale - object.width, startFieldX + deltaX));
-      const newY = Math.max(0, Math.min(canvas.height / scale - object.height, startFieldY + deltaY));
-      
+
+      const newX = Math.max(
+        0,
+        Math.min(canvas.width / scale - object.width, startFieldX + deltaX)
+      );
+      const newY = Math.max(
+        0,
+        Math.min(canvas.height / scale - object.height, startFieldY + deltaY)
+      );
+
       onUpdate(object.id, { x: newX, y: newY });
     };
-    
+
     // ✅ NEW: Universal end handler for both mouse and touch
     const handleEnd = (e) => {
       e.preventDefault();
       setIsDragging(false);
-      
+
       // Remove both mouse and touch listeners
-      document.removeEventListener('mousemove', handleMove);
-      document.removeEventListener('mouseup', handleEnd);
-      document.removeEventListener('touchmove', handleMove, { passive: false });
-      document.removeEventListener('touchend', handleEnd);
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleEnd);
+      document.removeEventListener("touchmove", handleMove, { passive: false });
+      document.removeEventListener("touchend", handleEnd);
     };
-    
+
     // ✅ NEW: Add both mouse and touch event listeners
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleEnd);
-    document.addEventListener('touchmove', handleMove, { passive: false });
-    document.addEventListener('touchend', handleEnd);
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleEnd);
+    document.addEventListener("touchmove", handleMove, { passive: false });
+    document.addEventListener("touchend", handleEnd);
   };
 
   // ✅ FIXED: Enhanced resize handler with touch support
   const handleResize = (e) => {
-    const canvasWrapper = e.target.closest('.pdf-wrapper');
+    const canvasWrapper = e.target.closest(".pdf-wrapper");
     if (!canvasWrapper) return;
-    
+
     const coords = getEventCoordinates(e);
     const startX = coords.clientX;
     const startY = coords.clientY;
     const startWidth = object.width;
     const startHeight = object.height;
-    
+
     setIsResizing(true);
-    
+
     // ✅ NEW: Universal resize move handler
     const handleResizeMove = (e) => {
       e.preventDefault();
       const coords = getEventCoordinates(e);
       const deltaX = (coords.clientX - startX) / scale;
       const deltaY = (coords.clientY - startY) / scale;
-      
+
       const newWidth = Math.max(60, startWidth + deltaX);
       const newHeight = Math.max(25, startHeight + deltaY);
-      
+
       onUpdate(object.id, { width: newWidth, height: newHeight });
     };
-    
+
     // ✅ NEW: Universal resize end handler
     const handleResizeEnd = (e) => {
       e.preventDefault();
       setIsResizing(false);
-      
+
       // Remove both mouse and touch listeners
-      document.removeEventListener('mousemove', handleResizeMove);
-      document.removeEventListener('mouseup', handleResizeEnd);
-      document.removeEventListener('touchmove', handleResizeMove, { passive: false });
-      document.removeEventListener('touchend', handleResizeEnd);
+      document.removeEventListener("mousemove", handleResizeMove);
+      document.removeEventListener("mouseup", handleResizeEnd);
+      document.removeEventListener("touchmove", handleResizeMove, {
+        passive: false,
+      });
+      document.removeEventListener("touchend", handleResizeEnd);
     };
-    
+
     // ✅ NEW: Add both mouse and touch event listeners for resize
-    document.addEventListener('mousemove', handleResizeMove);
-    document.addEventListener('mouseup', handleResizeEnd);
-    document.addEventListener('touchmove', handleResizeMove, { passive: false });
-    document.addEventListener('touchend', handleResizeEnd);
+    document.addEventListener("mousemove", handleResizeMove);
+    document.addEventListener("mouseup", handleResizeEnd);
+    document.addEventListener("touchmove", handleResizeMove, {
+      passive: false,
+    });
+    document.addEventListener("touchend", handleResizeEnd);
   };
 
   const handleSave = () => {
@@ -449,7 +501,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSave();
     }
@@ -458,7 +510,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
   // Render field content
   const renderFieldContent = () => {
     switch (object.type) {
-      case 'text':
+      case "text":
         return editing ? (
           <textarea
             value={value}
@@ -468,39 +520,45 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             placeholder="Enter text..."
             autoFocus
             style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-              background: 'transparent',
+              width: "100%",
+              height: "100%",
+              border: "none",
+              background: "transparent",
               fontSize: `${11 * scale}px`,
               color: object.color,
-              outline: 'none',
-              padding: '4px',
-              resize: 'none',
-              fontFamily: 'inherit'
+              outline: "none",
+              padding: "4px",
+              resize: "none",
+              fontFamily: "inherit",
             }}
           />
         ) : (
-          <div style={{
-            padding: '4px',
-            fontSize: `${11 * scale}px`,
-            color: object.color,
-            height: '100%',
-            width: '100%',
-            opacity: object.content ? 1 : 0.6,
-            pointerEvents: 'none',
-            whiteSpace: 'pre-wrap',
-            overflow: 'hidden'
-          }}>
-            {object.content || 'Double-tap to edit'}
+          <div
+            style={{
+              padding: "4px",
+              fontSize: `${11 * scale}px`,
+              color: object.color,
+              height: "100%",
+              width: "100%",
+              opacity: object.content ? 1 : 0.6,
+              pointerEvents: "none",
+              whiteSpace: "pre-wrap",
+              overflow: "hidden",
+            }}
+          >
+            {object.content || "Double-tap to edit"}
           </div>
         );
 
-      case 'date':
+      case "date":
         return editing ? (
           <input
             type="date"
-            value={object.content ? new Date(object.content).toISOString().split('T')[0] : ''}
+            value={
+              object.content
+                ? new Date(object.content).toISOString().split("T")[0]
+                : ""
+            }
             onChange={(e) => {
               const newValue = new Date(e.target.value).toLocaleDateString();
               setValue(newValue);
@@ -509,72 +567,78 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             onBlur={handleSave}
             autoFocus
             style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-              background: 'transparent',
+              width: "100%",
+              height: "100%",
+              border: "none",
+              background: "transparent",
               fontSize: `${11 * scale}px`,
-              outline: 'none',
-              padding: '4px'
+              outline: "none",
+              padding: "4px",
             }}
           />
         ) : (
-          <div style={{
-            padding: '4px',
-            fontSize: `${11 * scale}px`,
-            color: object.color,
-            height: '100%',
-            width: '100%',
-            opacity: object.content ? 1 : 0.6,
-            pointerEvents: 'none',
-            display: 'flex',
-            alignItems: 'center'
-          }}>
-            {object.content || 'Double-tap to edit'}
+          <div
+            style={{
+              padding: "4px",
+              fontSize: `${11 * scale}px`,
+              color: object.color,
+              height: "100%",
+              width: "100%",
+              opacity: object.content ? 1 : 0.6,
+              pointerEvents: "none",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            {object.content || "Double-tap to edit"}
           </div>
         );
 
-      case 'checkbox':
+      case "checkbox":
         const isChecked = Boolean(object.content);
         return (
-          <div style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: `${10 * scale}px`,
-            fontWeight: 'normal',
-            pointerEvents: 'none',
-            paddingLeft: '1px'
-          }}>
-            {isChecked ? 'X' : '☐'}
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: `${10 * scale}px`,
+              fontWeight: "normal",
+              pointerEvents: "none",
+              paddingLeft: "1px",
+            }}
+          >
+            {isChecked ? "X" : "☐"}
           </div>
         );
 
-      case 'signature':
+      case "signature":
         return object.content ? (
-          <img 
-            src={object.content} 
-            alt="Signature" 
-            style={{ 
-              maxWidth: '100%', 
-              maxHeight: '100%',
-              objectFit: 'contain',
-              pointerEvents: 'none'
-            }} 
+          <img
+            src={object.content}
+            alt="Signature"
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
+              pointerEvents: "none",
+            }}
           />
         ) : (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            color: '#666',
-            fontSize: `${12 * scale}px`,
-            textAlign: 'center',
-            pointerEvents: 'none'
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              color: "#666",
+              fontSize: `${12 * scale}px`,
+              textAlign: "center",
+              pointerEvents: "none",
+            }}
+          >
             Double-tap to sign
           </div>
         );
@@ -585,7 +649,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
   };
 
   return (
-    <div 
+    <div
       style={fieldStyle}
       // ✅ NEW: Add both mouse and touch event handlers
       onMouseDown={handleInteractionStart}
@@ -593,35 +657,35 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
       // ✅ NEW: Subtle hover effect for better UX
       onMouseEnter={(e) => {
         if (!selected) {
-          e.target.style.background = 'rgba(255, 255, 255, 0.15)';
+          e.target.style.background = "rgba(255, 255, 255, 0.15)";
         }
       }}
       onMouseLeave={(e) => {
         if (!selected) {
-          e.target.style.background = 'rgba(255, 255, 255, 0.05)';
+          e.target.style.background = "rgba(255, 255, 255, 0.05)";
         }
       }}
     >
       {renderFieldContent()}
-      
+
       {/* ✅ ENHANCED: Resize handle with touch support */}
-      {selected && !editing && object.type !== 'checkbox' && (
+      {selected && !editing && object.type !== "checkbox" && (
         <div
           style={{
-            position: 'absolute',
-            bottom: '-4px',
-            right: '-4px',
-            width: '12px',
-            height: '12px',
-            background: '#007bff',
-            border: '2px solid white',
-            borderRadius: '50%',
-            cursor: 'se-resize',
+            position: "absolute",
+            bottom: "-4px",
+            right: "-4px",
+            width: "12px",
+            height: "12px",
+            background: "#007bff",
+            border: "2px solid white",
+            borderRadius: "50%",
+            cursor: "se-resize",
             zIndex: 1001,
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
             // ✅ NEW: Make resize handle larger on touch devices for easier interaction
-            minWidth: '16px',
-            minHeight: '16px'
+            minWidth: "16px",
+            minHeight: "16px",
           }}
           // ✅ NEW: Add touch support to resize handle
           onMouseDown={(e) => {
@@ -647,11 +711,11 @@ function SignatureDialog({ isOpen, onClose, onSave }) {
   useEffect(() => {
     if (isOpen && canvasRef.current) {
       const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext("2d");
       ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#000';
-      ctx.fillStyle = '#fff';
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#000";
+      ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       setIsEmpty(true);
     }
@@ -660,16 +724,16 @@ function SignatureDialog({ isOpen, onClose, onSave }) {
   const getEventPos = (e) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    
+
     if (e.touches && e.touches[0]) {
       return {
         x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top
+        y: e.touches[0].clientY - rect.top,
       };
     }
     return {
       x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      y: e.clientY - rect.top,
     };
   };
 
@@ -677,7 +741,7 @@ function SignatureDialog({ isOpen, onClose, onSave }) {
     e.preventDefault();
     setIsDrawing(true);
     const pos = getEventPos(e);
-    const ctx = canvasRef.current.getContext('2d');
+    const ctx = canvasRef.current.getContext("2d");
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
     setIsEmpty(false);
@@ -687,7 +751,7 @@ function SignatureDialog({ isOpen, onClose, onSave }) {
     if (!isDrawing) return;
     e.preventDefault();
     const pos = getEventPos(e);
-    const ctx = canvasRef.current.getContext('2d');
+    const ctx = canvasRef.current.getContext("2d");
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
   };
@@ -699,19 +763,19 @@ function SignatureDialog({ isOpen, onClose, onSave }) {
 
   const clearSignature = () => {
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#fff';
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setIsEmpty(true);
   };
 
   const saveSignature = () => {
     if (isEmpty) {
-      alert('Please draw your signature first');
+      alert("Please draw your signature first");
       return;
     }
     const canvas = canvasRef.current;
-    const dataURL = canvas.toDataURL('image/png');
+    const dataURL = canvas.toDataURL("image/png");
     onSave(dataURL);
     onClose();
   };
@@ -723,7 +787,7 @@ function SignatureDialog({ isOpen, onClose, onSave }) {
       <div className="signature-dialog">
         <h3>✍️ Add Your Signature</h3>
         <p>Draw your signature below using your finger or mouse:</p>
-        
+
         <div className="signature-area">
           <canvas
             ref={canvasRef}
@@ -739,7 +803,7 @@ function SignatureDialog({ isOpen, onClose, onSave }) {
             onTouchEnd={stopDrawing}
           />
         </div>
-        
+
         <div className="signature-actions">
           <button onClick={clearSignature} className="btn btn-secondary">
             🗑️ Clear
@@ -779,21 +843,24 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     updateObject,
     deleteObject,
     clearAllObjects,
-    isRendering
+    isRendering,
   } = usePDFEditor(pdf, job);
 
   const [showSignatureDialog, setShowSignatureDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const currentObjects = objects.filter(obj => obj.page === currentPage);
+  const currentObjects = objects.filter((obj) => obj.page === currentPage);
 
-  const handleCanvasClick = useCallback((e) => {
-    if (isRendering) return;
-    setSelectedId(null);
-    setEditingId(null);
-  }, [isRendering]);
+  const handleCanvasClick = useCallback(
+    (e) => {
+      if (isRendering) return;
+      setSelectedId(null);
+      setEditingId(null);
+    },
+    [isRendering]
+  );
 
   // Toolbar actions
   const handleAddTextBox = () => addTextObject(100, 100);
@@ -808,39 +875,41 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      
+
       // Validate that we have fields to save
       if (objects.length === 0) {
-        setSuccessMessage('No fields to save. Please add some fields to the form first.');
+        setSuccessMessage(
+          "No fields to save. Please add some fields to the form first."
+        );
         setShowSuccessPopup(true);
         return;
       }
-      
+
       // Validate checkboxes are properly formatted
-      const processedObjects = objects.map(obj => {
-        if (obj.type === 'checkbox') {
+      const processedObjects = objects.map((obj) => {
+        if (obj.type === "checkbox") {
           return {
             ...obj,
-            content: Boolean(obj.content) // Ensure boolean
+            content: Boolean(obj.content), // Ensure boolean
           };
         }
         return obj;
       });
-      
-      const originalName = pdf.fileName || pdf.name || 'Document';
-      let cleanName = originalName.replace(/\.pdf$/i, '');
-      
-      if (cleanName.includes('/')) {
-        cleanName = cleanName.split('/').pop();
+
+      const originalName = pdf.fileName || pdf.name || "Document";
+      let cleanName = originalName.replace(/\.pdf$/i, "");
+
+      if (cleanName.includes("/")) {
+        cleanName = cleanName.split("/").pop();
       }
-      
-      cleanName = cleanName.replace(/@@\d+.*$/, match => {
+
+      cleanName = cleanName.replace(/@@\d+.*$/, (match) => {
         const atMatch = match.match(/@@\d+/);
-        return atMatch ? atMatch[0] : '';
+        return atMatch ? atMatch[0] : "";
       });
-      
+
       const completedFileName = `Completed - ${cleanName}.pdf`;
-      
+
       // Enhanced save data with proper field validation
       const saveData = {
         pdfId: pdf.id,
@@ -851,48 +920,60 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         jobInfo: {
           jobId: job.id,
           jobNumber: job.number,
-          jobTitle: job.title
+          jobTitle: job.title,
         },
         savedAt: new Date().toISOString(),
         fieldSummary: {
           totalFields: processedObjects.length,
-          textFields: processedObjects.filter(o => o.type === 'text').length,
-          checkboxes: processedObjects.filter(o => o.type === 'checkbox').length,
-          checkedBoxes: processedObjects.filter(o => o.type === 'checkbox' && o.content === true).length,
-          dates: processedObjects.filter(o => o.type === 'date').length,
-          signatures: processedObjects.filter(o => o.type === 'signature').length
-        }
+          textFields: processedObjects.filter((o) => o.type === "text").length,
+          checkboxes: processedObjects.filter((o) => o.type === "checkbox")
+            .length,
+          checkedBoxes: processedObjects.filter(
+            (o) => o.type === "checkbox" && o.content === true
+          ).length,
+          dates: processedObjects.filter((o) => o.type === "date").length,
+          signatures: processedObjects.filter((o) => o.type === "signature")
+            .length,
+        },
       };
-      
-      console.log('💾 Saving completed form:', {
+
+      console.log("💾 Saving completed form:", {
         fileName: completedFileName,
         fieldCount: processedObjects.length,
         checkboxes: saveData.fieldSummary.checkboxes,
-        checkedBoxes: saveData.fieldSummary.checkedBoxes
+        checkedBoxes: saveData.fieldSummary.checkedBoxes,
       });
-      
+
       const result = await onSave(saveData);
-      
+
       if (result && result.success) {
-        const fieldStats = result.uploadDetails?.fieldsProcessed || saveData.fieldSummary;
+        const fieldStats =
+          result.uploadDetails?.fieldsProcessed || saveData.fieldSummary;
         setSuccessMessage(
           `PDF form has been completed and uploaded to ServiceTitan successfully!\n\n` +
-          `Saved as: ${result.fileName}\n\n` +
-          `Fields processed:\n` +
-          `• Text fields: ${fieldStats.textFields || fieldStats.text || 0}\n` +
-          `• Checkboxes: ${fieldStats.checkboxes || 0} (${fieldStats.checkedBoxes || 'unknown'} checked)\n` +
-          `• Date fields: ${fieldStats.dates || 0}\n` +
-          `• Signatures: ${fieldStats.signatures || 0}`
+            `Saved as: ${result.fileName}\n\n` +
+            `Fields processed:\n` +
+            `• Text fields: ${
+              fieldStats.textFields || fieldStats.text || 0
+            }\n` +
+            `• Checkboxes: ${fieldStats.checkboxes || 0} (${
+              fieldStats.checkedBoxes || "unknown"
+            } checked)\n` +
+            `• Date fields: ${fieldStats.dates || 0}\n` +
+            `• Signatures: ${fieldStats.signatures || 0}`
         );
         setShowSuccessPopup(true);
       } else {
-        setSuccessMessage(`Failed to upload PDF form to ServiceTitan. Please try again or contact support.`);
+        setSuccessMessage(
+          `Failed to upload PDF form to ServiceTitan. Please try again or contact support.`
+        );
         setShowSuccessPopup(true);
       }
-      
     } catch (error) {
-      console.error('❌ Save error:', error);
-      setSuccessMessage(`Failed to save PDF form: ${error.message}\n\nPlease try again.`);
+      console.error("❌ Save error:", error);
+      setSuccessMessage(
+        `Failed to save PDF form: ${error.message}\n\nPlease try again.`
+      );
       setShowSuccessPopup(true);
     } finally {
       setIsSaving(false);
@@ -907,11 +988,15 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
 
   const getCompletionStatus = () => {
     const total = objects.length;
-    const filled = objects.filter(obj => {
-      if (obj.type === 'checkbox') return true; // Checkboxes are always "complete"
-      return obj.content && obj.content.toString().trim() !== '';
+    const filled = objects.filter((obj) => {
+      if (obj.type === "checkbox") return true; // Checkboxes are always "complete"
+      return obj.content && obj.content.toString().trim() !== "";
     }).length;
-    return { total, filled, percentage: total > 0 ? Math.round((filled / total) * 100) : 0 };
+    return {
+      total,
+      filled,
+      percentage: total > 0 ? Math.round((filled / total) * 100) : 0,
+    };
   };
 
   if (pdfError) {
@@ -943,17 +1028,20 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             <p>Job #{job.number}</p>
           </div>
         </div>
-        
+
         <div className="header-right">
           <div className="completion-status">
-            <span>Progress: {completion.filled}/{completion.total} fields ({completion.percentage}%)</span>
+            <span>
+              Progress: {completion.filled}/{completion.total} fields (
+              {completion.percentage}%)
+            </span>
           </div>
-          <button 
+          <button
             onClick={handleSave}
             disabled={isSaving || isRendering}
             className="btn btn-success btn-lg"
           >
-            {isSaving ? '💾 Saving...' : '💾 Save Completed Form'}
+            {isSaving ? "Saving..." : "Save Completed Form"}
           </button>
         </div>
       </div>
@@ -963,40 +1051,40 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         <div className="toolbar-left">
           <div className="tool-group">
             <span className="tool-group-label">Add Fields:</span>
-            <button 
+            <button
               onClick={handleAddTextBox}
               className="btn btn-primary"
               disabled={isRendering}
               title="Add text input field"
             >
-              📝 Text
+              Text
             </button>
-            <button 
+            <button
               onClick={handleAddSignature}
               className="btn btn-primary"
               disabled={isRendering}
               title="Add signature field"
             >
-              ✍️ Signature
+              Signature
             </button>
-            <button 
+            <button
               onClick={handleAddDate}
               className="btn btn-primary"
               disabled={isRendering}
               title="Add current date"
             >
-              📅 Date
+              Date
             </button>
-            <button 
+            <button
               onClick={handleAddCheckbox}
               className="btn btn-primary"
               disabled={isRendering}
               title="Add checkbox"
             >
-              ☐ Checkbox
+              Checkbox
             </button>
           </div>
-          
+
           {selectedId && (
             <div className="tool-group">
               <button
@@ -1004,11 +1092,11 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
                 className="btn btn-error"
                 disabled={isRendering}
               >
-                🗑️ Delete Selected
+                Delete Selected
               </button>
             </div>
           )}
-          
+
           {objects.length > 0 && (
             <div className="tool-group">
               <button
@@ -1016,7 +1104,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
                 className="btn btn-warning"
                 disabled={isRendering}
               >
-                🧹 Clear All
+                Clear All
               </button>
             </div>
           )}
@@ -1026,7 +1114,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
           {totalPages > 1 && (
             <div className="page-controls">
               <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 disabled={currentPage <= 1 || isRendering}
                 className="btn btn-ghost"
               >
@@ -1036,7 +1124,9 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
                 Page {currentPage} of {totalPages}
               </span>
               <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                }
                 disabled={currentPage >= totalPages || isRendering}
                 className="btn btn-ghost"
               >
@@ -1049,19 +1139,19 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         <div className="toolbar-right">
           <div className="zoom-controls">
             <button
-              onClick={() => setScale(prev => Math.max(0.8, prev - 0.2))}
+              onClick={() => setScale((prev) => Math.max(0.8, prev - 0.2))}
               className="btn btn-ghost"
               disabled={isRendering}
             >
-              🔍-
+              -
             </button>
             <span className="zoom-level">{Math.round(scale * 100)}%</span>
             <button
-              onClick={() => setScale(prev => Math.min(2, prev + 0.2))}
+              onClick={() => setScale((prev) => Math.min(2, prev + 0.2))}
               className="btn btn-ghost"
               disabled={isRendering}
             >
-              🔍+
+              +
             </button>
           </div>
         </div>
@@ -1076,7 +1166,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             <p>Please wait while we prepare your form...</p>
           </div>
         )}
-        
+
         {pdfLoaded && (
           <div className="pdf-wrapper">
             {isRendering && (
@@ -1085,32 +1175,33 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
                 <span>Rendering page...</span>
               </div>
             )}
-            
+
             <canvas
               ref={canvasRef}
               onClick={handleCanvasClick}
               className="pdf-canvas"
               style={{
-                cursor: isRendering ? 'wait' : 'default',
-                maxWidth: '100%',
-                height: 'auto',
-                opacity: isRendering ? 0.7 : 1
+                cursor: isRendering ? "wait" : "default",
+                maxWidth: "100%",
+                height: "auto",
+                opacity: isRendering ? 0.7 : 1,
               }}
             />
 
-            {!isRendering && currentObjects.map(obj => (
-              <EditableField
-                key={obj.id}
-                object={obj}
-                scale={scale}
-                selected={selectedId === obj.id}
-                editing={editingId === obj.id}
-                onUpdate={updateObject}
-                onSelect={setSelectedId}
-                onStartEdit={setEditingId}
-                onFinishEdit={() => setEditingId(null)}
-              />
-            ))}
+            {!isRendering &&
+              currentObjects.map((obj) => (
+                <EditableField
+                  key={obj.id}
+                  object={obj}
+                  scale={scale}
+                  selected={selectedId === obj.id}
+                  editing={editingId === obj.id}
+                  onUpdate={updateObject}
+                  onSelect={setSelectedId}
+                  onStartEdit={setEditingId}
+                  onFinishEdit={() => setEditingId(null)}
+                />
+              ))}
           </div>
         )}
       </div>
@@ -1122,7 +1213,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             <div className="success-icon">✅</div>
             <h3>Upload Complete</h3>
             <p className="success-message">{successMessage}</p>
-            <button 
+            <button
               onClick={() => setShowSuccessPopup(false)}
               className="btn btn-primary success-ok-btn"
             >
