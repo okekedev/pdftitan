@@ -1,6 +1,6 @@
 // src/pages/Login.jsx - Fixed server port reference
 import React, { useState, useEffect } from "react";
-import apiClient from "../services/apiClient";
+import apiClient from "../../services/apiClient";
 
 export default function Login({ onLogin }) {
   const [isLoading, setIsLoading] = useState(false);
