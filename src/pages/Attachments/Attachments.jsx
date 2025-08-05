@@ -1,10 +1,11 @@
-// src/pages/Attachments.jsx - Cleaned and optimized
+// src/pages/Attachments/Attachments.jsx - Professional Redesigned Layout
 import React, { useState, useEffect } from 'react';
 import PDFEditor from '../PDFEditor/PDFEditor';
+import Header from '../../components/Header/Header';
 import apiClient from '../../services/apiClient';
 import './Attachments.css';
 
-export default function Attachments({ job, onBack }) {
+export default function Attachments({ job, onBack, onPdfEditorStateChange, technician, onLogout }) {
   const [selectedPDF, setSelectedPDF] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [jobDetails, setJobDetails] = useState(null);
@@ -80,37 +81,35 @@ export default function Attachments({ job, onBack }) {
     }
   }, [job]);
 
-  // Proper PDF opening with ID handling
+  // Notify App component when PDF Editor state changes
+  useEffect(() => {
+    if (onPdfEditorStateChange) {
+      onPdfEditorStateChange(selectedPDF !== null);
+    }
+  }, [selectedPDF, onPdfEditorStateChange]);
+
+  // PDF handling functions
   const handleOpenPDF = (attachment) => {
     console.log(`📖 Opening PDF: ${attachment.name}`);
-    console.log('📋 Original attachment data:', attachment);
     
-    // Ensure the attachment has the required IDs
     const pdfData = {
       ...attachment,
-      // Ensure we have both id and serviceTitanId for compatibility
       id: attachment.id || attachment.serviceTitanId,
       serviceTitanId: attachment.serviceTitanId || attachment.id
     };
     
-    console.log('📋 Processed PDF data for editor:', pdfData);
-    console.log('🔑 PDF ID:', pdfData.id, 'ServiceTitan ID:', pdfData.serviceTitanId);
-    
     setSelectedPDF(pdfData);
   };
 
-  // Proper PDF closing
   const handleClosePDF = () => {
     console.log(`❌ Closing PDF editor`);
     setSelectedPDF(null);
   };
 
-  // Remove browser alerts and let PDFEditor handle all UI feedback
   const handleSavePDF = async (pdfData) => {
     try {
       console.log('💾 Saving PDF in Attachments.jsx:', pdfData);
       
-      // Extract the attachment ID from multiple possible sources
       const attachmentId = pdfData.attachmentId || 
                           selectedPDF?.serviceTitanId || 
                           selectedPDF?.id ||
@@ -118,108 +117,82 @@ export default function Attachments({ job, onBack }) {
                           pdfData.pdfId;
       
       if (!attachmentId) {
-        console.error('❌ Missing attachment ID. Available data:', {
-          pdfData: Object.keys(pdfData),
-          selectedPDF: selectedPDF ? Object.keys(selectedPDF) : 'null',
-          pdfDataAttachmentId: pdfData.attachmentId,
-          selectedPDFServiceTitanId: selectedPDF?.serviceTitanId,
-          selectedPDFId: selectedPDF?.id
-        });
-        throw new Error('Missing attachment ID - cannot identify which PDF to save');
+        throw new Error('Missing attachment ID - cannot save PDF');
       }
+
+      console.log('🔑 Using attachment ID:', attachmentId);
       
-      console.log('🔗 Using attachment ID:', attachmentId, 'for job:', job.id);
-      console.log('📋 Complete save data:', pdfData);
+      const response = await apiClient.uploadCompletedPDF({
+        jobId: job.id,
+        attachmentId: attachmentId,
+        fileName: pdfData.fileName,
+        originalFileName: pdfData.originalFileName,
+        fields: pdfData.fields,
+        metadata: pdfData.metadata
+      });
       
-      // Save the PDF data to ServiceTitan
-      const result = await apiClient.saveCompletedPDFForm(
-        job.id,
-        attachmentId,
-        pdfData
-      );
+      console.log('✅ PDF save response:', response);
       
-      // Let PDFEditor handle success UI - no browser alert
-      if (result.success) {
-        console.log('✅ PDF saved successfully:', result);
-        console.log(`📤 Upload completed: ${result.fileName}`);
-        
-        // The PDFEditor will show its custom success popup
-        // and then call onClose() which triggers setSelectedPDF(null)
-        // No need to manually close here or show alert
-        return result; // Return result to PDFEditor
-      }
-      
-      return result;
+      return {
+        success: true,
+        message: 'PDF saved successfully',
+        fileName: response.fileName || pdfData.fileName,
+        uploadedAt: response.uploadedAt || new Date().toISOString()
+      };
       
     } catch (error) {
       console.error('❌ Error saving PDF:', error);
       
-      // Remove browser alert for errors too
-      // Let PDFEditor handle error display in its custom popup
-      throw error; // Throw error back to PDFEditor for custom error handling
+      return {
+        success: false,
+        error: error.message || 'Failed to save PDF'
+      };
     }
   };
 
-  // Utility functions - only include what's actually used
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Unknown date';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  // Helper functions
+  const getStatusClass = (status) => {
+    if (!status) return 'status-default';
+    const statusName = (status.name || status).toLowerCase();
+    return `status-${statusName.replace(/\s+/g, '-')}`;
   };
 
   const getStatusIcon = (status) => {
-    const statusName = status?.name || status;
-    switch (statusName?.toLowerCase()) {
-      case 'scheduled': return '📅';
-      case 'dispatched': return '🚚';
-      case 'enroute': return '🛣️';
-      case 'working': return '🔧';
-      case 'hold': return '⏸️';
-      case 'done': return '✅';
-      case 'canceled': return '❌';
-      default: return '📋';
-    }
+    if (!status) return '📋';
+    const statusName = (status.name || status).toLowerCase();
+    
+    if (statusName.includes('in progress') || statusName.includes('dispatched')) return '🚀';
+    if (statusName.includes('completed') || statusName.includes('done')) return '✅';
+    if (statusName.includes('scheduled')) return '📅';
+    if (statusName.includes('cancelled')) return '❌';
+    if (statusName.includes('on hold')) return '⏸️';
+    
+    return '📋';
   };
 
-  const getStatusClass = (status) => {
-    const statusName = status?.name || status;
-    switch (statusName?.toLowerCase()) {
-      case 'scheduled': return 'status-scheduled';
-      case 'dispatched': return 'status-dispatched';
-      case 'enroute': return 'status-enroute';
-      case 'working': return 'status-working';
-      case 'hold': return 'status-hold';
-      case 'done': return 'status-done';
-      case 'canceled': return 'status-canceled';
-      default: return 'status-default';
+  const formatAddress = (address) => {
+    if (!address) return null;
+    
+    const parts = [];
+    if (address.street) parts.push(address.street);
+    
+    const cityStateZip = [];
+    if (address.city) cityStateZip.push(address.city);
+    if (address.state) cityStateZip.push(address.state);
+    if (address.zip) cityStateZip.push(address.zip);
+    
+    if (cityStateZip.length > 0) {
+      parts.push(cityStateZip.join(', '));
     }
+    
+    return parts.join('\n');
   };
 
-  // Use jobDetails if available, otherwise fall back to job prop
+  // Determine what data to display
   const displayJob = jobDetails || job;
-  const displayCustomer = customerData || displayJob.customer;
+  const displayCustomer = customerData || jobDetails?.customer || job?.customer;
 
-  // Extract clean job description from title (remove job number if it's duplicated)
-  const getJobDescription = (job) => {
-    if (!job) return '';
-    
-    const title = job.summary || job.title || '';
-    const jobNumber = job.number || job.jobNumber || '';
-    
-    // Remove job number from title if it's at the beginning
-    if (jobNumber && title.startsWith(jobNumber)) {
-      return title.replace(jobNumber, '').replace(/^[-\s]+/, '').trim();
-    }
-    
-    return title;
-  };
-
-  // Show PDF Editor if a PDF is selected
+  // Show PDF Editor if a PDF is selected (no header/footer)
   if (selectedPDF) {
     return (
       <PDFEditor
@@ -231,199 +204,273 @@ export default function Attachments({ job, onBack }) {
     );
   }
 
-  return (
-    <div className="page-container">
-      {/* Header */}
-      <div className="page-header">
-        <button 
-          onClick={onBack} 
-          className="back-btn"
-          aria-label="Back to jobs"
-        >
-          ← Back to Jobs
-        </button>
-        <h2>📎 Job Attachments</h2>
-        <div className="spacer"></div>
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="attachments-page">
+        <Header 
+          user={technician} 
+          onLogout={onLogout} 
+          currentPage="attachments"
+          onNavigate={() => {}} 
+        />
+        <div className="page-container">
+          <div className="loading-content">
+            <div className="loading-spinner"></div>
+            <h2>Loading Attachments</h2>
+            <p>Fetching PDF documents and job details...</p>
+          </div>
+        </div>
       </div>
+    );
+  }
 
-      {/* Main Content Grid */}
-      <div className="main-content-grid">
-        {/* Job Information (Left Column) */}
-        <div className="job-info-column">
-          <div className="card job-info-card">
-            {/* Job Header */}
-            <div className="job-header-section">
-              <div className="job-number-badge">
-                <span className="job-number">#{displayJob.number}</span>
-                <div className={`status-badge ${getStatusClass(displayJob.status)}`}>
-                  <span className="status-icon">{getStatusIcon(displayJob.status)}</span>
-                  <span className="status-text">{displayJob.status?.name || displayJob.status || 'Unknown'}</span>
-                </div>
-              </div>
+  // Error state
+  if (error) {
+    return (
+      <div className="attachments-page">
+        <Header 
+          user={technician} 
+          onLogout={onLogout} 
+          currentPage="attachments"
+          onNavigate={() => {}} 
+        />
+        <div className="page-container">
+          <div className="page-header">
+            <button onClick={onBack} className="back-btn">
+              ← Back to Jobs
+            </button>
+            <h2>Job Attachments</h2>
+          </div>
+          <div className="error-message">
+            <span>⚠️</span>
+            <div>
+              <strong>Failed to Load Attachments</strong>
+              <p>{error}</p>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-            {/* Customer Information */}
-            <div className="customer-section">
-              <div className="section-header">
-                <h4>👤 Customer</h4>
-              </div>
-              
+  return (
+    <div className="attachments-page">
+      <Header 
+        user={technician} 
+        onLogout={onLogout} 
+        currentPage="attachments"
+        onNavigate={() => {}} 
+      />
+      
+      <div className="page-container">
+        {/* Page Header */}
+        <div className="page-header">
+          <button onClick={onBack} className="back-btn">
+            ← Back to Jobs
+          </button>
+          <h2>Job Attachments & Forms</h2>
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="main-content">
+          {/* Customer Information Section (Left) */}
+          <div className="customer-info-section">
+            <div className="section-header">
+              <h3>👤 Customer Information</h3>
+            </div>
+            <div className="customer-details">
               {displayCustomer ? (
-                <div className="customer-info">
-                  <h3 className="customer-main-title">{displayCustomer.name}</h3>
+                <>
+                  <div className="customer-name">
+                    {displayCustomer.name || 'Unknown Customer'}
+                  </div>
+                  <div className="job-number">
+                    Job #{displayJob.number}
+                    <div className={`status-badge ${getStatusClass(displayJob.status)}`}>
+                      {getStatusIcon(displayJob.status)} {displayJob.status?.name || displayJob.status || 'Unknown'}
+                    </div>
+                  </div>
                   
-                  {displayCustomer.address && (
-                    <div className="customer-location">
-                      <div className="location-header">
-                        <span className="location-icon">📍</span>
-                        <span className="location-label">Service Address</span>
-                      </div>
-                      <div className="location-details">
-                        <div className="address-line">{displayCustomer.address.street}</div>
-                        <div className="city-state-zip">
-                          {displayCustomer.address.city}, {displayCustomer.address.state} {displayCustomer.address.zip}
+                  <div className="customer-info-grid">
+                    {displayCustomer.address && (
+                      <div className="info-item">
+                        <div className="info-icon">📍</div>
+                        <div className="info-content">
+                          <div className="info-label">Address</div>
+                          <div className="info-value">
+                            {formatAddress(displayCustomer.address)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                  
-                  {displayCustomer.phoneNumbers?.length > 0 && (
-                    <div className="contact-info">
-                      <div className="contact-item">
-                        <span className="contact-icon">📞</span>
-                        <span className="contact-value">{displayCustomer.phoneNumbers[0].number}</span>
+                    )}
+                    
+                    {displayCustomer.phoneNumbers && displayCustomer.phoneNumbers.length > 0 && (
+                      <div className="info-item">
+                        <div className="info-icon">📞</div>
+                        <div className="info-content">
+                          <div className="info-label">Phone</div>
+                          <div className="info-value">
+                            {displayCustomer.phoneNumbers[0].number}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                    
+                    {displayJob.title && (
+                      <div className="info-item">
+                        <div className="info-icon">🔧</div>
+                        <div className="info-content">
+                          <div className="info-label">Job Type</div>
+                          <div className="info-value">
+                            {displayJob.title}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {displayJob.technician && (
+                      <div className="info-item">
+                        <div className="info-icon">👷</div>
+                        <div className="info-content">
+                          <div className="info-label">Technician</div>
+                          <div className="info-value">
+                            {displayJob.technician.name}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
               ) : (
-                <div className="customer-loading">
-                  {isLoadingJobDetails ? (
-                    <div className="loading-text">Loading customer details...</div>
-                  ) : (
-                    <div className="no-customer">Customer information not available</div>
-                  )}
+                <div className="empty-state">
+                  <div className="empty-icon">👤</div>
+                  <h4>Customer Information</h4>
+                  <p>{isLoadingJobDetails ? 'Loading customer details...' : 'Customer information not available'}</p>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Job Description */}
-            <div className="job-description">
-              <div className="section-header">
-                <h4>📋 Job Details</h4>
-              </div>
-              <p className="job-summary">{getJobDescription(displayJob) || 'No description available'}</p>
+          {/* Available PDF Forms Section (Right) */}
+          <div className="pdf-forms-section">
+            <div className="section-header">
+              <h3>📋 Available PDF Forms</h3>
+            </div>
+            <div className="pdf-forms-grid">
+              {attachments.length > 0 ? (
+                attachments.slice(0, 4).map((attachment) => (
+                  <div key={attachment.id} className="pdf-form-card" onClick={() => handleOpenPDF(attachment)}>
+                    <div className="form-icon">📄</div>
+                    <div className="form-name">{attachment.name}</div>
+                    <div className="form-meta">
+                      <span>{attachment.size ? `${Math.round(attachment.size / 1024)} KB` : 'Unknown size'}</span>
+                      <span>{attachment.uploadedOn ? new Date(attachment.uploadedOn).toLocaleDateString() : 'Unknown date'}</span>
+                    </div>
+                    <button className="form-action" onClick={(e) => { e.stopPropagation(); handleOpenPDF(attachment); }}>
+                      ✏️ Edit Form
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div className="pdf-form-card">
+                    <div className="form-icon">📄</div>
+                    <div className="form-name">No forms available</div>
+                    <div className="form-meta">
+                      <span>No PDF attachments</span>
+                      <span>found for this job</span>
+                    </div>
+                  </div>
+                  <div className="pdf-form-card">
+                    <div className="form-icon">📄</div>
+                    <div className="form-name">Add forms in ServiceTitan</div>
+                    <div className="form-meta">
+                      <span>Forms will appear</span>
+                      <span>here automatically</span>
+                    </div>
+                  </div>
+                </>
+              )}
               
-              {/* Job Metadata */}
-              <div className="job-metadata">
-                {displayJob.scheduledStart && (
-                  <div className="metadata-item">
-                    🕐 Scheduled: {formatDate(displayJob.scheduledStart)}
+              {/* Fill empty slots if less than 4 attachments */}
+              {attachments.length > 0 && attachments.length < 4 && 
+                Array.from({ length: 4 - attachments.length }).map((_, index) => (
+                  <div key={`empty-${index}`} className="pdf-form-card" style={{ opacity: 0.5, cursor: 'default' }}>
+                    <div className="form-icon">📄</div>
+                    <div className="form-name">Available slot</div>
+                    <div className="form-meta">
+                      <span>Additional forms</span>
+                      <span>will appear here</span>
+                    </div>
                   </div>
-                )}
-                {displayJob.businessUnit?.name && (
-                  <div className="metadata-item">
-                    🏢 {displayJob.businessUnit.name}
-                  </div>
-                )}
-              </div>
+                ))
+              }
             </div>
           </div>
         </div>
 
-        {/* PDF Forms (Right Column) */}
-        <div className="pdf-forms-column">
-          <div className="card pdf-forms-card">
-            <div className="pdf-header">
-              <h4>📄 PDF Forms</h4>
-              <div className="status-message success">
-                <span>✅</span>
-                <span>Ready to edit forms</span>
+        {/* Forms Sections */}
+        <div className="forms-sections">
+          {/* PDF Forms */}
+          <div className="forms-section pdf-forms">
+            <div className="section-header">
+              <h3>📋 Available PDF Forms</h3>
+            </div>
+            <div className="forms-content">
+              {attachments.length > 0 ? (
+                attachments.map((attachment) => (
+                  <div key={attachment.id} className="form-item" onClick={() => handleOpenPDF(attachment)}>
+                    <div className="form-icon">📄</div>
+                    <div className="form-details">
+                      <div className="form-name">{attachment.name}</div>
+                      <div className="form-meta">
+                        <span>{attachment.size ? `${Math.round(attachment.size / 1024)} KB` : 'Unknown size'}</span>
+                        <span>{attachment.uploadedOn ? new Date(attachment.uploadedOn).toLocaleDateString() : 'Unknown date'}</span>
+                      </div>
+                    </div>
+                    <button className="form-action">✏️ Edit Form</button>
+                  </div>
+                ))
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon">📄</div>
+                  <h4>No PDF Forms Available</h4>
+                  <p>No PDF attachments found for this job. Forms will appear here when added to ServiceTitan.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Saved Forms */}
+          <div className="forms-section saved-forms">
+            <div className="section-header">
+              <h3>💾 Saved Forms</h3>
+            </div>
+            <div className="forms-content">
+              <div className="empty-state">
+                <div className="empty-icon">💾</div>
+                <h4>No Saved Forms</h4>
+                <p>Completed forms will be saved here automatically. Start editing a form to see saved versions.</p>
               </div>
             </div>
+          </div>
 
-            {/* Loading State */}
-            {isLoading && (
-              <div className="loading-overlay">
-                <div className="loading-spinner"></div>
-                <div className="loading-text">Loading PDF attachments...</div>
+          {/* Uploaded Forms */}
+          <div className="forms-section uploaded-forms">
+            <div className="section-header">
+              <h3>📤 Uploaded Forms</h3>
+            </div>
+            <div className="forms-content">
+              <div className="empty-state">
+                <div className="empty-icon">📤</div>
+                <h4>No Uploaded Forms</h4>
+                <p>Successfully completed and uploaded forms will appear here with upload timestamps.</p>
               </div>
-            )}
-
-            {/* Error State */}
-            {error && (
-              <div className="error-message">
-                <span>❌</span>
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* PDF List */}
-            {!isLoading && !error && (
-              <div className="pdf-list">
-                {attachments.length > 0 ? (
-                  attachments.map((attachment) => (
-                    <div
-                      key={attachment.id || attachment.serviceTitanId}
-                      className="pdf-item"
-                      onClick={() => handleOpenPDF(attachment)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleOpenPDF(attachment);
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`Open PDF: ${attachment.name}`}
-                    >
-                      <div className="pdf-item-header">
-                        <span className="pdf-icon">📄</span>
-                      </div>
-                      
-                      <div className="pdf-name">{attachment.name}</div>
-                      
-                      <div className="pdf-meta">
-                        {attachment.createdOn && (
-                          <div className="meta-line">
-                            <span className="meta-label">Added:</span>
-                            <span>{formatDate(attachment.createdOn)}</span>
-                          </div>
-                        )}
-                        {attachment.size && (
-                          <div className="meta-line">
-                            <span className="meta-label">Size:</span>
-                            <span>{formatFileSize(attachment.size)}</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <button className="pdf-action-btn btn-primary">
-                        Open & Edit PDF
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="empty-state-compact">
-                    <div className="empty-icon">📄</div>
-                    <h5>No PDF Forms Found</h5>
-                    <p>This job doesn't have any PDF attachments that can be edited.</p>
-                  </div>
-                )}
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-// Utility function for file size formatting - only include if actually used
-function formatFileSize(bytes) {
-  if (!bytes || bytes === 0) return 'Unknown size';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
