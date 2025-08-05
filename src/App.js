@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import sessionManager from "./services/sessionManager";
-import Login from "./pages/Login";
-import Jobs from "./pages/Jobs";
-import Attachments from "./pages/Attachments";
+import Login from "./pages/Login/Login";
+import Jobs from "./pages/Jobs/Jobs";
+import Attachments from "./pages/Attachments/Attachments";
 import "./App.css";
 
 export default function App() {

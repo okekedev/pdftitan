@@ -1,5 +1,6 @@
-// src/components/Layout/Footer/Footer.jsx - Modern JSX with Global Styles
+// src/components/Footer.jsx - Clean footer component with external CSS
 import React from 'react';
+import './Footer.css';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -9,16 +10,78 @@ export default function Footer() {
   const handleLinkClick = (e, section) => {
     e.preventDefault();
     
-    // Simple modal or alert for now - you can enhance this later
+    // Enhanced modals with more comprehensive information
     switch (section) {
       case 'help':
-        alert('For technical support, please contact your ServiceTitan administrator or IT department.');
+        alert(`Technical Support & Help
+
+For technical assistance with TitanPDF:
+
+🛠️ Technical Issues:
+• Contact your ServiceTitan administrator
+• Email: support@servicetitan.com
+• Phone: 1-855-737-8482
+
+📚 User Guide:
+• PDF editing and form completion
+• Digital signature creation
+• ServiceTitan integration help
+
+🔧 Common Issues:
+• Login problems
+• PDF loading errors
+• Form submission issues
+
+For immediate assistance, please have your technician ID and job details ready.`);
         break;
       case 'privacy':
-        alert('Privacy Policy: TitanPDF operates in compliance with your company\'s data privacy policies. All PDF form data is processed through ServiceTitan\'s secure systems.');
+        alert(`Privacy Policy & Data Security
+
+TitanPDF Privacy Overview:
+
+🔒 Data Protection:
+• All PDF data is encrypted in transit and at rest
+• Information processed through ServiceTitan's secure systems
+• Compliance with industry-standard security practices
+
+📋 Data Usage:
+• PDF forms and signatures are stored securely
+• Customer data handled per ServiceTitan's privacy policy
+• No third-party data sharing without consent
+
+🛡️ Your Rights:
+• Access to your data
+• Data correction requests
+• Deletion requests (where applicable)
+
+For detailed privacy information, please refer to ServiceTitan's Privacy Policy or contact your administrator.`);
         break;
       case 'terms':
-        alert('Terms of Service: TitanPDF is designed for authorized technicians only. Use of this application is subject to your company\'s IT policies and ServiceTitan\'s terms of service.');
+        alert(`Terms of Service
+
+TitanPDF Usage Terms:
+
+👤 Authorized Users:
+• Designed for ServiceTitan technicians only
+• Proper login credentials required
+• Unauthorized access is prohibited
+
+📋 Acceptable Use:
+• Professional use for job-related PDF forms only
+• Accurate completion of customer information
+• Proper handling of sensitive data
+
+⚖️ Compliance:
+• Subject to your company's IT policies
+• ServiceTitan Terms of Service apply
+• Local data protection regulations
+
+🚫 Prohibited Activities:
+• Sharing login credentials
+• Misuse of customer data  
+• Unauthorized form modifications
+
+Violation of these terms may result in account suspension or termination.`);
         break;
       default:
         break;
@@ -33,7 +96,7 @@ export default function Footer() {
             <span className="footer-logo">📋</span>
             <div className="footer-info">
               <p className="footer-title">
-                &copy; {currentYear} TitanPDF. All rights reserved.
+                © {currentYear} TitanPDF. All rights reserved.
               </p>
               <p className="footer-subtitle">
                 Powered by ServiceTitan Integration
@@ -49,21 +112,21 @@ export default function Footer() {
               className="footer-link"
               aria-label="Get help and support"
             >
-              🆘 Help & Support
+              Help & Support
             </button>
             <button 
               onClick={(e) => handleLinkClick(e, 'privacy')}
               className="footer-link"
               aria-label="View privacy policy"
             >
-              🔒 Privacy Policy
+              Privacy Policy
             </button>
             <button 
               onClick={(e) => handleLinkClick(e, 'terms')}
               className="footer-link"
               aria-label="View terms of service"
             >
-              📋 Terms of Service
+              Terms of Service
             </button>
           </div>
           
@@ -85,154 +148,4 @@ export default function Footer() {
       </div>
     </footer>
   );
-}
-
-// Additional Footer-specific styles
-const footerStyles = `
-.footer-left {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-}
-
-.footer-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.footer-logo {
-  font-size: 1.2rem;
-}
-
-.footer-info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-.footer-title {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--gray-300);
-  margin: 0;
-}
-
-.footer-subtitle {
-  font-size: 0.8rem;
-  color: var(--gray-400);
-  margin: 0;
-}
-
-.footer-right {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  align-items: flex-end;
-}
-
-.footer-links {
-  display: flex;
-  gap: var(--spacing-md);
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.footer-link {
-  background: none;
-  border: none;
-  color: var(--gray-400);
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: var(--transition-normal);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border-radius: var(--radius-sm);
-}
-
-.footer-link:hover {
-  color: var(--gray-200);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.footer-status {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  align-items: flex-end;
-}
-
-.status-info {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  font-size: 0.8rem;
-  color: var(--gray-400);
-}
-
-.version-info {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  font-size: 0.75rem;
-  color: var(--gray-500);
-}
-
-.build-time {
-  opacity: 0.7;
-}
-
-@media (max-width: 768px) {
-  .footer-container {
-    flex-direction: column;
-    gap: var(--spacing-md);
-    text-align: center;
-  }
-  
-  .footer-left {
-    justify-content: center;
-  }
-  
-  .footer-right {
-    align-items: center;
-  }
-  
-  .footer-links {
-    justify-content: center;
-    gap: var(--spacing-sm);
-  }
-  
-  .footer-link {
-    font-size: 0.75rem;
-    padding: var(--spacing-xs);
-  }
-  
-  .footer-status {
-    align-items: center;
-  }
-}
-
-@media (max-width: 480px) {
-  .footer-links {
-    flex-direction: column;
-    gap: var(--spacing-xs);
-  }
-  
-  .footer-brand {
-    flex-direction: column;
-    text-align: center;
-  }
-  
-  .version-info {
-    flex-direction: column;
-    gap: 2px;
-  }
-}
-`;
-
-// Inject styles
-if (typeof document !== 'undefined' && !document.getElementById('footer-styles')) {
-  const style = document.createElement('style');
-  style.id = 'footer-styles';
-  style.textContent = footerStyles;
-  document.head.appendChild(style);
 }
