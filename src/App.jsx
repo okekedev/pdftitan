@@ -3,6 +3,8 @@ import sessionManager from "./services/sessionManager";
 import Login from "./pages/Login/Login";
 import Jobs from "./pages/Jobs/Jobs";
 import Attachments from "./pages/Attachments/Attachments";
+import Documentation from "./pages/Documentation/Documentation";
+import Footer from "./components/Footer/Footer"; // ✅ Import Footer component
 import "./App.css";
 
 export default function App() {
@@ -10,6 +12,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState("jobs");
   const [selectedJob, setSelectedJob] = useState(null);
+  const [helpSection, setHelpSection] = useState("support");
 
   // Check for existing session on app load
   useEffect(() => {
@@ -48,6 +51,21 @@ export default function App() {
     setCurrentPage("jobs");
   };
 
+  // ✅ Documentation navigation functions
+  const handleShowDocumentation = (section = "support") => {
+    console.log(`Navigating to Documentation section: ${section}`);
+    setHelpSection(section);
+    setCurrentPage("documentation");
+  };
+
+  const handleBackFromDocumentation = () => {
+    if (selectedJob) {
+      setCurrentPage("attachments");
+    } else {
+      setCurrentPage("jobs");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="loading-screen">
@@ -62,6 +80,16 @@ export default function App() {
 
   if (!technician) {
     return <Login onLogin={handleLogin} />;
+  }
+
+  // ✅ Show Documentation page
+  if (currentPage === "documentation") {
+    return (
+      <Documentation 
+        onBack={handleBackFromDocumentation}
+        initialSection={helpSection}
+      />
+    );
   }
 
   return (
@@ -85,14 +113,6 @@ export default function App() {
 
             {/* Breadcrumb Navigation */}
             <nav className="breadcrumb-nav" aria-label="Navigation">
-              {/* <button
-                className={`breadcrumb-item ${
-                  currentPage === "jobs" ? "active" : ""
-                }`}
-                onClick={() => handleBackToJobs()}
-              >
-                My Jobs
-              </button> */}
               {selectedJob && (
                 <>
                   <span className="breadcrumb-separator">→</span>
@@ -116,6 +136,28 @@ export default function App() {
           </div>
 
           <div className="header-right">
+            {/* ✅ Help Button */}
+            <button
+              onClick={() => handleShowDocumentation('support')}
+              style={{
+                background: "rgba(72, 187, 120, 0.1)",
+                border: "1px solid rgba(72, 187, 120, 0.3)",
+                color: "#2f855a",
+                padding: "0.5rem 1rem",
+                borderRadius: "6px",
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontWeight: "600",
+                marginRight: "1rem"
+              }}
+            >
+              <span>❓</span>
+              <span>Help</span>
+            </button>
+            
             <button
               className="logout-btn"
               onClick={handleLogout}
@@ -136,40 +178,8 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="app-footer">
-        <div
-          className="footer-container"
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            width: "100%",
-          }}
-        >
-          <p style={{ margin: 0 }}>
-            © 2025 Built by{" "}
-            <a
-              href="https://sundai.us/"
-              style={{ color: "white", textDecoration: "underline" }}
-            >
-              {" "}
-              Okeke LLC
-            </a>
-            . Design By{" "}
-            <a
-              href="https://beamish-pastelito-94935e.netlify.app/"
-              style={{ color: "white", textDecoration: "underline" }}
-            >
-              Blaine Curren
-            </a>
-          </p>
-          <div className="footer-status">
-            <span className="status-indicator online"></span>
-            <span>Connected to ServiceTitan</span>
-          </div>
-        </div>
-      </footer>
+      {/* ✅ Footer Component with Navigation */}
+      <Footer onShowDocumentation={handleShowDocumentation} />
     </div>
   );
 }
