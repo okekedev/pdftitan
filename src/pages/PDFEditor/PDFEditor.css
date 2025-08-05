@@ -1,161 +1,137 @@
-/* src/pages/PDFEditor.css - Dedicated stylesheet for PDF Editor component */
-
-/* ===== CSS VARIABLES FOR PDF EDITOR ===== */
-:root {
-  --pdf-editor-primary: #007bff;
-  --pdf-editor-success: #28a745;
-  --pdf-editor-info: #17a2b8;
-  --pdf-editor-warning: #ffc107;
-  --pdf-editor-danger: #dc3545;
-  --pdf-editor-secondary: #6c757d;
-  --pdf-editor-purple: #6f42c1;
-  --pdf-editor-orange: #fd7e14;
-  
-  --pdf-bg-light: #f8f9fa;
-  --pdf-bg-white: #ffffff;
-  --pdf-border-light: #e9ecef;
-  --pdf-border-medium: #dee2e6;
-  --pdf-text-dark: #333333;
-  --pdf-text-medium: #666666;
-  --pdf-text-light: #495057;
-  
-  --pdf-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --pdf-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.1);
-  --pdf-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
-  --pdf-shadow-popup: 0 20px 60px rgba(0, 0, 0, 0.3);
-  
-  --pdf-transition-fast: 0.15s ease;
-  --pdf-transition-normal: 0.2s ease;
-  --pdf-transition-slow: 0.3s ease;
-  
-  --pdf-radius-sm: 4px;
-  --pdf-radius-md: 6px;
-  --pdf-radius-lg: 8px;
-  --pdf-radius-xl: 16px;
-  --pdf-radius-round: 20px;
-}
+/* src/pages/PDFEditor/PDFEditor.css - Professional UX with Design System Consistency */
 
 /* ===== MAIN PDF EDITOR CONTAINER ===== */
 .pdf-editor-simple {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--pdf-bg-light);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  background: linear-gradient(135deg, var(--gray-100) 0%, #f8f9fa 100%);
+  font-family: var(--font-family);
   overflow: hidden;
 }
 
-/* ===== SUCCESS POPUP ===== */
+/* ===== SUCCESS POPUP (ENHANCED) ===== */
 .success-popup-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 3000;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .success-popup {
-  background: var(--pdf-bg-white);
-  border-radius: var(--pdf-radius-xl);
-  padding: 2rem;
-  box-shadow: var(--pdf-shadow-popup);
-  max-width: 400px;
-  width: 90%;
+  background: linear-gradient(135deg, var(--white) 0%, #fafbfc 100%);
+  border-radius: var(--radius-xl);
+  padding: 2.5rem;
+  box-shadow: var(--shadow-xl);
+  max-width: 450px;
+  width: 95%;
   text-align: center;
-  animation: successPopupAppear 0.3s ease-out;
+  animation: successPopupAppear 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.8);
 }
 
 .success-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  animation: successIconBounce 0.6s ease-out;
+  font-size: 3.5rem;
+  margin-bottom: 1.5rem;
+  animation: successIconBounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 .success-popup h3 {
   margin: 0 0 1rem 0;
-  color: var(--pdf-text-dark);
+  color: var(--gray-800);
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .success-message {
-  color: var(--pdf-text-light);
-  line-height: 1.5;
-  margin-bottom: 1.5rem;
+  color: var(--gray-600);
+  line-height: 1.6;
+  margin-bottom: 2rem;
   white-space: pre-line;
+  font-size: 0.95rem;
 }
 
 .success-ok-btn {
-  padding: 0.75rem 2rem;
+  padding: 0.875rem 2.5rem;
   font-size: 1rem;
   font-weight: 600;
-  min-width: 100px;
-  background: var(--pdf-editor-primary);
-  color: white;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: var(--white);
   border: none;
-  border-radius: var(--pdf-radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: var(--pdf-transition-normal);
+  transition: all var(--transition-normal);
+  box-shadow: 0 4px 12px rgba(0, 82, 204, 0.3);
+  min-width: 120px;
 }
 
 .success-ok-btn:hover {
-  background: #0056b3;
-  transform: translateY(-1px);
-  box-shadow: var(--pdf-shadow-md);
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #003d99 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 82, 204, 0.4);
 }
 
-/* ===== EDITOR HEADER ===== */
+/* ===== EDITOR HEADER (ENHANCED) ===== */
 .editor-header {
-  background: var(--pdf-bg-white);
-  border-bottom: 2px solid var(--pdf-border-light);
-  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, var(--white) 0%, #fafbfc 100%);
+  border-bottom: 1px solid var(--gray-300);
+  padding: 1.25rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: var(--pdf-shadow-md);
+  box-shadow: var(--shadow-md);
   flex-shrink: 0;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .pdf-info h2 {
   margin: 0;
-  font-size: 1.2rem;
-  color: var(--pdf-text-dark);
-  font-weight: 600;
+  font-size: 1.375rem;
+  color: var(--gray-800);
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .pdf-info p {
-  margin: 0;
-  color: var(--pdf-text-medium);
+  margin: 0.25rem 0 0 0;
+  color: var(--gray-600);
   font-size: 0.9rem;
-}
-
-.completion-status {
-  background: #e3f2fd;
-  padding: 0.5rem 1rem;
-  border-radius: var(--pdf-radius-round);
-  font-size: 0.9rem;
-  color: #1976d2;
-  border: 1px solid #bbdefb;
   font-weight: 500;
 }
 
-/* ===== EDITOR TOOLBAR ===== */
+.completion-status {
+  background: linear-gradient(135deg, rgba(0, 82, 204, 0.1) 0%, rgba(102, 126, 234, 0.05) 100%);
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  color: var(--primary-color);
+  border: 1px solid rgba(0, 82, 204, 0.2);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===== EDITOR TOOLBAR (ENHANCED) ===== */
 .editor-toolbar {
-  background: var(--pdf-bg-light);
-  border-bottom: 1px solid var(--pdf-border-light);
-  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #f8f9fa 0%, var(--gray-100) 100%);
+  border-bottom: 1px solid var(--gray-300);
+  padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 1.5rem;
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .toolbar-left,
@@ -163,7 +139,7 @@
 .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .toolbar-center {
@@ -171,172 +147,218 @@
   justify-content: center;
 }
 
-/* ===== TOOL GROUPS ===== */
+/* ===== TOOL GROUPS (ENHANCED) ===== */
 .tool-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  background: var(--pdf-bg-white);
-  border-radius: var(--pdf-radius-lg);
-  border: 1px solid var(--pdf-border-medium);
-  box-shadow: var(--pdf-shadow-sm);
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, var(--white) 0%, #fafbfc 100%);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-300);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+}
+
+.tool-group:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .tool-group-label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--pdf-text-light);
-  margin-right: 0.5rem;
-  padding-right: 0.5rem;
-  border-right: 1px solid var(--pdf-border-medium);
+  color: var(--gray-600);
+  margin-right: 0.75rem;
+  padding-right: 0.75rem;
+  border-right: 1px solid var(--gray-300);
   white-space: nowrap;
 }
 
 .tool-group .btn {
   font-size: 0.8rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: var(--pdf-radius-md);
-  transition: all var(--pdf-transition-normal);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-normal);
   position: relative;
   border: none;
   cursor: pointer;
-  font-weight: 500;
-  color: white;
+  font-weight: 600;
+  color: var(--white);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.tool-group .btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.tool-group .btn:hover::before {
+  left: 100%;
 }
 
 .tool-group .btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
-/* Field Type Specific Button Colors */
+.tool-group .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Enhanced Button Colors with Gradients */
 .btn-text {
-  background: var(--pdf-editor-primary);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
 }
 
 .btn-text:hover {
-  background: #0056b3;
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #003d99 100%);
 }
 
 .btn-signature {
-  background: var(--pdf-editor-success);
+  background: linear-gradient(135deg, var(--success-color) 0%, #38a169 100%);
 }
 
 .btn-signature:hover {
-  background: #1e7e34;
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
 }
 
 .btn-date {
-  background: var(--pdf-editor-info);
+  background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
 }
 
 .btn-date:hover {
-  background: #117a8b;
+  background: linear-gradient(135deg, #2c5282 0%, #2a4365 100%);
 }
 
 .btn-timestamp {
-  background: var(--pdf-editor-purple);
+  background: linear-gradient(135deg, #805ad5 0%, #6b46c1 100%);
 }
 
 .btn-timestamp:hover {
-  background: #59359a;
+  background: linear-gradient(135deg, #6b46c1 0%, #553c9a 100%);
 }
 
 .btn-checkbox {
-  background: var(--pdf-editor-orange);
+  background: linear-gradient(135deg, var(--warning-color) 0%, #dd6b20 100%);
 }
 
 .btn-checkbox:hover {
-  background: #e8590c;
+  background: linear-gradient(135deg, #dd6b20 0%, #c05621 100%);
 }
 
 .btn-clear {
-  background: var(--pdf-editor-danger);
+  background: linear-gradient(135deg, var(--error-color) 0%, var(--secondary-dark) 100%);
 }
 
 .btn-clear:hover {
-  background: #c82333;
+  background: linear-gradient(135deg, var(--secondary-dark) 0%, #c53030 100%);
 }
 
 .btn-save {
-  background: var(--pdf-editor-success);
-  font-weight: 600;
+  background: linear-gradient(135deg, var(--success-color) 0%, #38a169 100%);
+  font-weight: 700;
+  padding: 0.625rem 1.5rem;
 }
 
 .btn-save:hover {
-  background: #1e7e34;
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
 }
 
 .btn-close {
-  background: var(--pdf-editor-secondary);
+  background: linear-gradient(135deg, var(--gray-600) 0%, var(--gray-700) 100%);
 }
 
 .btn-close:hover {
-  background: #545b62;
+  background: linear-gradient(135deg, var(--gray-700) 0%, var(--gray-800) 100%);
 }
 
-/* ===== PAGE NAVIGATION ===== */
+/* ===== PAGE NAVIGATION (ENHANCED) ===== */
 .page-nav {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  background: var(--white);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-300);
+  box-shadow: var(--shadow-sm);
 }
 
 .page-nav button {
-  padding: 0.4rem 0.8rem;
-  border: 1px solid var(--pdf-border-medium);
-  background: var(--pdf-bg-white);
-  color: var(--pdf-text-dark);
-  border-radius: var(--pdf-radius-md);
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--gray-300);
+  background: linear-gradient(135deg, var(--white) 0%, var(--gray-50) 100%);
+  color: var(--gray-700);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: var(--pdf-transition-fast);
-  font-size: 0.9rem;
+  transition: all var(--transition-normal);
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .page-nav button:hover:not(:disabled) {
-  background: var(--pdf-bg-light);
-  border-color: var(--pdf-editor-primary);
+  background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .page-nav button:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .page-info {
-  font-size: 0.9rem;
-  color: var(--pdf-text-medium);
-  margin: 0 0.5rem;
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  margin: 0 0.75rem;
   white-space: nowrap;
+  font-weight: 600;
 }
 
-/* ===== SCALE CONTROLS ===== */
+/* ===== SCALE CONTROLS (ENHANCED) ===== */
 .scale-controls {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  background: var(--white);
+  padding: 0.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-300);
+  box-shadow: var(--shadow-sm);
 }
 
 .scale-controls button,
 .scale-controls select {
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--pdf-border-medium);
-  background: var(--pdf-bg-white);
-  color: var(--pdf-text-dark);
-  border-radius: var(--pdf-radius-md);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--gray-300);
+  background: linear-gradient(135deg, var(--white) 0%, var(--gray-50) 100%);
+  color: var(--gray-700);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: var(--pdf-transition-fast);
+  transition: all var(--transition-normal);
   font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .scale-controls button:hover,
 .scale-controls select:hover {
-  background: var(--pdf-bg-light);
-  border-color: var(--pdf-editor-primary);
+  background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
 }
 
-/* ===== PDF CONTAINER ===== */
+/* ===== PDF CONTAINER (ENHANCED) ===== */
 .pdf-container {
   flex: 1;
   overflow: auto;
@@ -344,19 +366,21 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  background: #f5f5f5;
-  background-image: radial-gradient(circle at 1px 1px, rgba(0,0,0,0.1) 1px, transparent 0);
-  background-size: 20px 20px;
+  background: #f0f2f5;
+  background-image: 
+    radial-gradient(circle at 1px 1px, rgba(0, 82, 204, 0.08) 1px, transparent 0);
+  background-size: 24px 24px;
 }
 
 .pdf-wrapper {
   position: relative;
-  background: var(--pdf-bg-white);
-  box-shadow: var(--pdf-shadow-lg);
-  border-radius: var(--pdf-radius-lg);
+  background: var(--white);
+  box-shadow: var(--shadow-xl);
+  border-radius: var(--radius-xl);
   overflow: hidden;
   max-width: 100%;
   margin: 0 auto;
+  border: 1px solid var(--gray-200);
 }
 
 .pdf-canvas {
@@ -365,89 +389,99 @@
   height: auto;
 }
 
-/* ===== RENDERING OVERLAY ===== */
+/* ===== RENDERING OVERLAY (ENHANCED) ===== */
 .rendering-overlay {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 1rem;
+  right: 1rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: var(--pdf-radius-round);
-  font-size: 0.9rem;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.75) 100%);
+  color: var(--white);
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 500;
   z-index: 1500;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-lg);
 }
 
 .rendering-overlay .loading-spinner {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top: 2px solid white;
+  border-top: 2px solid var(--white);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
-/* ===== EDITABLE FIELDS ===== */
+/* ===== EDITABLE FIELDS (ENHANCED) ===== */
 .editable-field {
   position: absolute;
-  border-radius: var(--pdf-radius-sm);
+  border-radius: var(--radius-md);
   cursor: grab;
   user-select: none;
   touch-action: none;
-  transition: all var(--pdf-transition-fast);
+  transition: all var(--transition-normal);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .editable-field:hover {
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 82, 204, 0.25);
+  transform: translateY(-1px);
 }
 
 .editable-field.selected {
-  border: 2px solid var(--pdf-editor-primary) !important;
-  background: rgba(0, 123, 255, 0.1) !important;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+  border: 2px solid var(--primary-color) !important;
+  background: rgba(0, 82, 204, 0.08) !important;
+  box-shadow: 0 0 0 4px rgba(0, 82, 204, 0.15), var(--shadow-lg);
+  z-index: 1000;
 }
 
 .editable-field.dragging {
   cursor: grabbing;
   z-index: 1500;
-  transform: rotate(2deg) scale(1.05);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  transform: rotate(1deg) scale(1.03);
+  box-shadow: var(--shadow-xl);
 }
 
-/* Field Types */
+/* Enhanced Field Types */
 .field-text {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid transparent;
-  min-width: 60px;
-  min-height: 24px;
+  background: rgba(0, 82, 204, 0.03);
+  border: 1px solid rgba(0, 82, 204, 0.15);
+  min-width: 80px;
+  min-height: 28px;
 }
 
 .field-signature {
-  background: rgba(40, 167, 69, 0.05);
-  border: 1px solid rgba(40, 167, 69, 0.2);
+  background: rgba(72, 187, 120, 0.03);
+  border: 1px solid rgba(72, 187, 120, 0.2);
   min-width: 200px;
   min-height: 80px;
 }
 
 .field-date {
-  background: rgba(23, 162, 184, 0.05);
-  border: 1px solid rgba(23, 162, 184, 0.2);
-  min-width: 100px;
-  min-height: 24px;
+  background: rgba(49, 130, 206, 0.03);
+  border: 1px solid rgba(49, 130, 206, 0.2);
+  min-width: 120px;
+  min-height: 28px;
 }
 
 .field-checkbox {
-  background: rgba(253, 126, 20, 0.05);
-  border: 1px solid rgba(253, 126, 20, 0.2);
-  min-width: 20px;
-  min-height: 20px;
+  background: rgba(255, 149, 0, 0.03);
+  border: 1px solid rgba(255, 149, 0, 0.2);
+  min-width: 24px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* ===== FIELD INPUT ELEMENTS ===== */
+/* ===== FIELD INPUT ELEMENTS (ENHANCED) ===== */
 .field-input {
   width: 100%;
   height: 100%;
@@ -455,40 +489,54 @@
   background: transparent;
   resize: none;
   outline: none;
-  padding: 4px;
-  font-family: inherit;
+  padding: 0.5rem;
+  font-family: var(--font-family);
   font-size: inherit;
-  color: var(--pdf-text-dark);
-  line-height: 1.2;
+  color: var(--gray-800);
+  line-height: 1.4;
+  border-radius: var(--radius-sm);
+}
+
+.field-input:focus {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 0 0 2px rgba(0, 82, 204, 0.3);
 }
 
 .field-input::placeholder {
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--gray-500);
   font-style: italic;
 }
 
 .field-checkbox-input {
-  width: 16px;
-  height: 16px;
-  margin: 2px;
+  width: 18px;
+  height: 18px;
   cursor: pointer;
-  accent-color: var(--pdf-editor-orange);
+  accent-color: var(--warning-color);
 }
 
-/* ===== FIELD RESIZE HANDLE ===== */
+.field-display {
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+/* ===== FIELD RESIZE HANDLE (ENHANCED) ===== */
 .field-resize-handle {
   position: absolute;
-  bottom: -4px;
-  right: -4px;
-  width: 12px;
-  height: 12px;
-  background: var(--pdf-editor-primary);
-  border: 2px solid white;
+  bottom: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  border: 2px solid var(--white);
   border-radius: 50%;
   cursor: nw-resize;
-  box-shadow: var(--pdf-shadow-md);
+  box-shadow: var(--shadow-md);
   opacity: 0;
-  transition: opacity var(--pdf-transition-fast);
+  transition: all var(--transition-normal);
 }
 
 .editable-field.selected .field-resize-handle {
@@ -496,198 +544,213 @@
 }
 
 .field-resize-handle:hover {
-  background: #0056b3;
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #003d99 100%);
   transform: scale(1.2);
+  box-shadow: var(--shadow-lg);
 }
 
-/* ===== SIGNATURE DIALOG ===== */
+/* ===== SIGNATURE DIALOG (ENHANCED) ===== */
 .signature-dialog-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 2000;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .signature-dialog {
-  background: var(--pdf-bg-white);
-  border-radius: var(--pdf-radius-xl);
-  padding: 1.5rem;
-  box-shadow: var(--pdf-shadow-popup);
-  max-width: 500px;
-  width: 90%;
-  animation: dialogAppear 0.3s ease-out;
+  background: linear-gradient(135deg, var(--white) 0%, #fafbfc 100%);
+  border-radius: var(--radius-xl);
+  padding: 2rem;
+  box-shadow: var(--shadow-xl);
+  max-width: 550px;
+  width: 95%;
+  animation: dialogAppear 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--gray-200);
 }
 
 .signature-dialog h3 {
-  margin: 0 0 1rem 0;
-  color: var(--pdf-text-dark);
-  font-size: 1.3rem;
-  font-weight: 600;
+  margin: 0 0 1.5rem 0;
+  color: var(--gray-800);
+  font-size: 1.375rem;
+  font-weight: 700;
   text-align: center;
 }
 
 .signature-canvas {
-  border: 2px solid var(--pdf-border-light);
-  border-radius: var(--pdf-radius-md);
+  border: 2px solid var(--gray-300);
+  border-radius: var(--radius-lg);
   cursor: crosshair;
   touch-action: none;
   width: 100%;
-  height: 200px;
-  background: white;
+  background: var(--white);
+  box-shadow: inset var(--shadow-sm);
 }
 
 .signature-actions {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  margin-top: 1rem;
+  margin-top: 1.5rem;
 }
 
 .signature-actions button {
   flex: 1;
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1.25rem;
   border: none;
-  border-radius: var(--pdf-radius-md);
+  border-radius: var(--radius-lg);
   font-weight: 600;
   cursor: pointer;
-  transition: var(--pdf-transition-normal);
+  transition: all var(--transition-normal);
+  font-size: 0.9rem;
 }
 
 .btn-cancel {
-  background: var(--pdf-editor-secondary);
-  color: white;
+  background: linear-gradient(135deg, var(--gray-500) 0%, var(--gray-600) 100%);
+  color: var(--white);
 }
 
 .btn-cancel:hover {
-  background: #545b62;
+  background: linear-gradient(135deg, var(--gray-600) 0%, var(--gray-700) 100%);
+  transform: translateY(-1px);
 }
 
 .btn-clear-signature {
-  background: var(--pdf-editor-warning);
-  color: white;
+  background: linear-gradient(135deg, var(--warning-color) 0%, #dd6b20 100%);
+  color: var(--white);
 }
 
 .btn-clear-signature:hover {
-  background: #e0a800;
+  background: linear-gradient(135deg, #dd6b20 0%, #c05621 100%);
+  transform: translateY(-1px);
 }
 
 .btn-use-signature {
-  background: var(--pdf-editor-success);
-  color: white;
+  background: linear-gradient(135deg, var(--success-color) 0%, #38a169 100%);
+  color: var(--white);
 }
 
 .btn-use-signature:hover {
-  background: #1e7e34;
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+  transform: translateY(-1px);
 }
 
-/* ===== ERROR STATES ===== */
+/* ===== ERROR & LOADING STATES (ENHANCED) ===== */
 .pdf-error {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem;
+  padding: 4rem 2rem;
   text-align: center;
-  color: var(--pdf-editor-danger);
+  color: var(--error-color);
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  margin: 2rem;
+  box-shadow: var(--shadow-lg);
 }
 
 .pdf-error h3 {
   margin: 0 0 1rem 0;
   font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .pdf-error p {
-  margin: 0;
-  color: var(--pdf-text-medium);
-  line-height: 1.5;
+  margin: 0 0 2rem 0;
+  color: var(--gray-600);
+  line-height: 1.6;
 }
 
-/* ===== LOADING STATES ===== */
 .pdf-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem;
+  padding: 4rem 2rem;
   text-align: center;
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  margin: 2rem;
+  box-shadow: var(--shadow-lg);
 }
 
 .pdf-loading .loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--pdf-border-light);
-  border-top: 4px solid var(--pdf-editor-primary);
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--gray-200);
+  border-top: 4px solid var(--primary-color);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .pdf-loading p {
   margin: 0;
-  color: var(--pdf-text-medium);
+  color: var(--gray-600);
   font-size: 1.1rem;
+  font-weight: 500;
 }
 
-/* ===== ANIMATIONS ===== */
+/* ===== ANIMATIONS (ENHANCED) ===== */
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 
 @keyframes successPopupAppear {
-  from {
+  0% {
     opacity: 0;
-    transform: scale(0.8) translateY(20px);
+    transform: scale(0.8) translateY(30px);
   }
-  to {
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02) translateY(-5px);
+  }
+  100% {
     opacity: 1;
     transform: scale(1) translateY(0);
   }
 }
 
 @keyframes successIconBounce {
-  0% { transform: scale(0); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
+  0% { transform: scale(0) rotate(0deg); }
+  50% { transform: scale(1.3) rotate(180deg); }
+  100% { transform: scale(1) rotate(360deg); }
 }
 
 @keyframes dialogAppear {
-  from {
+  0% {
     opacity: 0;
-    transform: scale(0.9) translateY(-20px);
+    transform: scale(0.9) translateY(-30px);
   }
-  to {
+  100% {
     opacity: 1;
     transform: scale(1) translateY(0);
   }
 }
 
-@keyframes fieldAppear {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* ===== RESPONSIVE DESIGN ===== */
-
-/* Mobile Phones (up to 480px) */
+/* ===== RESPONSIVE DESIGN (ENHANCED) ===== */
 @media (max-width: 480px) {
+  .pdf-editor-simple {
+    height: 100vh;
+  }
+  
   .editor-header {
     flex-direction: column;
     gap: 1rem;
     padding: 1rem;
+  }
+  
+  .pdf-info h2 {
+    font-size: 1.125rem;
   }
   
   .editor-toolbar {
@@ -699,86 +762,51 @@
   .toolbar-left,
   .toolbar-center,
   .toolbar-right {
+    width: 100%;
     justify-content: center;
     flex-wrap: wrap;
   }
   
   .tool-group {
-    flex-wrap: wrap;
+    width: 100%;
     justify-content: center;
-    padding: 0.75rem;
+    flex-wrap: wrap;
+    padding: 1rem;
   }
   
   .tool-group-label {
     width: 100%;
     text-align: center;
     border-right: none;
-    border-bottom: 1px solid var(--pdf-border-medium);
+    border-bottom: 1px solid var(--gray-300);
     padding-bottom: 0.5rem;
-    margin-bottom: 0.5rem;
-  }
-  
-  .tool-group .btn {
-    font-size: 0.7rem;
-    padding: 0.5rem 0.75rem;
-  }
-  
-  .completion-status {
-    font-size: 0.8rem;
-    padding: 0.4rem 0.8rem;
+    margin-bottom: 0.75rem;
   }
   
   .pdf-container {
     padding: 1rem;
   }
   
-  .editable-field {
-    min-width: 50px;
-    min-height: 20px;
-  }
-  
-  .field-resize-handle {
-    width: 16px;
-    height: 16px;
-    bottom: -6px;
-    right: -6px;
-  }
-  
   .signature-dialog {
     margin: 1rem;
-    width: auto;
-    padding: 1rem;
-  }
-  
-  .signature-canvas {
-    height: 150px;
+    padding: 1.5rem;
   }
   
   .signature-actions {
     flex-direction: column;
-    gap: 0.5rem;
   }
 }
 
-/* Tablets (481px to 768px) */
 @media (max-width: 768px) {
   .editor-header {
     flex-wrap: wrap;
     gap: 1rem;
-  }
-  
-  .pdf-info h2 {
-    font-size: 1.1rem;
+    padding: 1rem 1.5rem;
   }
   
   .editor-toolbar {
     flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-  
-  .tool-group .btn {
-    font-size: 0.75rem;
-    padding: 0.4rem 0.7rem;
+    gap: 1rem;
   }
   
   .page-nav {
@@ -786,47 +814,27 @@
     width: 100%;
     justify-content: center;
   }
-  
-  .scale-controls {
-    order: -1;
-    width: 100%;
-    justify-content: center;
+}
+
+/* ===== ACCESSIBILITY ENHANCEMENTS ===== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-/* Large tablets and small laptops (769px to 968px) */
-@media (max-width: 968px) {
-  .pdf-container {
-    padding: 1.5rem;
-  }
-  
-  .tool-group {
-    gap: 0.4rem;
-    padding: 0.4rem;
-  }
-}
-
-/* Touch device optimizations */
-@media (hover: none) and (pointer: coarse) {
-  .tool-group .btn {
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
+@media (prefers-contrast: high) {
+  .editable-field {
+    border-width: 3px;
   }
   
   .field-resize-handle {
-    width: 20px;
-    height: 20px;
-    opacity: 0.7;
+    border-width: 3px;
   }
   
-  .editable-field {
+  .tool-group {
     border-width: 2px;
-  }
-  
-  .page-nav button,
-  .scale-controls button,
-  .scale-controls select {
-    padding: 0.6rem 1rem;
-    font-size: 1rem;
   }
 }

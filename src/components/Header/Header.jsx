@@ -1,6 +1,6 @@
 // src/components/Header.jsx - Clean header component with external CSS
 import React from "react";
-import sessionManager from "../services/sessionManager";
+import sessionManager from "../../services/sessionManager";
 import './Header.css';
 
 export default function Header({
