@@ -4,6 +4,7 @@ import Login from "./pages/Login/Login";
 import Jobs from "./pages/Jobs/Jobs";
 import Attachments from "./pages/Attachments/Attachments";
 import Documentation from "./pages/Documentation/Documentation";
+import Header from "./components/Header/Header"; // ✅ Import Header component
 import Footer from "./components/Footer/Footer"; // ✅ Import Footer component
 import "./App.css";
 
@@ -51,6 +52,15 @@ export default function App() {
     setCurrentPage("jobs");
   };
 
+  // ✅ Navigation handler for Header component
+  const handleNavigate = (page) => {
+    if (page === "jobs") {
+      handleBackToJobs();
+    } else if (page === "documentation") {
+      handleShowDocumentation("support");
+    }
+  };
+
   // ✅ Documentation navigation functions
   const handleShowDocumentation = (section = "support") => {
     console.log(`Navigating to Documentation section: ${section}`);
@@ -64,6 +74,35 @@ export default function App() {
     } else {
       setCurrentPage("jobs");
     }
+  };
+
+  // ✅ Generate breadcrumbs for Header component
+  const getBreadcrumbs = () => {
+    const breadcrumbs = [];
+    
+    // Always show Jobs as first breadcrumb
+    breadcrumbs.push({
+      id: "jobs",
+      label: "📋 Jobs",
+      active: currentPage === "jobs"
+    });
+
+    // Add current page breadcrumb if not on jobs
+    if (currentPage === "attachments" && selectedJob) {
+      breadcrumbs.push({
+        id: "attachments",
+        label: `📎 ${selectedJob.title || selectedJob.summary || 'Job Attachments'}`,
+        active: true
+      });
+    } else if (currentPage === "documentation") {
+      breadcrumbs.push({
+        id: "documentation", 
+        label: "❓ Help & Documentation",
+        active: true
+      });
+    }
+
+    return breadcrumbs;
   };
 
   if (isLoading) {
@@ -94,80 +133,14 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Header with Navigation */}
-      <header className="app-header">
-        <div className="header-container">
-          <div className="header-left">
-            <button
-              className="logo-btn"
-              onClick={() => handleBackToJobs()}
-              aria-label="Go to jobs"
-            >
-              <img
-                src="/web-app-manifest-192x192.png"
-                alt="1-A Services"
-                className="logo-image"
-              />
-              <span className="logo-icon"></span>
-            </button>
-
-            {/* Breadcrumb Navigation */}
-            <nav className="breadcrumb-nav" aria-label="Navigation">
-              {selectedJob && (
-                <>
-                  <span className="breadcrumb-separator">→</span>
-                  <span className="breadcrumb-item active">
-                    📎 {selectedJob.title}
-                  </span>
-                </>
-              )}
-            </nav>
-          </div>
-
-          {/* Center - Technician Info */}
-          <div className="header-center">
-            <div className="user-info">
-              <span className="user-icon"></span>
-              <div className="user-details">
-                <span className="user-name">{technician.name}</span>
-                <span className="user-role">Technician</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="header-right">
-            {/* ✅ Help Button */}
-            <button
-              onClick={() => handleShowDocumentation('support')}
-              style={{
-                background: "rgba(72, 187, 120, 0.1)",
-                border: "1px solid rgba(72, 187, 120, 0.3)",
-                color: "#2f855a",
-                padding: "0.5rem 1rem",
-                borderRadius: "6px",
-                fontSize: "0.8rem",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                fontWeight: "600",
-                marginRight: "1rem"
-              }}
-            >
-              <span>❓</span>
-              <span>Help</span>
-            </button>
-            
-            <button
-              className="logout-btn"
-              onClick={handleLogout}
-              aria-label="Logout"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* ✅ Use Header Component with proper props */}
+      <Header 
+        user={technician}
+        onLogout={handleLogout}
+        currentPage={currentPage}
+        onNavigate={handleNavigate}
+        breadcrumbs={getBreadcrumbs()}
+      />
 
       {/* Main Content */}
       <main className="app-main">
