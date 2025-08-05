@@ -1,0 +1,427 @@
+/* src/pages/Jobs/Jobs.css - JOBS PAGE STYLES */
+
+/* ===== PAGE LAYOUT ===== */
+.page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-xl);
+}
+
+.page-header {
+  margin-bottom: var(--spacing-xl);
+  text-align: center;
+}
+
+.page-header h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: var(--spacing-sm);
+}
+
+.page-header .text-gray-600 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* ===== EMPTY STATE ===== */
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-2xl) var(--spacing-xl);
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 2px dashed var(--gray-300);
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: var(--spacing-lg);
+  opacity: 0.6;
+}
+
+.empty-state h2 {
+  color: var(--gray-700);
+  margin-bottom: var(--spacing-sm);
+  font-size: 1.5rem;
+}
+
+.empty-state p {
+  color: var(--gray-600);
+  margin: 0;
+}
+
+/* ===== JOBS TIMELINE ===== */
+.jobs-timeline {
+  position: relative;
+}
+
+.date-section {
+  margin-bottom: var(--spacing-2xl);
+}
+
+.date-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* ===== DATE INDICATOR ===== */
+.date-indicator {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1;
+  min-width: 30px;
+}
+
+.date-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--gray-400);
+  border: 3px solid var(--white);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+}
+
+.date-dot.today {
+  background: var(--success-color);
+  box-shadow: 0 0 0 4px rgba(72, 187, 120, 0.2);
+  animation: pulse 2s infinite;
+}
+
+.date-dot.yesterday {
+  background: var(--warning-color);
+}
+
+.date-dot.past {
+  background: var(--gray-400);
+}
+
+.date-dot.future {
+  background: var(--info-color);
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(72, 187, 120, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(72, 187, 120, 0);
+  }
+}
+
+.date-line {
+  width: 2px;
+  height: 60px;
+  background: var(--gray-300);
+  margin-top: var(--spacing-xs);
+}
+
+.date-line:last-child {
+  display: none;
+}
+
+/* ===== DATE INFO HEADER ===== */
+.date-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  color: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  gap: var(--spacing-md);
+}
+
+.date-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.job-count {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: var(--white) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+}
+
+/* ===== JOBS GRID ===== */
+.jobs-grid {
+  margin-left: 30px; /* Align with timeline */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+/* ===== JOB CARD ===== */
+.job-card {
+  background: var(--white);
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  overflow: hidden;
+  position: relative;
+}
+
+.job-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-color);
+}
+
+.job-card:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.job-card:active {
+  transform: translateY(0);
+}
+
+/* ===== JOB CARD CONTENT ===== */
+.card-header {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--gray-200);
+  position: relative;
+}
+
+.job-identifier {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+}
+
+.customer-name {
+  color: var(--gray-800);
+  line-height: 1.2;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.job-number {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  font-weight: 500;
+  margin: 0;
+}
+
+.priority-indicator {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  font-size: 1.2rem;
+  z-index: 1;
+}
+
+.job-title {
+  color: var(--gray-700);
+  line-height: 1.3;
+  font-size: 1rem;
+  margin: 0 0 var(--spacing-md) 0;
+  font-weight: 500;
+}
+
+.customer-address {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-xs);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--gray-600);
+  margin-bottom: var(--spacing-md);
+}
+
+.customer-address .text-gray-600 {
+  margin: 0;
+}
+
+/* ===== APPOINTMENT INFO ===== */
+.card-body {
+  padding: var(--spacing-lg);
+}
+
+.next-appointment-centered {
+  padding: var(--spacing-sm);
+  background: var(--gray-100);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+  text-align: center;
+}
+
+.appointment-time {
+  margin-bottom: var(--spacing-xs);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.appointment-status-badge {
+  font-size: 0.75rem;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* ===== CARD FOOTER ===== */
+.card-footer {
+  padding: var(--spacing-lg);
+  background: var(--gray-50);
+  border-top: 1px solid var(--gray-200);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.job-metadata {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.job-metadata small {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  margin: 0;
+}
+
+.view-forms-btn {
+  flex-shrink: 0;
+}
+
+.view-forms-btn .btn {
+  transition: var(--transition-normal);
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+}
+
+.job-card:hover .view-forms-btn .btn {
+  background: var(--primary-dark);
+  transform: translateX(2px);
+}
+
+/* ===== LOADING STATE ===== */
+.jobs-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-2xl);
+  text-align: center;
+}
+
+.jobs-loading .loading-spinner {
+  margin-bottom: var(--spacing-md);
+}
+
+/* ===== ERROR STATE ===== */
+.jobs-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 0 var(--spacing-md);
+  }
+  
+  .date-header {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+  
+  .date-info {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    text-align: center;
+  }
+  
+  .jobs-grid {
+    margin-left: 0;
+    grid-template-columns: 1fr;
+  }
+  
+  .date-indicator {
+    display: none;
+  }
+  
+  .job-identifier {
+    text-align: left;
+  }
+  
+  .customer-name {
+    font-size: 1rem;
+  }
+  
+  .next-appointment-centered {
+    padding: var(--spacing-xs);
+  }
+  
+  .card-footer {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    align-items: stretch;
+  }
+  
+  .view-forms-btn .btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-header h2 {
+    font-size: 1.6rem;
+  }
+  
+  .date-title {
+    font-size: 1.1rem;
+  }
+  
+  .job-card {
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .card-header,
+  .card-body,
+  .card-footer {
+    padding: var(--spacing-md);
+  }
+  
+  .customer-name {
+    font-size: 0.95rem;
+  }
+  
+  .job-title {
+    font-size: 0.9rem;
+  }
+  
+  .jobs-grid {
+    gap: var(--spacing-md);
+  }
+}
