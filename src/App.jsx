@@ -4,31 +4,28 @@ import Login from "./pages/Login/Login";
 import Jobs from "./pages/Jobs/Jobs";
 import Attachments from "./pages/Attachments/Attachments";
 import Documentation from "./pages/Documentation/Documentation";
-import Header from "./components/Header/Header"; // ✅ Import Header component
-import Footer from "./components/Footer/Footer"; // ✅ Import Footer component
 import "./App.css";
 
 export default function App() {
+  // ===== CORE STATE =====
   const [technician, setTechnician] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState("jobs");
   const [selectedJob, setSelectedJob] = useState(null);
-  const [helpSection, setHelpSection] = useState("support");
+  const [isPdfEditorOpen, setIsPdfEditorOpen] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
-  // Check for existing session on app load
+  // ===== SESSION MANAGEMENT =====
   useEffect(() => {
     const existingSession = sessionManager.getTechnicianSession();
     if (existingSession) {
-      console.log(
-        "✅ Found existing session:",
-        existingSession.technician?.name
-      );
       setTechnician(existingSession.technician);
       setCurrentPage("jobs");
     }
     setIsLoading(false);
   }, []);
 
+  // ===== AUTH HANDLERS =====
   const handleLogin = (userData) => {
     sessionManager.setTechnicianSession(userData);
     setTechnician(userData.technician);
@@ -40,8 +37,11 @@ export default function App() {
     setTechnician(null);
     setSelectedJob(null);
     setCurrentPage("jobs");
+    setIsPdfEditorOpen(false);
+    setShowMobileMenu(false);
   };
 
+  // ===== NAVIGATION HANDLERS =====
   const handleSelectJob = (job) => {
     setSelectedJob(job);
     setCurrentPage("attachments");
@@ -50,61 +50,23 @@ export default function App() {
   const handleBackToJobs = () => {
     setSelectedJob(null);
     setCurrentPage("jobs");
+    setIsPdfEditorOpen(false);
   };
 
-  // ✅ Navigation handler for Header component
   const handleNavigate = (page) => {
     if (page === "jobs") {
       handleBackToJobs();
     } else if (page === "documentation") {
-      handleShowDocumentation("support");
+      setCurrentPage("documentation");
     }
+    setShowMobileMenu(false);
   };
 
-  // ✅ Documentation navigation functions
-  const handleShowDocumentation = (section = "support") => {
-    console.log(`Navigating to Documentation section: ${section}`);
-    setHelpSection(section);
-    setCurrentPage("documentation");
+  const handlePdfEditorStateChange = (isOpen) => {
+    setIsPdfEditorOpen(isOpen);
   };
 
-  const handleBackFromDocumentation = () => {
-    if (selectedJob) {
-      setCurrentPage("attachments");
-    } else {
-      setCurrentPage("jobs");
-    }
-  };
-
-  // ✅ Generate breadcrumbs for Header component
-  const getBreadcrumbs = () => {
-    const breadcrumbs = [];
-    
-    // Always show Jobs as first breadcrumb
-    breadcrumbs.push({
-      id: "jobs",
-      label: "📋 Jobs",
-      active: currentPage === "jobs"
-    });
-
-    // Add current page breadcrumb if not on jobs
-    if (currentPage === "attachments" && selectedJob) {
-      breadcrumbs.push({
-        id: "attachments",
-        label: `📎 ${selectedJob.title || selectedJob.summary || 'Job Attachments'}`,
-        active: true
-      });
-    } else if (currentPage === "documentation") {
-      breadcrumbs.push({
-        id: "documentation", 
-        label: "❓ Help & Documentation",
-        active: true
-      });
-    }
-
-    return breadcrumbs;
-  };
-
+  // ===== LOADING STATE =====
   if (isLoading) {
     return (
       <div className="loading-screen">
@@ -117,42 +79,105 @@ export default function App() {
     );
   }
 
+  // ===== NOT AUTHENTICATED =====
   if (!technician) {
     return <Login onLogin={handleLogin} />;
   }
 
-  // ✅ Show Documentation page
-  if (currentPage === "documentation") {
+  // ===== PDF EDITOR MODE (FULL SCREEN) =====
+  if (isPdfEditorOpen) {
     return (
-      <Documentation 
-        onBack={handleBackFromDocumentation}
-        initialSection={helpSection}
-      />
+      <div className="app app-pdf-editor-mode">
+        <main className="app-main-fullscreen">
+          <Attachments 
+            job={selectedJob} 
+            onBack={handleBackToJobs}
+            onPdfEditorStateChange={handlePdfEditorStateChange}
+          />
+        </main>
+      </div>
     );
   }
 
+  // ===== SIMPLE MOBILE MENU =====
+  const renderMobileMenu = () => (
+    <div className="mobile-menu">
+      <button 
+        className="mobile-menu-toggle"
+        onClick={() => setShowMobileMenu(!showMobileMenu)}
+      >
+        ☰ Menu
+      </button>
+      
+      {showMobileMenu && (
+        <div className="mobile-menu-dropdown">
+          <div className="mobile-menu-header">
+            <div className="user-info">
+              <strong>{technician.name}</strong>
+              <small>Technician</small>
+            </div>
+          </div>
+          
+          <div className="mobile-menu-items">
+            <button 
+              className={`menu-item ${currentPage === 'jobs' ? 'active' : ''}`}
+              onClick={() => handleNavigate("jobs")}
+            >
+              📋 Jobs
+            </button>
+            
+            {selectedJob && (
+              <button 
+                className={`menu-item ${currentPage === 'attachments' ? 'active' : ''}`}
+                onClick={() => setCurrentPage("attachments")}
+              >
+                📎 Attachments
+              </button>
+            )}
+            
+            <button 
+              className={`menu-item ${currentPage === 'documentation' ? 'active' : ''}`}
+              onClick={() => handleNavigate("documentation")}
+            >
+              ❓ Help
+            </button>
+            
+            <button 
+              className="menu-item logout"
+              onClick={handleLogout}
+            >
+              🚪 Logout
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // ===== MAIN APP LAYOUT (NO HEADER/FOOTER) =====
   return (
     <div className="app">
-      {/* ✅ Use Header Component with proper props */}
-      <Header 
-        user={technician}
-        onLogout={handleLogout}
-        currentPage={currentPage}
-        onNavigate={handleNavigate}
-        breadcrumbs={getBreadcrumbs()}
-      />
-
+      {/* Simple Mobile Menu */}
+      {renderMobileMenu()}
+      
       {/* Main Content */}
       <main className="app-main">
-        {currentPage === "jobs" ? (
+        {currentPage === "jobs" && (
           <Jobs technician={technician} onSelectJob={handleSelectJob} />
-        ) : (
-          <Attachments job={selectedJob} onBack={handleBackToJobs} />
+        )}
+        
+        {currentPage === "attachments" && (
+          <Attachments 
+            job={selectedJob} 
+            onBack={handleBackToJobs}
+            onPdfEditorStateChange={handlePdfEditorStateChange}
+          />
+        )}
+        
+        {currentPage === "documentation" && (
+          <Documentation onBack={() => handleNavigate("jobs")} />
         )}
       </main>
-
-      {/* ✅ Footer Component with Navigation */}
-      <Footer onShowDocumentation={handleShowDocumentation} />
     </div>
   );
 }

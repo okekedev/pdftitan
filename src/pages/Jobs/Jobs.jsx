@@ -1,9 +1,10 @@
-// src/pages/Jobs/Jobs.jsx - Clean version using only CSS classes
+// src/pages/Jobs/Jobs.jsx - Clean version using CSS classes only
 import React, { useState, useEffect } from "react";
 import apiClient from "../../services/apiClient";
+import Header from "../../components/Header/Header";
 import "./Jobs.css";
 
-export default function Jobs({ technician, onSelectJob }) {
+export default function Jobs({ technician, onSelectJob, onLogout }) {
   const [groupedJobs, setGroupedJobs] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -112,7 +113,6 @@ export default function Jobs({ technician, onSelectJob }) {
   };
 
   const handleJobSelection = (job) => {
-    // ✅ Simplified job data structure
     const jobData = {
       id: job.id,
       number: job.number,
@@ -129,11 +129,19 @@ export default function Jobs({ technician, onSelectJob }) {
 
   if (isLoading) {
     return (
-      <div className="page-container">
-        <div className="loading-content">
-          <div className="loading-spinner"></div>
-          <h2>Loading Your Jobs</h2>
-          <p>Fetching your latest job assignments...</p>
+      <div className="jobs-page">
+        <Header 
+          user={technician} 
+          onLogout={onLogout} 
+          currentPage="jobs"
+          onNavigate={() => {}} 
+        />
+        <div className="page-container">
+          <div className="loading-content">
+            <div className="loading-spinner"></div>
+            <h2>Loading Your Jobs</h2>
+            <p>Fetching your latest job assignments...</p>
+          </div>
         </div>
       </div>
     );
@@ -141,21 +149,29 @@ export default function Jobs({ technician, onSelectJob }) {
 
   if (error) {
     return (
-      <div className="page-container">
-        <div className="alert alert-error">
-          <span>❌</span>
-          <div>
-            <strong>Error Loading Jobs</strong>
-            <p>{error}</p>
+      <div className="jobs-page">
+        <Header 
+          user={technician} 
+          onLogout={onLogout} 
+          currentPage="jobs"
+          onNavigate={() => {}} 
+        />
+        <div className="page-container">
+          <div className="alert alert-error">
+            <span>❌</span>
+            <div>
+              <strong>Error Loading Jobs</strong>
+              <p>{error}</p>
+            </div>
           </div>
-        </div>
-        <div className="text-center mt-4">
-          <button
-            className="btn btn-primary"
-            onClick={() => window.location.reload()}
-          >
-            🔄 Retry
-          </button>
+          <div className="text-center mt-4">
+            <button
+              className="btn btn-primary"
+              onClick={() => window.location.reload()}
+            >
+              🔄 Retry
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -165,171 +181,181 @@ export default function Jobs({ technician, onSelectJob }) {
 
   if (dateKeys.length === 0) {
     return (
-      <div className="page-container">
-        <div className="empty-state">
-          <div className="empty-icon">📋</div>
-          <h2>No Jobs Found</h2>
-          <p>No jobs found for the last 2 days.</p>
-          <button
-            className="btn btn-primary mt-3"
-            onClick={() => window.location.reload()}
-          >
-            Refresh
-          </button>
+      <div className="jobs-page">
+        <Header 
+          user={technician} 
+          onLogout={onLogout} 
+          currentPage="jobs"
+          onNavigate={() => {}} 
+        />
+        <div className="page-container">
+          <div className="empty-state">
+            <div className="empty-icon">📋</div>
+            <h2>No Jobs Found</h2>
+            <p>No jobs found for the last 2 days.</p>
+            <button
+              className="btn btn-primary mt-3"
+              onClick={() => window.location.reload()}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="page-container">
-      {/* Page Header */}
-      <div className="page-header">
-        <h2>Your Jobs</h2>
-        <p>
-          Showing jobs from 2 days ago to today •{" "}
-          <strong>
-            {Object.values(groupedJobs).reduce(
-              (total, group) => total + group.appointments.length,
-              0
-            )}
-          </strong>{" "}
-          total jobs
-        </p>
-      </div>
+    <div className="jobs-page">
+      <Header 
+        user={technician} 
+        onLogout={onLogout} 
+        currentPage="jobs"
+        onNavigate={() => {}} 
+      />
+      <div className="page-container">
+        {/* Page Header */}
+        <div className="page-header">
+          <h2>Your Jobs</h2>
+          <p>
+            Showing jobs from 2 days ago to today •{" "}
+            <strong>
+              {Object.values(groupedJobs).reduce(
+                (total, group) => total + group.appointments.length,
+                0
+              )}
+            </strong>{" "}
+            total jobs
+          </p>
+        </div>
 
-      {/* Date-Grouped Jobs */}
-      <div className="jobs-timeline">
-        {dateKeys.map((dateKey, index) => {
-          const dateGroup = groupedJobs[dateKey];
-          const {
-            displayDate,
-            isToday,
-            isYesterday,
-            appointments: jobs,
-          } = dateGroup; // Note: still called "appointments" for API compatibility
+        {/* Date-Grouped Jobs */}
+        <div className="jobs-timeline">
+          {dateKeys.map((dateKey, index) => {
+            const dateGroup = groupedJobs[dateKey];
+            const {
+              displayDate,
+              isToday,
+              isYesterday,
+              appointments: jobs,
+            } = dateGroup;
 
-          return (
-            <div key={dateKey} className="date-section">
-              {/* Date Header */}
-              <div className="date-header">
-                <div className="date-indicator">
-                  <div
-                    className={`date-dot ${
-                      isToday ? "today" : isYesterday ? "yesterday" : "past"
-                    }`}
-                  ></div>
-                  {index < dateKeys.length - 1 && (
-                    <div className="date-line"></div>
-                  )}
-                </div>
-                <div className="date-info">
-                  <h3 className="date-title">
-                    {isToday && "🎯 "}
-                    {isYesterday && "⏮ "}
-                    {displayDate}
-                    {isToday && " (Today)"}
-                    {isYesterday && " (Yesterday)"}
-                  </h3>
-                  <span className="job-count">
-                    {jobs.length} job{jobs.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
-              </div>
-
-              {/* Jobs Grid */}
-              <div className="jobs-grid">
-                {jobs.map((job) => (
-                  <div
-                    key={job.id}
-                    className="job-card"
-                    onClick={() => handleJobSelection(job)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        handleJobSelection(job);
-                      }
-                    }}
-                  >
-                    {/* Card Header */}
-                    <div className="card-header">
-                      <div className="job-identifier">
-                        {/* ✅ Customer Name where Job ID was */}
-                        <h4 className="customer-name">
-                          {job.customer?.name || "Unknown Customer"}
-                        </h4>
-                        <span className="job-number">#{job.number}</span>
-                      </div>
-                      <span
-                        className={`status-badge ${getStatusClass(job.status)}`}
-                      >
-                        {getStatusIcon(job.status)} {job.status}
-                      </span>
-                      {job.priority && job.priority !== "Normal" && (
-                        <span
-                          className="priority-indicator"
-                          title={`Priority: ${job.priority}`}
-                        >
-                          {getPriorityIcon(job.priority)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Card Body */}
-                    <div className="card-body">
-                      <div className="job-info">
-                        {/* ✅ Shorter job title */}
-                        <h5 className="job-title">
-                          {job.title}
-                        </h5>
-
-                        {/* ✅ Customer address below title */}
-                        {job.customer?.address?.fullAddress && (
-                          <div className="customer-address">
-                            📍 {job.customer.address.fullAddress}
-                          </div>
-                        )}
-
-                        {/* ✅ Centered next appointment info */}
-                        {job.nextAppointment && (
-                          <div className="next-appointment-centered">
-                            <div className="appointment-time">
-                              {formatTime(job.nextAppointment.start)}
-                              {job.nextAppointment.end &&
-                                ` - ${formatTime(job.nextAppointment.end)}`}
-                            </div>
-                            {job.nextAppointment.status && (
-                              <span
-                                className={`appointment-status-badge ${getStatusClass(
-                                  job.nextAppointment.status
-                                )}`}
-                              >
-                                {job.nextAppointment.status}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Card Footer */}
-                    <div className="card-footer">
-                      <div className="job-metadata">
-                        <small>Job ID: {job.id}</small>
-                      </div>
-                      <div className="view-forms-btn">
-                        <span className="btn btn-sm btn-primary">
-                          View Forms →
-                        </span>
-                      </div>
-                    </div>
+            return (
+              <div key={dateKey} className="date-section">
+                {/* Date Header */}
+                <div className="date-header">
+                  <div className="date-indicator">
+                    <div
+                      className={`date-dot ${
+                        isToday ? "today" : isYesterday ? "yesterday" : "past"
+                      }`}
+                    ></div>
+                    {index < dateKeys.length - 1 && (
+                      <div className="date-line"></div>
+                    )}
                   </div>
-                ))}
+                  <div className="date-info">
+                    <h3 className="date-title">
+                      {isToday && "🎯 "}
+                      {isYesterday && "⏮ "}
+                      {displayDate}
+                      {isToday && " (Today)"}
+                      {isYesterday && " (Yesterday)"}
+                    </h3>
+                    <span className="job-count">
+                      {jobs.length} job{jobs.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Jobs Grid */}
+                <div className="jobs-grid">
+                  {jobs.map((job) => (
+                    <div
+                      key={job.id}
+                      className="job-card"
+                      onClick={() => handleJobSelection(job)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          handleJobSelection(job);
+                        }
+                      }}
+                    >
+                      {/* Card Header */}
+                      <div className="card-header">
+                        <div className="job-identifier">
+                          <h4 className="customer-name">
+                            {job.customer?.name || "Unknown Customer"}
+                          </h4>
+                          <span className="job-number">#{job.number}</span>
+                        </div>
+                        <span
+                          className={`status-badge ${getStatusClass(job.status)}`}
+                        >
+                          {getStatusIcon(job.status)} {job.status}
+                        </span>
+                        {job.priority && job.priority !== "Normal" && (
+                          <span
+                            className="priority-indicator"
+                            title={`Priority: ${job.priority}`}
+                          >
+                            {getPriorityIcon(job.priority)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Card Body */}
+                      <div className="card-body">
+                        <div className="job-info">
+                          <h5 className="job-title">{job.title}</h5>
+
+                          {job.customer?.address?.fullAddress && (
+                            <div className="customer-address">
+                              📍 {job.customer.address.fullAddress}
+                            </div>
+                          )}
+
+                          {job.nextAppointment && (
+                            <div className="next-appointment-centered">
+                              <div className="appointment-time">
+                                {formatTime(job.nextAppointment.start)}
+                                {job.nextAppointment.end &&
+                                  ` - ${formatTime(job.nextAppointment.end)}`}
+                              </div>
+                              {job.nextAppointment.status && (
+                                <span
+                                  className={`appointment-status-badge ${getStatusClass(
+                                    job.nextAppointment.status
+                                  )}`}
+                                >
+                                  {job.nextAppointment.status}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card Footer */}
+                      <div className="card-footer">
+                        <div className="job-metadata">
+                          <small>Job ID: {job.id}</small>
+                        </div>
+                        <div className="view-forms-btn">
+                          <span className="btn btn-sm btn-primary">
+                            View Forms →
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
