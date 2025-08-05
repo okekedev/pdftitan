@@ -1,9 +1,29 @@
-// src/pages/PDFEditor.jsx - CLEANED VERSION with external CSS
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+/**
+ * PDFEditor.jsx - Professional PDF Form Editor Component
+ * 
+ * Features:
+ * - Interactive PDF form field editing
+ * - Drag & drop field positioning  
+ * - Touch/mouse support for tablets and desktop
+ * - Real-time form field updates
+ * - Professional centered layout with single scrollbar
+ * - Optimized rendering to prevent infinite re-renders
+ * 
+ * @param {Object} pdf - PDF attachment object
+ * @param {Object} job - ServiceTitan job object  
+ * @param {Function} onClose - Callback when editor is closed
+ * @param {Function} onSave - Callback when form is saved
+ */
+
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './PDFEditor.css';
 
-// Custom hook for PDF operations with proper canvas management
+/**
+ * Custom hook for PDF operations with optimized dependency management
+ * Prevents unnecessary re-renders and provides efficient PDF editing functionality
+ */
 function usePDFEditor(pdf, job) {
+  // Core PDF state
   const canvasRef = useRef(null);
   const [pdfDocument, setPdfDocument] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -11,17 +31,32 @@ function usePDFEditor(pdf, job) {
   const [scale, setScale] = useState(1.2);
   const [pdfLoaded, setPdfLoaded] = useState(false);
   const [pdfError, setPdfError] = useState(null);
+  const [isRendering, setIsRendering] = useState(false);
+
+  // Form field state
   const [objects, setObjects] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [isRendering, setIsRendering] = useState(false);
 
-  // PDF Loading
+  // Memoize stable identifiers to prevent unnecessary re-renders
+  const pdfId = useMemo(() => pdf?.serviceTitanId || pdf?.id, [pdf?.serviceTitanId, pdf?.id]);
+  const jobId = useMemo(() => job?.id, [job?.id]);
+
+  /**
+   * Load PDF document with PDF.js
+   * Handles script loading, PDF fetching, and error states
+   */
   const loadPDF = useCallback(async () => {
+    if (!pdfId || !jobId) return;
+    
     try {
       setPdfError(null);
       setPdfLoaded(false);
+      setIsRendering(false);
       
+      console.log('📄 Loading PDF:', pdfId, 'for job:', jobId);
+      
+      // Load PDF.js library if not already loaded
       if (!window.pdfjsLib) {
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
@@ -34,10 +69,14 @@ function usePDFEditor(pdf, job) {
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       }
 
-      const downloadUrl = `/api/job/${job.id}/attachment/${pdf.serviceTitanId || pdf.id}/download`;
+      // Fetch PDF from ServiceTitan API
+      const downloadUrl = `/api/job/${jobId}/attachment/${pdfId}/download`;
       const response = await fetch(downloadUrl);
-      if (!response.ok) throw new Error('Failed to load PDF');
+      if (!response.ok) {
+        throw new Error(`Failed to load PDF: ${response.status} ${response.statusText}`);
+      }
 
+      // Parse PDF document
       const arrayBuffer = await response.arrayBuffer();
       const pdfDoc = await window.pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
       
@@ -45,16 +84,20 @@ function usePDFEditor(pdf, job) {
       setTotalPages(pdfDoc.numPages);
       setPdfLoaded(true);
       
-      console.log(`✅ PDF loaded: ${pdfDoc.numPages} pages`);
+      console.log(`✅ PDF loaded successfully: ${pdfDoc.numPages} pages`);
     } catch (error) {
       console.error('❌ PDF loading error:', error);
       setPdfError(error.message);
+      setPdfLoaded(false);
     }
-  }, [pdf, job]);
+  }, [pdfId, jobId]);
 
-  // Page Rendering
-  const renderPage = useCallback(async () => {
-    if (!pdfDocument || !canvasRef.current || isRendering) {
+  /**
+   * Render PDF page to canvas
+   * Simplified without memoization to prevent dependency loops
+   */
+  const renderPage = async () => {
+    if (!pdfDocument || !canvasRef.current || isRendering || !pdfLoaded) {
       return;
     }
     
@@ -66,28 +109,34 @@ function usePDFEditor(pdf, job) {
       const context = canvas.getContext('2d');
       const viewport = page.getViewport({ scale });
       
+      // Set canvas dimensions
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       context.clearRect(0, 0, canvas.width, canvas.height);
       
+      // Render PDF page
       const renderContext = {
         canvasContext: context,
         viewport: viewport
       };
       
       await page.render(renderContext).promise;
-      console.log(`✅ Page ${currentPage} rendered successfully`);
+      console.log(`✅ Page ${currentPage} rendered at ${scale * 100}% scale`);
       
     } catch (error) {
       console.error('❌ Page rendering error:', error);
     } finally {
       setIsRendering(false);
     }
-  }, [pdfDocument, currentPage, scale, isRendering]);
+  };
 
-  // Add different types of objects
+  // Form field creation functions - all optimized and memoized
+  
+  /**
+   * Add text field at specified coordinates
+   */
   const addTextObject = useCallback((x = 100, y = 100) => {
-    const id = Date.now().toString();
+    const id = `text_${Date.now()}`;
     const newText = {
       id,
       type: 'text',
@@ -96,8 +145,8 @@ function usePDFEditor(pdf, job) {
       width: 200 / scale,
       height: 30 / scale,
       content: '',
-      fontSize: 11,
-      color: '#000000',
+      fontSize: 12,
+      color: '#007bff',
       page: currentPage
     };
     
@@ -105,9 +154,12 @@ function usePDFEditor(pdf, job) {
     setSelectedId(id);
   }, [scale, currentPage]);
 
+  /**
+   * Add signature field at specified coordinates
+   */
   const addSignatureObject = useCallback((x = 100, y = 100) => {
-    const id = Date.now().toString();
-    const newSig = {
+    const id = `signature_${Date.now()}`;
+    const newSignature = {
       id,
       type: 'signature',
       x: x / scale,
@@ -118,12 +170,15 @@ function usePDFEditor(pdf, job) {
       page: currentPage
     };
     
-    setObjects(prev => [...prev, newSig]);
+    setObjects(prev => [...prev, newSignature]);
     setSelectedId(id);
   }, [scale, currentPage]);
 
+  /**
+   * Add date field with current date
+   */
   const addDateObject = useCallback((x = 100, y = 100) => {
-    const id = Date.now().toString();
+    const id = `date_${Date.now()}`;
     const today = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: '2-digit',
@@ -138,8 +193,8 @@ function usePDFEditor(pdf, job) {
       width: 100 / scale,
       height: 24 / scale,
       content: today,
-      fontSize: 11,
-      color: '#000000',
+      fontSize: 12,
+      color: '#007bff',
       page: currentPage
     };
     
@@ -147,16 +202,21 @@ function usePDFEditor(pdf, job) {
     setSelectedId(id);
   }, [scale, currentPage]);
 
+  /**
+   * Add checkbox field (displays as X when checked)
+   */
   const addCheckboxObject = useCallback((x = 100, y = 100) => {
-    const id = Date.now().toString();
+    const id = `checkbox_${Date.now()}`;
     const newCheckbox = {
       id,
       type: 'checkbox',
       x: x / scale,
       y: y / scale,
-      width: 20 / scale,
-      height: 20 / scale,
+      width: 30 / scale,
+      height: 30 / scale,
       content: false,
+      fontSize: 18,
+      color: '#007bff',
       page: currentPage
     };
     
@@ -164,33 +224,47 @@ function usePDFEditor(pdf, job) {
     setSelectedId(id);
   }, [scale, currentPage]);
 
-  // Update object properties
+  // Object management functions
+  
+  /**
+   * Update form field properties
+   */
   const updateObject = useCallback((id, updates) => {
     setObjects(prev => prev.map(obj => 
       obj.id === id ? { ...obj, ...updates } : obj
     ));
   }, []);
 
-  // Delete object
+  /**
+   * Delete form field and clear selection
+   */
   const deleteObject = useCallback((id) => {
     setObjects(prev => prev.filter(obj => obj.id !== id));
     if (selectedId === id) setSelectedId(null);
     if (editingId === id) setEditingId(null);
   }, [selectedId, editingId]);
 
-  // Clear all objects
+  /**
+   * Clear all form fields
+   */
   const clearAllObjects = useCallback(() => {
     setObjects([]);
     setSelectedId(null);
     setEditingId(null);
   }, []);
 
-  // Initialize PDF loading
+  // Effect hooks with optimized dependencies
+  
+  /**
+   * Initialize PDF loading when component mounts or IDs change
+   * Only loads once to prevent infinite loops
+   */
   useEffect(() => {
     let isMounted = true;
     
     const initializePDF = async () => {
-      if (isMounted && pdf && job) {
+      // Only load if we have IDs, no document loaded, and no error
+      if (isMounted && pdfId && jobId && !pdfDocument && !pdfLoaded && !pdfError) {
         await loadPDF();
       }
     };
@@ -200,15 +274,20 @@ function usePDFEditor(pdf, job) {
     return () => {
       isMounted = false;
     };
-  }, [loadPDF, pdf, job]);
+  }, [pdfId, jobId]); // ONLY depend on the IDs, not the state or loadPDF function
 
-  // Handle page rendering when dependencies change
+  /**
+   * Render PDF page when document, page, or scale changes
+   * Properly debounced to prevent excessive rendering
+   */
   useEffect(() => {
     let isMounted = true;
+    let timeoutId;
     
-    const doRender = async () => {
-      if (isMounted && pdfDocument && !isRendering) {
-        await renderPage();
+    const doRender = () => {
+      if (isMounted && pdfDocument && pdfLoaded && !isRendering) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(renderPage, 100); // Direct function reference
       }
     };
     
@@ -216,9 +295,13 @@ function usePDFEditor(pdf, job) {
     
     return () => {
       isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
-  }, [pdfDocument, currentPage, scale, isRendering, renderPage]);
+  }, [pdfDocument, currentPage, scale, pdfLoaded]); // Remove isRendering and renderPage from deps
 
+  // Return hook interface
   return {
     canvasRef,
     pdfLoaded,
@@ -245,7 +328,15 @@ function usePDFEditor(pdf, job) {
   };
 }
 
-// Enhanced Editable Field Component with proper touch support
+/**
+ * EditableField Component - Interactive form field with drag/resize support
+ * 
+ * Handles all form field types with professional interaction patterns:
+ * - Single click/tap: Select field
+ * - Double click/tap: Enter edit mode  
+ * - Drag: Move field position
+ * - Resize handle: Adjust field size
+ */
 function EditableField({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
   const [value, setValue] = useState(object.content || '');
   const [isDragging, setIsDragging] = useState(false);
@@ -262,21 +353,17 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
         const lines = (object.content || '').split('\n').length;
         return Math.max(object.height * scale, lines * lineHeight + 8);
       case 'checkbox':
-        return Math.max(20, object.height * scale);
+        return Math.max(object.height * scale, object.fontSize * scale * 1.2);
       default:
         return object.height * scale;
     }
   };
 
-  // Field styling with CSS classes
   const getFieldClasses = () => {
     const baseClasses = ['editable-field'];
-    
     baseClasses.push(`field-${object.type}`);
-    
     if (selected) baseClasses.push('selected');
     if (isDragging) baseClasses.push('dragging');
-    
     return baseClasses.join(' ');
   };
 
@@ -286,31 +373,13 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     width: `${object.width * scale}px`,
     height: `${calculateFieldHeight()}px`,
     fontSize: object.fontSize ? `${object.fontSize * scale}px` : undefined,
-    color: object.color || '#000000',
+    color: object.color || '#007bff',
     zIndex: selected ? 1000 : 100
   };
 
-  // Handle position updates
-  const handleDrag = useCallback((e) => {
-    if (!isDragging) return;
-    
-    e.preventDefault();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    const canvas = document.querySelector('.pdf-canvas');
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const newX = Math.max(0, (clientX - rect.left) / scale);
-    const newY = Math.max(0, (clientY - rect.top) / scale);
-    
-    onUpdate(object.id, { x: newX, y: newY });
-  }, [isDragging, scale, onUpdate, object.id]);
-
-  // Handle resize
   const handleResize = useCallback((e) => {
     e.stopPropagation();
+    e.preventDefault();
     
     const startX = e.touches ? e.touches[0].clientX : e.clientX;
     const startY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -318,6 +387,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     const startHeight = object.height * scale;
     
     const doResize = (moveEvent) => {
+      moveEvent.preventDefault();
       const currentX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
       const currentY = moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY;
       
@@ -333,77 +403,126 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
       });
     };
     
-    const stopResize = () => {
+    const stopResize = (stopEvent) => {
+      if (stopEvent) stopEvent.preventDefault();
       document.removeEventListener('mousemove', doResize);
       document.removeEventListener('mouseup', stopResize);
       document.removeEventListener('touchmove', doResize);
       document.removeEventListener('touchend', stopResize);
     };
     
-    document.addEventListener('mousemove', doResize);
+    document.addEventListener('mousemove', doResize, { passive: false });
     document.addEventListener('mouseup', stopResize);
-    document.addEventListener('touchmove', doResize);
+    document.addEventListener('touchmove', doResize, { passive: false });
     document.addEventListener('touchend', stopResize);
   }, [object.id, object.width, object.height, object.type, scale, onUpdate]);
 
-  // Handle click/touch events
   const handleInteraction = useCallback((e) => {
     e.stopPropagation();
+    e.preventDefault();
     
     const currentTime = Date.now();
     const timeDiff = currentTime - lastClickTime;
     
-    if (timeDiff < 300 && selected) {
-      // Double click/tap - start editing
+    // Double-click/tap to edit
+    if (timeDiff < 400 && selected) {
       onStartEdit(object.id);
-    } else {
-      // Single click/tap - select
-      onSelect(object.id);
-      
-      // Start drag
-      setIsDragging(true);
-      
-      const stopDrag = () => {
-        setIsDragging(false);
-        document.removeEventListener('mousemove', handleDrag);
-        document.removeEventListener('mouseup', stopDrag);
-        document.removeEventListener('touchmove', handleDrag);
-        document.removeEventListener('touchend', stopDrag);
-      };
-      
-      document.addEventListener('mousemove', handleDrag);
-      document.addEventListener('mouseup', stopDrag);
-      document.addEventListener('touchmove', handleDrag);
-      document.addEventListener('touchend', stopDrag);
+      return;
     }
     
+    // Single click/tap to select and prepare for drag
+    onSelect(object.id);
+    setIsDragging(true);
+    
+    const startX = e.touches ? e.touches[0].clientX : e.clientX;
+    const startY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const doDrag = (moveEvent) => {
+      moveEvent.preventDefault();
+      const clientX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const clientY = moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY;
+      
+      // Only start dragging if mouse/finger has moved significantly
+      const deltaX = Math.abs(clientX - startX);
+      const deltaY = Math.abs(clientY - startY);
+      
+      if (deltaX > 3 || deltaY > 3) {
+        const canvas = document.querySelector('.pdf-canvas');
+        if (!canvas) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const newX = Math.max(0, (clientX - rect.left) / scale);
+        const newY = Math.max(0, (clientY - rect.top) / scale);
+        
+        onUpdate(object.id, { x: newX, y: newY });
+      }
+    };
+    
+    const stopDrag = (stopEvent) => {
+      if (stopEvent) stopEvent.preventDefault();
+      setIsDragging(false);
+      document.removeEventListener('mousemove', doDrag);
+      document.removeEventListener('mouseup', stopDrag);
+      document.removeEventListener('touchmove', doDrag);
+      document.removeEventListener('touchend', stopDrag);
+    };
+    
+    document.addEventListener('mousemove', doDrag, { passive: false });
+    document.addEventListener('mouseup', stopDrag);
+    document.addEventListener('touchmove', doDrag, { passive: false });
+    document.addEventListener('touchend', stopDrag);
+    
     setLastClickTime(currentTime);
-  }, [selected, lastClickTime, onSelect, onStartEdit, object.id, handleDrag]);
+  }, [selected, lastClickTime, onSelect, onStartEdit, object.id, scale, onUpdate]);
 
-  // Handle content changes
   const handleContentChange = (e) => {
-    const newValue = object.type === 'checkbox' ? e.target.checked : e.target.value;
-    setValue(newValue);
-    onUpdate(object.id, { content: newValue });
+    if (object.type === 'checkbox') {
+      // Toggle checkbox on any interaction
+      const newValue = !Boolean(value);
+      setValue(newValue);
+      onUpdate(object.id, { content: newValue });
+    } else {
+      const newValue = e.target.value;
+      setValue(newValue);
+      onUpdate(object.id, { content: newValue });
+    }
   };
 
-  // Handle blur (finish editing)
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation();
+    if (object.type === 'checkbox') {
+      const newValue = !Boolean(value);
+      setValue(newValue);
+      onUpdate(object.id, { content: newValue });
+    }
+  };
+
   const handleBlur = () => {
     onFinishEdit();
   };
 
-  // Render field content based on type
   const renderFieldContent = () => {
     if (object.type === 'checkbox') {
       return (
-        <input
-          type="checkbox"
-          className="field-checkbox-input"
-          checked={Boolean(value)}
-          onChange={handleContentChange}
-          onBlur={handleBlur}
-          autoFocus={editing}
-        />
+        <div 
+          className="field-checkbox-display"
+          onClick={handleCheckboxClick}
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: `${object.fontSize * scale}px`,
+            fontWeight: 'bold',
+            color: '#007bff',
+            cursor: 'pointer',
+            userSelect: 'none',
+            fontFamily: 'monospace'
+          }}
+        >
+          {Boolean(value) ? 'X' : ''}
+        </div>
       );
     }
     
@@ -441,7 +560,6 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
       );
     }
     
-    // Display mode
     return (
       <div className="field-display">
         {object.type === 'signature' ? (
@@ -478,6 +596,18 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
           className="field-resize-handle"
           onMouseDown={handleResize}
           onTouchStart={handleResize}
+          style={{
+            position: 'absolute',
+            bottom: '-5px',
+            right: '-5px',
+            width: '12px',
+            height: '12px',
+            background: '#007bff',
+            border: '2px solid white',
+            borderRadius: '50%',
+            cursor: 'se-resize',
+            touchAction: 'none'
+          }}
         />
       )}
     </div>
@@ -663,7 +793,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
       height: 24 / scale,
       content: timestamp,
       fontSize: 11,
-      color: '#000000',
+      color: '#007bff',
       page: currentPage
     };
     
@@ -672,7 +802,6 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
   };
   const handleAddCheckbox = () => addCheckboxObject(100, 100);
 
-  // Handle signature save
   const handleSignatureSave = (signatureDataURL) => {
     if (selectedId) {
       updateObject(selectedId, { content: signatureDataURL });
@@ -680,19 +809,16 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     setShowSignatureDialog(false);
   };
 
-  // Enhanced save with proper data validation
   const handleSave = useCallback(async () => {
     try {
       setIsSaving(true);
       
-      // Validate that we have fields to save
       if (objects.length === 0) {
         setSuccessMessage('No fields to save. Please add some fields to the form first.');
         setShowSuccessPopup(true);
         return;
       }
       
-      // Validate checkboxes are properly formatted
       const processedObjects = objects.map(obj => {
         if (obj.type === 'checkbox') {
           return {
@@ -750,7 +876,6 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     }
   }, [objects, pdf, job, totalPages, scale, onSave]);
 
-  // Handle success popup close
   const handleSuccessClose = () => {
     setShowSuccessPopup(false);
     setSuccessMessage('');
@@ -782,7 +907,6 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedId, deleteObject, handleSave, setSelectedId, setEditingId]);
 
-  // Render main component
   if (pdfError) {
     return (
       <div className="pdf-editor-simple">
@@ -833,17 +957,6 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         onSave={handleSignatureSave}
       />
 
-      {/* Header */}
-      <div className="editor-header">
-        <div className="pdf-info">
-          <h2>📝 {pdf.fileName || pdf.name || 'PDF Form'}</h2>
-          <p>Job #{job.number} • {job.customer?.name || 'Customer'}</p>
-        </div>
-        <div className="completion-status">
-          {objects.length} field{objects.length !== 1 ? 's' : ''} added
-        </div>
-      </div>
-
       {/* Toolbar */}
       <div className="editor-toolbar">
         <div className="toolbar-left">
@@ -865,17 +978,6 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
               ☑️ Checkbox
             </button>
           </div>
-
-          <div className="tool-group">
-            <span className="tool-group-label">Actions</span>
-            <button 
-              onClick={clearAllObjects}
-              className="btn btn-clear"
-              disabled={objects.length === 0}
-            >
-              🗑️ Clear All
-            </button>
-          </div>
         </div>
 
         <div className="toolbar-center">
@@ -883,6 +985,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             <button 
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage <= 1}
+              className="btn"
             >
               ← Prev
             </button>
@@ -892,15 +995,14 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             <button 
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage >= totalPages}
+              className="btn"
             >
               Next →
             </button>
           </div>
-        </div>
 
-        <div className="toolbar-right">
           <div className="scale-controls">
-            <button onClick={() => setScale(Math.max(0.5, scale - 0.1))}>
+            <button onClick={() => setScale(Math.max(0.5, scale - 0.1))} className="btn">
               🔍-
             </button>
             <select
@@ -914,58 +1016,72 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
               <option value={1.5}>150%</option>
               <option value={2}>200%</option>
             </select>
-            <button onClick={() => setScale(Math.min(3, scale + 0.1))}>
+            <button onClick={() => setScale(Math.min(3, scale + 0.1))} className="btn">
               🔍+
             </button>
           </div>
+        </div>
 
+        <div className="toolbar-right">
           <div className="tool-group">
+            <span className="tool-group-label">Actions</span>
+            <button 
+              onClick={clearAllObjects}
+              className="btn btn-clear"
+              disabled={objects.length === 0}
+            >
+              🗑️ Clear
+            </button>
             <button 
               onClick={handleSave}
               disabled={isSaving || objects.length === 0}
               className="btn btn-save"
             >
-              {isSaving ? '💾 Saving...' : '💾 Save PDF'}
+              {isSaving ? '💾 Save' : '💾 Save'}
             </button>
-            <button onClick={onClose} className="btn btn-close">
+            <button 
+              onClick={handleSave}
+              disabled={isSaving || objects.length === 0}  
+              className="btn btn-upload"
+            >
+              {isSaving ? '📤 Upload...' : '📤 Upload'}
+            </button>
+            <button onClick={onClose} className="btn btn-back">
               ← Back
             </button>
           </div>
         </div>
       </div>
 
-      {/* PDF Container */}
-      <div className="pdf-container">
-        <div className="pdf-wrapper">
-          {isRendering && (
-            <div className="rendering-overlay">
-              <div className="loading-spinner"></div>
-              <span>Rendering...</span>
-            </div>
-          )}
-          
-          <canvas
-            ref={canvasRef}
-            className="pdf-canvas"
-            onClick={handleCanvasClick}
-          />
-          
-          {/* Render editable fields */}
-          {currentObjects.map(obj => (
-            <EditableField
-              key={obj.id}
-              object={obj}
-              scale={scale}
-              selected={selectedId === obj.id}
-              editing={editingId === obj.id}
-              onUpdate={updateObject}
-              onSelect={setSelectedId}
-              onStartEdit={setEditingId}
-              onFinishEdit={() => setEditingId(null)}
-            />
-          ))}
+      {/* Loading Overlay - Direct in main container */}
+      {isRendering && (
+        <div className="rendering-overlay">
+          <div className="loading-spinner"></div>
+          <span>Rendering...</span>
         </div>
-      </div>
+      )}
+      
+      {/* PDF Canvas - Direct in main container */}
+      <canvas
+        ref={canvasRef}
+        className="pdf-canvas"
+        onClick={handleCanvasClick}
+      />
+      
+      {/* Form Fields - Direct in main container */}
+      {currentObjects.map(obj => (
+        <EditableField
+          key={obj.id}
+          object={obj}
+          scale={scale}
+          selected={selectedId === obj.id}
+          editing={editingId === obj.id}
+          onUpdate={updateObject}
+          onSelect={setSelectedId}
+          onStartEdit={setEditingId}
+          onFinishEdit={() => setEditingId(null)}
+        />
+      ))}
     </div>
   );
 }
