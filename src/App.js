@@ -1,10 +1,7 @@
-// src/App.js - Modern JSX with Simplified Navigation
-import React, { useState, useEffect } from "react";
-import sessionManager from "./services/sessionManager";
+
 import Login from "./pages/Login";
 import Jobs from "./pages/Jobs";
 import Attachments from "./pages/Attachments";
-import "./App.css";
 
 export default function App() {
   const [technician, setTechnician] = useState(null);

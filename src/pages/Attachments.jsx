@@ -1,7 +1,7 @@
 // src/pages/Attachments/Attachments.jsx - Side-by-Side Layout with Fixed ID Handling
 import React, { useState, useEffect } from "react";
-import PDFEditor from "./PDFEditor";
-import apiClient from "../services/apiClient";
+import PDFEditor from "../../components/PDFEditor/PDFEditor";
+import apiClient from "../../services/apiClient";
 
 export default function Attachments({ job, onBack }) {
   const [selectedPDF, setSelectedPDF] = useState(null);
