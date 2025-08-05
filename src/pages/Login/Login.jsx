@@ -1,4 +1,4 @@
-// src/pages/Login.jsx - Updated with inline header and footer
+// src/pages/Login/Login.jsx - Updated without footer (Footer is now in App.js)
 import React, { useState, useEffect } from "react";
 import apiClient from "../../services/apiClient";
 import "./Login.css";
@@ -101,7 +101,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="login-page-layout">
-      {/* Header - Using inline header for now */}
+      {/* Header */}
       <header className="login-page-header">
         <div className="login-header-content">
           <div className="login-brand">
@@ -228,30 +228,37 @@ export default function Login({ onLogin }) {
         </div>
       </main>
 
-      {/* Footer - Using inline footer for now */}
+      {/* Footer - Simple branding footer without navigation (users can't access docs before login) */}
       <footer className="login-page-footer">
         <div className="login-footer-content">
           <div className="login-footer-left">
             <div className="login-footer-brand">
               <span className="login-footer-logo">📋</span>
               <div className="login-footer-info">
-                <p>© 2024 TitanPDF. All rights reserved.</p>
+                <p>© 2025 Built by{" "}
+                  <a
+                    href="https://sundai.us/"
+                    style={{ color: "white", textDecoration: "underline" }}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Okeke LLC
+                  </a>
+                  . Design By{" "}
+                  <a
+                    href="https://beamish-pastelito-94935e.netlify.app/"
+                    style={{ color: "white", textDecoration: "underline" }}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Blaine Curren
+                  </a>
+                </p>
                 <p>Powered by ServiceTitan Integration</p>
               </div>
             </div>
           </div>
           <div className="login-footer-right">
-            <div className="login-footer-links">
-              <button onClick={() => alert('For technical support, contact your ServiceTitan administrator.')}>
-                🛠️ Support
-              </button>
-              <button onClick={() => alert('Privacy Policy: TitanPDF operates in compliance with your company\'s data privacy policies.')}>
-                🔒 Privacy
-              </button>
-              <button onClick={() => alert('Terms: TitanPDF is designed for authorized technicians only.')}>
-                📄 Terms
-              </button>
-            </div>
             <div className="login-footer-status">
               <span className="footer-status-dot online"></span>
               <span>All Systems Operational</span>
