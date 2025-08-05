@@ -1,4 +1,3 @@
-// src/App.js - Modern JSX with Simplified Navigation
 import React, { useState, useEffect } from "react";
 import sessionManager from "./services/sessionManager";
 import Login from "./pages/Login";
