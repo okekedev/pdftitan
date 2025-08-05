@@ -1,6 +1,7 @@
-// src/components/Layout/Header/Header.jsx - Modern JSX with Global Styles
+// src/components/Header.jsx - Clean header component with external CSS
 import React from "react";
-import sessionManager from "../../../services/sessionManager";
+import sessionManager from "../services/sessionManager";
+import './Header.css';
 
 export default function Header({
   user,
@@ -38,7 +39,11 @@ export default function Header({
             onClick={handleLogoClick}
             aria-label="Go to jobs dashboard"
           >
-            <span className="logo-icon"></span>
+            <img
+              src="/web-app-manifest-192x192.png"
+              alt="TitanPDF Logo"
+              className="logo-image"
+            />
             <h1>TitanPDF</h1>
           </button>
 
@@ -99,72 +104,4 @@ export default function Header({
       </div>
     </header>
   );
-}
-
-// Additional Header-specific styles (minimal since we use global styles)
-const headerStyles = `
-.session-status {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-md);
-  font-size: 0.8rem;
-}
-
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--gray-400);
-}
-
-.status-indicator.active {
-  background: var(--success-color);
-  box-shadow: 0 0 8px rgba(72, 187, 120, 0.5);
-}
-
-.status-indicator.expiring_soon {
-  background: var(--warning-color);
-  box-shadow: 0 0 8px rgba(237, 137, 54, 0.5);
-  animation: pulse 2s infinite;
-}
-
-.status-indicator.expired {
-  background: var(--error-color);
-  box-shadow: 0 0 8px rgba(245, 101, 101, 0.5);
-}
-
-.session-warning {
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 500;
-}
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
-}
-
-@media (max-width: 768px) {
-  .session-status {
-    display: none; /* Hide on mobile to save space */
-  }
-  
-  .session-warning {
-    display: none;
-  }
-}
-`;
-
-// Inject styles
-if (
-  typeof document !== "undefined" &&
-  !document.getElementById("header-styles")
-) {
-  const style = document.createElement("style");
-  style.id = "header-styles";
-  style.textContent = headerStyles;
-  document.head.appendChild(style);
 }

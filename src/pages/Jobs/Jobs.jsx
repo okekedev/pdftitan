@@ -1,6 +1,6 @@
 // src/pages/Jobs/Jobs.jsx - Enhanced for job-focused API with customer data
 import React, { useState, useEffect } from "react";
-import apiClient from "../services/apiClient";
+import apiClient from "../../services/apiClient";
 
 export default function Jobs({ technician, onSelectJob }) {
   const [groupedJobs, setGroupedJobs] = useState({});
