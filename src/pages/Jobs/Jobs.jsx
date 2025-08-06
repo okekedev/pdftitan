@@ -1,4 +1,4 @@
-// src/pages/Jobs/Jobs.jsx - Clean version using CSS classes only
+// src/pages/Jobs/Jobs.jsx - Clean version with header breadcrumbs
 import React, { useState, useEffect } from "react";
 import apiClient from "../../services/apiClient";
 import Header from "../../components/Header/Header";
@@ -127,6 +127,20 @@ export default function Jobs({ technician, onSelectJob, onLogout }) {
     onSelectJob(jobData);
   };
 
+  // Create breadcrumbs for header - Jobs page is the base, so just show current page
+  const totalJobs = Object.values(groupedJobs).reduce(
+    (total, group) => total + group.appointments.length,
+    0
+  );
+
+  const breadcrumbs = [
+    { 
+      id: 'jobs', 
+      label: `Your Jobs (${totalJobs} jobs)`, 
+      active: true 
+    }
+  ];
+
   if (isLoading) {
     return (
       <div className="jobs-page">
@@ -134,7 +148,8 @@ export default function Jobs({ technician, onSelectJob, onLogout }) {
           user={technician} 
           onLogout={onLogout} 
           currentPage="jobs"
-          onNavigate={() => {}} 
+          onNavigate={() => {}}
+          breadcrumbs={breadcrumbs}
         />
         <div className="page-container">
           <div className="loading-content">
@@ -154,7 +169,8 @@ export default function Jobs({ technician, onSelectJob, onLogout }) {
           user={technician} 
           onLogout={onLogout} 
           currentPage="jobs"
-          onNavigate={() => {}} 
+          onNavigate={() => {}}
+          breadcrumbs={breadcrumbs}
         />
         <div className="page-container">
           <div className="alert alert-error">
@@ -186,7 +202,8 @@ export default function Jobs({ technician, onSelectJob, onLogout }) {
           user={technician} 
           onLogout={onLogout} 
           currentPage="jobs"
-          onNavigate={() => {}} 
+          onNavigate={() => {}}
+          breadcrumbs={breadcrumbs}
         />
         <div className="page-container">
           <div className="empty-state">
@@ -211,24 +228,10 @@ export default function Jobs({ technician, onSelectJob, onLogout }) {
         user={technician} 
         onLogout={onLogout} 
         currentPage="jobs"
-        onNavigate={() => {}} 
+        onNavigate={() => {}}
+        breadcrumbs={breadcrumbs}
       />
       <div className="page-container">
-        {/* Page Header */}
-        <div className="page-header">
-          <h2>Your Jobs</h2>
-          <p>
-            Showing jobs from 2 days ago to today •{" "}
-            <strong>
-              {Object.values(groupedJobs).reduce(
-                (total, group) => total + group.appointments.length,
-                0
-              )}
-            </strong>{" "}
-            total jobs
-          </p>
-        </div>
-
         {/* Date-Grouped Jobs */}
         <div className="jobs-timeline">
           {dateKeys.map((dateKey, index) => {

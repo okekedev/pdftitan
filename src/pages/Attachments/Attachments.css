@@ -1,4 +1,4 @@
-/* src/pages/Attachments/Attachments.css - Scoped Professional Redesign */
+/* src/pages/Attachments/Attachments.css - Redesigned Layout */
 
 /* Scope all styles under .attachments-page to avoid conflicts */
 .attachments-page {
@@ -9,7 +9,7 @@
 
 /* ===== PAGE CONTAINER ===== */
 .attachments-page .page-container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;
 }
@@ -17,37 +17,12 @@
 /* ===== PAGE HEADER ===== */
 .attachments-page .page-header {
   margin-bottom: 2rem;
-  text-align: center;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 16px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  border: 1px solid #e2e8f0;
-  padding: 1.5rem;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-}
-
-.attachments-page .page-header h2 {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-  font-size: 2rem;
-  font-weight: 800;
-  color: #1a202c;
-  margin: 0 0 0.5rem 0;
-  background: linear-gradient(135deg, #0052cc 0%, #667eea 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-align: center;
-  width: 100%;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
+  justify-content: flex-start;
 }
 
 .attachments-page .back-btn {
-  position: absolute;
-  left: 1.5rem;
   background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
   border: 1px solid #e2e8f0;
   border-radius: 8px;
@@ -67,15 +42,15 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-/* ===== MAIN CONTENT LAYOUT ===== */
-.attachments-page .main-content {
+/* ===== MAIN LAYOUT: 33% | 66% ===== */
+.attachments-page .main-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 2fr; /* 33% | 66% */
   gap: 2rem;
   margin-bottom: 2rem;
 }
 
-/* ===== CUSTOMER INFO SECTION (LEFT) ===== */
+/* ===== CUSTOMER INFO SECTION (33%) ===== */
 .attachments-page .customer-info-section {
   background: #ffffff;
   border: 2px solid #edf2f7;
@@ -83,6 +58,7 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   transition: all 0.2s ease;
+  height: fit-content;
 }
 
 .attachments-page .customer-info-section:hover {
@@ -223,31 +199,43 @@
   border: 1px solid #e2e8f0;
 }
 
-/* ===== AVAILABLE PDF FORMS SECTION (RIGHT) ===== */
+/* ===== PDF FORMS SECTION (66%) ===== */
 .attachments-page .pdf-forms-section {
   background: #ffffff;
   border: 2px solid #edf2f7;
   border-radius: 16px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: fit-content; /* Match customer info height */
 }
 
 .attachments-page .pdf-forms-section .section-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  flex-shrink: 0;
+}
+
+.attachments-page .pdf-forms-grid-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+  padding: 1.5rem;
 }
 
 .attachments-page .pdf-forms-grid {
-  padding: 1.5rem;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Responsive columns that fit container */
   gap: 1rem;
+  grid-auto-rows: max-content;
+  width: 100%;
 }
 
 .attachments-page .pdf-form-card {
   background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
   border: 2px solid #e2e8f0;
   border-radius: 12px;
-  padding: 1.25rem;
+  padding: 1rem;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -255,6 +243,8 @@
   align-items: center;
   text-align: center;
   min-height: 140px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .attachments-page .pdf-form-card:hover {
@@ -264,13 +254,24 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
+.attachments-page .pdf-form-card.empty-card {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.attachments-page .pdf-form-card.empty-card:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: #e2e8f0;
+}
+
 .attachments-page .pdf-form-card .form-icon {
-  font-size: 2.5rem;
+  font-size: 2rem;
   color: #0052cc;
   background: rgba(0, 82, 204, 0.1);
   padding: 0.75rem;
   border-radius: 12px;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   transition: all 0.2s ease;
 }
 
@@ -291,6 +292,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-height: 2.6em;
+  width: 100%;
+  word-wrap: break-word;
 }
 
 .attachments-page .pdf-form-card .form-meta {
@@ -306,13 +309,15 @@
   background: linear-gradient(135deg, #0052cc 0%, #667eea 100%);
   color: #ffffff;
   border: none;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 4px rgba(0, 82, 204, 0.3);
+  margin-top: auto;
+  white-space: nowrap;
 }
 
 .attachments-page .pdf-form-card .form-action:hover {
@@ -321,10 +326,10 @@
   box-shadow: 0 4px 8px rgba(0, 82, 204, 0.4);
 }
 
-/* ===== FORMS SECTIONS ===== */
-.attachments-page .forms-sections {
+/* ===== BOTTOM SECTIONS: 50% | 50% ===== */
+.attachments-page .bottom-sections {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  grid-template-columns: 1fr 1fr; /* 50% | 50% */
   gap: 2rem;
 }
 
@@ -335,15 +340,14 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   transition: all 0.2s ease;
+  height: 300px; /* Fixed height */
+  display: flex;
+  flex-direction: column;
 }
 
 .attachments-page .forms-section:hover {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   border-color: rgba(0, 82, 204, 0.3);
-}
-
-.attachments-page .forms-section.pdf-forms .section-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .attachments-page .forms-section.saved-forms .section-header {
@@ -355,89 +359,18 @@
 }
 
 .attachments-page .forms-content {
+  flex: 1;
   padding: 2rem;
-}
-
-.attachments-page .form-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  margin-bottom: 1rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.attachments-page .form-item:hover {
-  background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  border-color: #0052cc;
-}
-
-.attachments-page .form-item:last-child {
-  margin-bottom: 0;
-}
-
-.attachments-page .form-icon {
-  font-size: 2rem;
-  color: #0052cc;
-  background: rgba(0, 82, 204, 0.1);
-  padding: 0.75rem;
-  border-radius: 10px;
-  transition: all 0.2s ease;
-}
-
-.attachments-page .form-item:hover .form-icon {
-  background: rgba(0, 82, 204, 0.15);
-  transform: scale(1.05);
-}
-
-.attachments-page .form-details {
-  flex: 1;
-}
-
-.attachments-page .form-name {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #1a202c;
-  margin-bottom: 0.25rem;
-}
-
-.attachments-page .form-meta {
-  font-size: 0.875rem;
-  color: #718096;
-  display: flex;
-  gap: 1rem;
-}
-
-.attachments-page .form-action {
-  background: linear-gradient(135deg, #0052cc 0%, #667eea 100%);
-  color: #ffffff;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 82, 204, 0.3);
-}
-
-.attachments-page .form-action:hover {
-  background: linear-gradient(135deg, #003d99 0%, #5a67d8 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 82, 204, 0.4);
+  justify-content: center;
 }
 
 /* ===== EMPTY STATES ===== */
 .attachments-page .empty-state {
   text-align: center;
-  padding: 3rem 2rem;
   color: #718096;
+  width: 100%;
 }
 
 .attachments-page .empty-icon {
@@ -497,18 +430,57 @@
   margin: 0;
 }
 
+/* ===== ERROR MESSAGE ===== */
+.attachments-page .error-message {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #fed7d7;
+  border: 1px solid #fc8181;
+  border-radius: 12px;
+  color: #c53030;
+  margin: 2rem 0;
+}
+
+.attachments-page .error-message span {
+  font-size: 1.5rem;
+}
+
+.attachments-page .error-message strong {
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+.attachments-page .error-message p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 /* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 1200px) {
+  .attachments-page .pdf-forms-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Smaller min-width for better fit */
+  }
+}
+
 @media (max-width: 1024px) {
-  .attachments-page .main-content {
-    grid-template-columns: 1fr;
+  .attachments-page .main-layout {
+    grid-template-columns: 1fr; /* Stack vertically */
+    gap: 1.5rem;
   }
   
-  .attachments-page .forms-sections {
-    grid-template-columns: 1fr;
+  .attachments-page .pdf-forms-section {
+    height: auto; /* Remove fixed height when stacked */
   }
   
   .attachments-page .pdf-forms-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Better spacing when stacked */
+  }
+  
+  .attachments-page .bottom-sections {
+    grid-template-columns: 1fr; /* Stack vertically */
   }
 }
 
@@ -517,34 +489,22 @@
     padding: 1rem;
   }
   
-  .attachments-page .page-header {
-    padding: 1rem;
-    position: relative;
+  .attachments-page .pdf-forms-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Smaller cards on mobile */
+    gap: 1rem;
   }
   
-  .attachments-page .back-btn {
-    position: static;
-    margin-bottom: 1rem;
-    align-self: flex-start;
+  .attachments-page .pdf-forms-section {
+    height: auto;
+  }
+  
+  .attachments-page .forms-section {
+    height: 250px;
   }
   
   .attachments-page .customer-details,
-  .attachments-page .pdf-forms-grid,
+  .attachments-page .pdf-forms-grid-container,
   .attachments-page .forms-content {
     padding: 1.5rem;
-  }
-  
-  .attachments-page .pdf-forms-grid {
-    grid-template-columns: 1fr;
-    padding: 1rem;
-  }
-  
-  .attachments-page .form-item {
-    flex-direction: column;
-    text-align: center;
-  }
-  
-  .attachments-page .form-meta {
-    justify-content: center;
   }
 }

@@ -1,4 +1,4 @@
-// src/pages/Attachments/Attachments.jsx - Professional Redesigned Layout
+// src/pages/Attachments/Attachments.jsx - Redesigned Layout
 import React, { useState, useEffect } from 'react';
 import PDFEditor from '../PDFEditor/PDFEditor';
 import Header from '../../components/Header/Header';
@@ -188,6 +188,12 @@ export default function Attachments({ job, onBack, onPdfEditorStateChange, techn
     return parts.join('\n');
   };
 
+  // Create breadcrumbs for header
+  const breadcrumbs = [
+    { id: 'jobs', label: 'Jobs', active: false },
+    { id: 'attachments', label: `Job #${job?.number || 'Unknown'} - PDF Forms`, active: true }
+  ];
+
   // Determine what data to display
   const displayJob = jobDetails || job;
   const displayCustomer = customerData || jobDetails?.customer || job?.customer;
@@ -212,7 +218,8 @@ export default function Attachments({ job, onBack, onPdfEditorStateChange, techn
           user={technician} 
           onLogout={onLogout} 
           currentPage="attachments"
-          onNavigate={() => {}} 
+          onNavigate={onBack}
+          breadcrumbs={breadcrumbs}
         />
         <div className="page-container">
           <div className="loading-content">
@@ -233,14 +240,14 @@ export default function Attachments({ job, onBack, onPdfEditorStateChange, techn
           user={technician} 
           onLogout={onLogout} 
           currentPage="attachments"
-          onNavigate={() => {}} 
+          onNavigate={onBack}
+          breadcrumbs={breadcrumbs}
         />
         <div className="page-container">
           <div className="page-header">
             <button onClick={onBack} className="back-btn">
               ← Back to Jobs
             </button>
-            <h2>Job Attachments</h2>
           </div>
           <div className="error-message">
             <span>⚠️</span>
@@ -260,21 +267,21 @@ export default function Attachments({ job, onBack, onPdfEditorStateChange, techn
         user={technician} 
         onLogout={onLogout} 
         currentPage="attachments"
-        onNavigate={() => {}} 
+        onNavigate={onBack}
+        breadcrumbs={breadcrumbs}
       />
       
       <div className="page-container">
-        {/* Page Header */}
+        {/* Back Button */}
         <div className="page-header">
           <button onClick={onBack} className="back-btn">
             ← Back to Jobs
           </button>
-          <h2>Job Attachments & Forms</h2>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="main-content">
-          {/* Customer Information Section (Left) */}
+        {/* Main Content Layout: 33% Customer Info | 66% PDF Forms */}
+        <div className="main-layout">
+          {/* Customer Information Section (33%) */}
           <div className="customer-info-section">
             <div className="section-header">
               <h3>👤 Customer Information</h3>
@@ -352,97 +359,55 @@ export default function Attachments({ job, onBack, onPdfEditorStateChange, techn
             </div>
           </div>
 
-          {/* Available PDF Forms Section (Right) */}
+          {/* PDF Forms Section (66%) - 3x2 Scrollable Grid */}
           <div className="pdf-forms-section">
             <div className="section-header">
               <h3>📋 Available PDF Forms</h3>
             </div>
-            <div className="pdf-forms-grid">
-              {attachments.length > 0 ? (
-                attachments.slice(0, 4).map((attachment) => (
-                  <div key={attachment.id} className="pdf-form-card" onClick={() => handleOpenPDF(attachment)}>
-                    <div className="form-icon">📄</div>
-                    <div className="form-name">{attachment.name}</div>
-                    <div className="form-meta">
-                      <span>{attachment.size ? `${Math.round(attachment.size / 1024)} KB` : 'Unknown size'}</span>
-                      <span>{attachment.uploadedOn ? new Date(attachment.uploadedOn).toLocaleDateString() : 'Unknown date'}</span>
-                    </div>
-                    <button className="form-action" onClick={(e) => { e.stopPropagation(); handleOpenPDF(attachment); }}>
-                      ✏️ Edit Form
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <>
-                  <div className="pdf-form-card">
-                    <div className="form-icon">📄</div>
-                    <div className="form-name">No forms available</div>
-                    <div className="form-meta">
-                      <span>No PDF attachments</span>
-                      <span>found for this job</span>
-                    </div>
-                  </div>
-                  <div className="pdf-form-card">
-                    <div className="form-icon">📄</div>
-                    <div className="form-name">Add forms in ServiceTitan</div>
-                    <div className="form-meta">
-                      <span>Forms will appear</span>
-                      <span>here automatically</span>
-                    </div>
-                  </div>
-                </>
-              )}
-              
-              {/* Fill empty slots if less than 4 attachments */}
-              {attachments.length > 0 && attachments.length < 4 && 
-                Array.from({ length: 4 - attachments.length }).map((_, index) => (
-                  <div key={`empty-${index}`} className="pdf-form-card" style={{ opacity: 0.5, cursor: 'default' }}>
-                    <div className="form-icon">📄</div>
-                    <div className="form-name">Available slot</div>
-                    <div className="form-meta">
-                      <span>Additional forms</span>
-                      <span>will appear here</span>
-                    </div>
-                  </div>
-                ))
-              }
-            </div>
-          </div>
-        </div>
-
-        {/* Forms Sections */}
-        <div className="forms-sections">
-          {/* PDF Forms */}
-          <div className="forms-section pdf-forms">
-            <div className="section-header">
-              <h3>📋 Available PDF Forms</h3>
-            </div>
-            <div className="forms-content">
-              {attachments.length > 0 ? (
-                attachments.map((attachment) => (
-                  <div key={attachment.id} className="form-item" onClick={() => handleOpenPDF(attachment)}>
-                    <div className="form-icon">📄</div>
-                    <div className="form-details">
+            <div className="pdf-forms-grid-container">
+              <div className="pdf-forms-grid">
+                {attachments.length > 0 ? (
+                  attachments.map((attachment) => (
+                    <div key={attachment.id} className="pdf-form-card" onClick={() => handleOpenPDF(attachment)}>
+                      <div className="form-icon">📄</div>
                       <div className="form-name">{attachment.name}</div>
                       <div className="form-meta">
                         <span>{attachment.size ? `${Math.round(attachment.size / 1024)} KB` : 'Unknown size'}</span>
                         <span>{attachment.uploadedOn ? new Date(attachment.uploadedOn).toLocaleDateString() : 'Unknown date'}</span>
                       </div>
+                      <button className="form-action" onClick={(e) => { e.stopPropagation(); handleOpenPDF(attachment); }}>
+                        ✏️ Edit Form
+                      </button>
                     </div>
-                    <button className="form-action">✏️ Edit Form</button>
-                  </div>
-                ))
-              ) : (
-                <div className="empty-state">
-                  <div className="empty-icon">📄</div>
-                  <h4>No PDF Forms Available</h4>
-                  <p>No PDF attachments found for this job. Forms will appear here when added to ServiceTitan.</p>
-                </div>
-              )}
+                  ))
+                ) : (
+                  <>
+                    <div className="pdf-form-card empty-card">
+                      <div className="form-icon">📄</div>
+                      <div className="form-name">No forms available</div>
+                      <div className="form-meta">
+                        <span>No PDF attachments</span>
+                        <span>found for this job</span>
+                      </div>
+                    </div>
+                    <div className="pdf-form-card empty-card">
+                      <div className="form-icon">📄</div>
+                      <div className="form-name">Add forms in ServiceTitan</div>
+                      <div className="form-meta">
+                        <span>Forms will appear</span>
+                        <span>here automatically</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Saved Forms */}
+        {/* Bottom Sections: 50% Saved | 50% Uploaded */}
+        <div className="bottom-sections">
+          {/* Saved Forms Section (50%) */}
           <div className="forms-section saved-forms">
             <div className="section-header">
               <h3>💾 Saved Forms</h3>
@@ -456,7 +421,7 @@ export default function Attachments({ job, onBack, onPdfEditorStateChange, techn
             </div>
           </div>
 
-          {/* Uploaded Forms */}
+          {/* Uploaded Forms Section (50%) */}
           <div className="forms-section uploaded-forms">
             <div className="section-header">
               <h3>📤 Uploaded Forms</h3>

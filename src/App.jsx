@@ -12,8 +12,6 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState("jobs");
   const [selectedJob, setSelectedJob] = useState(null);
-  const [isPdfEditorOpen, setIsPdfEditorOpen] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // ===== SESSION MANAGEMENT =====
   useEffect(() => {
@@ -37,8 +35,6 @@ export default function App() {
     setTechnician(null);
     setSelectedJob(null);
     setCurrentPage("jobs");
-    setIsPdfEditorOpen(false);
-    setShowMobileMenu(false);
   };
 
   // ===== NAVIGATION HANDLERS =====
@@ -50,7 +46,6 @@ export default function App() {
   const handleBackToJobs = () => {
     setSelectedJob(null);
     setCurrentPage("jobs");
-    setIsPdfEditorOpen(false);
   };
 
   const handleNavigate = (page) => {
@@ -59,11 +54,6 @@ export default function App() {
     } else if (page === "documentation") {
       setCurrentPage("documentation");
     }
-    setShowMobileMenu(false);
-  };
-
-  const handlePdfEditorStateChange = (isOpen) => {
-    setIsPdfEditorOpen(isOpen);
   };
 
   // ===== LOADING STATE =====
@@ -84,82 +74,9 @@ export default function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  // ===== PDF EDITOR MODE (FULL SCREEN) =====
-  if (isPdfEditorOpen) {
-    return (
-      <div className="app app-pdf-editor-mode">
-        <main className="app-main-fullscreen">
-          <Attachments 
-            job={selectedJob} 
-            onBack={handleBackToJobs}
-            onPdfEditorStateChange={handlePdfEditorStateChange}
-          />
-        </main>
-      </div>
-    );
-  }
-
-  // ===== SIMPLE MOBILE MENU =====
-  const renderMobileMenu = () => (
-    <div className="mobile-menu">
-      <button 
-        className="mobile-menu-toggle"
-        onClick={() => setShowMobileMenu(!showMobileMenu)}
-      >
-        ☰ Menu
-      </button>
-      
-      {showMobileMenu && (
-        <div className="mobile-menu-dropdown">
-          <div className="mobile-menu-header">
-            <div className="user-info">
-              <strong>{technician.name}</strong>
-              <small>Technician</small>
-            </div>
-          </div>
-          
-          <div className="mobile-menu-items">
-            <button 
-              className={`menu-item ${currentPage === 'jobs' ? 'active' : ''}`}
-              onClick={() => handleNavigate("jobs")}
-            >
-              📋 Jobs
-            </button>
-            
-            {selectedJob && (
-              <button 
-                className={`menu-item ${currentPage === 'attachments' ? 'active' : ''}`}
-                onClick={() => setCurrentPage("attachments")}
-              >
-                📎 Attachments
-              </button>
-            )}
-            
-            <button 
-              className={`menu-item ${currentPage === 'documentation' ? 'active' : ''}`}
-              onClick={() => handleNavigate("documentation")}
-            >
-              ❓ Help
-            </button>
-            
-            <button 
-              className="menu-item logout"
-              onClick={handleLogout}
-            >
-              🚪 Logout
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  // ===== MAIN APP LAYOUT (NO HEADER/FOOTER) =====
+  // ===== MAIN APP LAYOUT =====
   return (
     <div className="app">
-      {/* Simple Mobile Menu */}
-      {renderMobileMenu()}
-      
       {/* Main Content */}
       <main className="app-main">
         {currentPage === "jobs" && (
@@ -170,7 +87,6 @@ export default function App() {
           <Attachments 
             job={selectedJob} 
             onBack={handleBackToJobs}
-            onPdfEditorStateChange={handlePdfEditorStateChange}
           />
         )}
         
