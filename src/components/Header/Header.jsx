@@ -1,4 +1,4 @@
-// src/components/Header.jsx - Clean header component with external CSS
+// src/components/Header.jsx - Clean header component with page title support
 import React from "react";
 import sessionManager from "../../services/sessionManager";
 import './Header.css';
@@ -9,6 +9,7 @@ export default function Header({
   currentPage,
   onNavigate,
   breadcrumbs = [],
+  pageTitle, // New prop for page title
 }) {
   const handleLogoClick = () => {
     onNavigate("jobs");
@@ -47,30 +48,37 @@ export default function Header({
             <h1>TitanPDF</h1>
           </button>
 
-          {breadcrumbs.length > 0 && (
-            <nav className="breadcrumb-nav" aria-label="Navigation breadcrumb">
-              {breadcrumbs.map((item, index) => (
-                <React.Fragment key={item.id}>
-                  {index > 0 && <span className="breadcrumb-separator">→</span>}
-                  <button
-                    className={`breadcrumb-item ${item.active ? "active" : ""}`}
-                    onClick={() =>
-                      canNavigateToItem(item, index)
-                        ? onNavigate(item.id)
-                        : null
-                    }
-                    disabled={!canNavigateToItem(item, index)}
-                    title={
-                      canNavigateToItem(item, index)
-                        ? `Go to ${item.label}`
-                        : "Not available yet"
-                    }
-                  >
-                    {item.label}
-                  </button>
-                </React.Fragment>
-              ))}
-            </nav>
+          {/* Show page title if provided, otherwise show breadcrumbs */}
+          {pageTitle ? (
+            <div className="page-title">
+              <h2>{pageTitle}</h2>
+            </div>
+          ) : (
+            breadcrumbs.length > 0 && (
+              <nav className="breadcrumb-nav" aria-label="Navigation breadcrumb">
+                {breadcrumbs.map((item, index) => (
+                  <React.Fragment key={item.id}>
+                    {index > 0 && <span className="breadcrumb-separator">→</span>}
+                    <button
+                      className={`breadcrumb-item ${item.active ? "active" : ""}`}
+                      onClick={() =>
+                        canNavigateToItem(item, index)
+                          ? onNavigate(item.id)
+                          : null
+                      }
+                      disabled={!canNavigateToItem(item, index)}
+                      title={
+                        canNavigateToItem(item, index)
+                          ? `Go to ${item.label}`
+                          : "Not available yet"
+                      }
+                    >
+                      {item.label}
+                    </button>
+                  </React.Fragment>
+                ))}
+              </nav>
+            )
           )}
         </div>
 
@@ -105,4 +113,3 @@ export default function Header({
     </header>
   );
 }
-
