@@ -1,5 +1,5 @@
 /**
- * PDFEditor.jsx - Fixed Version with No Infinite Loops
+ * PDFEditor.jsx - Fixed Version with No Infinite Loops and No Double Jump
  */
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
@@ -168,7 +168,7 @@ function usePDFEditor(pdf, job) {
     // Simple default sizes
     const fieldConfigs = {
       text: { width: 200, height: 30, fontSize: 11 },
-      signature: { width: 250, height: 40, fontSize: 12 },
+      signature: { width: 180, height: 35, fontSize: 12 }, // Reduced width from 250 to 180
       date: { width: 120, height: 30, fontSize: 11 },
       timestamp: { width: 150, height: 30, fontSize: 11 },
       checkbox: { width: 30, height: 30, fontSize: 18 }
@@ -284,7 +284,7 @@ function usePDFEditor(pdf, job) {
 }
 
 /**
- * Simplified EditableField - No useCallback here either
+ * FIXED EditableField - No Double Jump on Drag Release
  */
 function EditableField({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
   const [value, setValue] = useState(object.content || '');
@@ -340,68 +340,45 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     const startObjX = object.x;
     const startObjY = object.y;
     
-    // Get the field element for direct manipulation
-    const fieldElement = e.currentTarget;
-    
-    // Disable transitions during drag for immediate response
-    fieldElement.style.transition = 'none';
-    
-    // Store current mouse position for smooth updates
-    let currentMouseX = startX;
-    let currentMouseY = startY;
-    let animationId;
-    let finalX = startObjX;
-    let finalY = startObjY;
-    
-    const updatePosition = () => {
-      const deltaX = (currentMouseX - startX) / scale;
-      const deltaY = (currentMouseY - startY) / scale;
-      
-      finalX = Math.max(0, startObjX + deltaX);
-      finalY = Math.max(0, startObjY + deltaY);
-      
-      // Use transform for hardware-accelerated movement
-      fieldElement.style.transform = `translate(${(finalX - object.x) * scale}px, ${(finalY - object.y) * scale}px) translateZ(0)`;
-    };
+    // Track if we're actually dragging (moved more than a few pixels)
+    let hasMoved = false;
     
     const handleMouseMove = (e) => {
-      currentMouseX = e.clientX;
-      currentMouseY = e.clientY;
+      const deltaX = (e.clientX - startX) / scale;
+      const deltaY = (e.clientY - startY) / scale;
       
-      // Cancel previous animation frame
-      if (animationId) {
-        cancelAnimationFrame(animationId);
+      // Check if we've moved enough to consider this a drag
+      if (!hasMoved && (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2)) {
+        hasMoved = true;
       }
       
-      // Schedule smooth update on next frame
-      animationId = requestAnimationFrame(updatePosition);
+      if (hasMoved) {
+        const newX = Math.max(0, startObjX + deltaX);
+        const newY = Math.max(0, startObjY + deltaY);
+        
+        // Update position immediately in React state - no transform tricks
+        onUpdate(object.id, {
+          x: newX,
+          y: newY
+        });
+      }
     };
     
     const handleMouseUp = (e) => {
       setIsDragging(false);
       
-      // Cancel any pending animation
-      if (animationId) {
-        cancelAnimationFrame(animationId);
+      // Final position update if we moved
+      if (hasMoved) {
+        const deltaX = (e.clientX - startX) / scale;
+        const deltaY = (e.clientY - startY) / scale;
+        const finalX = Math.max(0, startObjX + deltaX);
+        const finalY = Math.max(0, startObjY + deltaY);
+        
+        onUpdate(object.id, {
+          x: finalX,
+          y: finalY
+        });
       }
-      
-      // Calculate final position one more time to be sure
-      const deltaX = (e.clientX - startX) / scale;
-      const deltaY = (e.clientY - startY) / scale;
-      finalX = Math.max(0, startObjX + deltaX);
-      finalY = Math.max(0, startObjY + deltaY);
-      
-      // Update React state first, THEN reset transform
-      onUpdate(object.id, {
-        x: finalX,
-        y: finalY
-      });
-      
-      // Use a small delay to ensure React has updated before clearing transform
-      requestAnimationFrame(() => {
-        fieldElement.style.transform = '';
-        fieldElement.style.transition = '';
-      });
       
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -577,8 +554,99 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
 }
 
 /**
- * Simple Signature Dialog
+ * Signature Options Dialog
  */
+function SignatureOptionsDialog({ isOpen, onClose, onUseExisting, onReplace, onCreateNew, hasExistingSignature }) {
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10000
+    }}>
+      <div style={{
+        background: 'white',
+        borderRadius: '8px',
+        padding: '20px',
+        maxWidth: '400px',
+        width: '90%'
+      }}>
+        <h3>My Signature Options</h3>
+        <p>What would you like to do?</p>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', margin: '20px 0' }}>
+          {hasExistingSignature && (
+            <button 
+              onClick={onUseExisting}
+              style={{
+                padding: '12px 16px',
+                backgroundColor: '#1e3a8a',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              ✍️ Use My Existing Signature
+            </button>
+          )}
+          
+          <button 
+            onClick={onReplace}
+            style={{
+              padding: '12px 16px',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            🔄 {hasExistingSignature ? 'Replace My Signature' : 'Create My Signature'}
+          </button>
+          
+          <button 
+            onClick={onCreateNew}
+            style={{
+              padding: '12px 16px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            ➕ Create New Signature Field
+          </button>
+        </div>
+        
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button 
+            onClick={onClose}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 function SignatureDialog({ isOpen, onClose, onSave, signatureType }) {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -712,6 +780,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
   } = usePDFEditor(pdf, job);
 
   const [showSignatureDialog, setShowSignatureDialog] = useState(false);
+  const [showSignatureOptions, setShowSignatureOptions] = useState(false);
   const [signatureType, setSignatureType] = useState('customer'); // 'my' or 'customer'
   const [isSaving, setIsSaving] = useState(false);
   const [mySignature, setMySignature] = useState(() => {
@@ -727,19 +796,49 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
 
   const handleAddMySignature = () => {
     if (mySignature) {
-      // Use saved signature
-      addSignatureObject();
-      setTimeout(() => {
-        if (selectedId) {
-          updateObject(selectedId, { content: mySignature });
-        }
-      }, 100);
+      // Show options dialog
+      setShowSignatureOptions(true);
     } else {
-      // No saved signature, open dialog to create one
+      // No saved signature, create one directly
       setSignatureType('my');
       addSignatureObject();
       setShowSignatureDialog(true);
     }
+  };
+
+  const handleUseExistingSignature = () => {
+    addSignatureObject();
+    setShowSignatureOptions(false);
+    
+    // Use the selectedId that was just set by addSignatureObject
+    setTimeout(() => {
+      if (mySignature) {
+        // Get the most recently created signature object and update it
+        setObjects(prev => {
+          return prev.map(obj => {
+            // Find the signature object that was just created (it will be selected)
+            if (obj.type === 'signature' && obj.page === currentPage && !obj.content) {
+              return { ...obj, content: mySignature };
+            }
+            return obj;
+          });
+        });
+      }
+    }, 10);
+  };
+
+  const handleReplaceSignature = () => {
+    setSignatureType('my');
+    addSignatureObject();
+    setShowSignatureDialog(true);
+    setShowSignatureOptions(false);
+  };
+
+  const handleCreateNewSignatureField = () => {
+    addSignatureObject();
+    setSignatureType('customer');
+    setShowSignatureDialog(true);
+    setShowSignatureOptions(false);
   };
 
   const handleAddCustomerSignature = () => {
@@ -888,90 +987,72 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
   }
 
   return (
-    <div style={{ 
-      height: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column',
-      background: '#f5f5f5'
-    }}>
-      {/* Simple Toolbar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        padding: '10px 20px',
-        background: 'white',
-        borderBottom: '1px solid #ddd',
-        gap: '10px',
-        flexWrap: 'wrap'
-      }}>
-        <button onClick={addTextObject}>📝 Text</button>
-        <button onClick={handleAddMySignature}>
-          ✍️ {mySignature ? 'My Signature' : 'Create My Signature'}
-        </button>
-        <button onClick={handleAddCustomerSignature}>✍️ Customer Signature</button>
-        <button onClick={handleAddMyName}>
-          👤 {myName ? `My Name (${myName})` : 'Set My Name'}
-        </button>
-        <button onClick={addDateObject}>📅 Date</button>
-        <button onClick={addTimestampObject}>🕐 Timestamp</button>
-        <button onClick={addCheckboxObject}>☑️ Checkbox</button>
-        
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button 
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage <= 1}
-          >
-            ← Prev
+    <div className="pdf-editor-container">
+      {/* Centered Toolbar */}
+      <div className="pdf-editor-toolbar">
+        <div className="toolbar-content">
+          <button className="pdf-btn" onClick={addTextObject}>📝 Text</button>
+          <button className="pdf-btn" onClick={handleAddMySignature}>
+            ✍️ {mySignature ? 'My Signature' : 'Create My Signature'}
           </button>
-          <span>Page {currentPage} of {totalPages}</span>
-          <button 
-            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage >= totalPages}
-          >
-            Next →
+          <button className="pdf-btn" onClick={handleAddCustomerSignature}>✍️ Customer Signature</button>
+          <button className="pdf-btn" onClick={handleAddMyName}>
+            👤 {myName ? `My Name (${myName})` : 'Set My Name'}
           </button>
+          <button className="pdf-btn" onClick={addDateObject}>📅 Date</button>
+          <button className="pdf-btn" onClick={addTimestampObject}>🕐 Timestamp</button>
+          <button className="pdf-btn" onClick={addCheckboxObject}>☑️ Checkbox</button>
           
-          <select 
-            value={scale} 
-            onChange={(e) => setScale(Number(e.target.value))}
-          >
-            <option value={0.5}>50%</option>
-            <option value={0.75}>75%</option>
-            <option value={1.0}>100%</option>
-            <option value={1.2}>120%</option>
-            <option value={1.5}>150%</option>
-          </select>
-          
-          <button onClick={clearAllObjects} disabled={objects.length === 0}>
-            🗑️ Clear
-          </button>
-          <button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving...' : '💾 Save'}
-          </button>
-          <button onClick={onClose}>← Back</button>
+          <div className="toolbar-controls">
+            <button 
+              className="pdf-btn"
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage <= 1}
+            >
+              ← Prev
+            </button>
+            <span className="page-info">Page {currentPage} of {totalPages}</span>
+            <button 
+              className="pdf-btn"
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              Next →
+            </button>
+            
+            <select 
+              className="scale-select"
+              value={scale} 
+              onChange={(e) => setScale(Number(e.target.value))}
+            >
+              <option value={0.5}>50%</option>
+              <option value={0.75}>75%</option>
+              <option value={1.0}>100%</option>
+              <option value={1.2}>120%</option>
+              <option value={1.5}>150%</option>
+            </select>
+            
+            <button className="pdf-btn" onClick={clearAllObjects} disabled={objects.length === 0}>
+              🗑️ Clear
+            </button>
+            <button className="pdf-btn" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? 'Saving...' : '💾 Save'}
+            </button>
+            <button className="pdf-btn" onClick={onClose}>← Back</button>
+          </div>
         </div>
       </div>
 
-      {/* PDF Canvas Container */}
-      <div style={{
-        flex: 1,
-        overflow: 'auto',
-        padding: '20px',
-        position: 'relative'
-      }}>
-        <div style={{ position: 'relative', display: 'inline-block' }}>
+      {/* Centered PDF Canvas Container */}
+      <div className="pdf-canvas-container">
+        <div className="pdf-canvas-wrapper">
           <canvas
             ref={canvasRef}
             onClick={handleCanvasClick}
-            style={{
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-              display: 'block'
-            }}
+            className="pdf-canvas"
           />
           
-          {/* Render fields */}
+          {/* Render fields - positions remain relative to canvas */}
           {currentObjects.map(obj => (
             <EditableField
               key={obj.id}
@@ -987,6 +1068,16 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
           ))}
         </div>
       </div>
+
+      {/* Signature Options Dialog */}
+      <SignatureOptionsDialog
+        isOpen={showSignatureOptions}
+        onClose={() => setShowSignatureOptions(false)}
+        onUseExisting={handleUseExistingSignature}
+        onReplace={handleReplaceSignature}
+        onCreateNew={handleCreateNewSignatureField}
+        hasExistingSignature={!!mySignature}
+      />
 
       {/* Signature Dialog */}
       <SignatureDialog
