@@ -1,8 +1,10 @@
-/* src/pages/Attachments/Attachments.css - Redesigned Layout */
+/* src/pages/Attachments/Attachments.css - Updated with Equal Heights */
 
 /* Scope all styles under .attachments-page to avoid conflicts */
 .attachments-page {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
   background: linear-gradient(135deg, #f7fafc 0%, #f8f9fa 100%);
   min-height: 100vh;
 }
@@ -42,12 +44,14 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-/* ===== MAIN LAYOUT: 33% | 66% ===== */
+/* ===== MAIN LAYOUT: 33% | 66% - EQUAL HEIGHT ===== */
 .attachments-page .main-layout {
   display: grid;
   grid-template-columns: 1fr 2fr; /* 33% | 66% */
   gap: 2rem;
   margin-bottom: 2rem;
+  min-height: 450px; /* Ensure minimum height */
+  align-items: stretch; /* Make children same height */
 }
 
 /* ===== CUSTOMER INFO SECTION (33%) ===== */
@@ -55,14 +59,18 @@
   background: #ffffff;
   border: 2px solid #edf2f7;
   border-radius: 16px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   transition: all 0.2s ease;
-  height: fit-content;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Take full height of grid */
 }
 
 .attachments-page .customer-info-section:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
   border-color: rgba(0, 82, 204, 0.3);
 }
 
@@ -71,6 +79,7 @@
   color: #ffffff;
   padding: 1.5rem;
   text-align: center;
+  flex-shrink: 0; /* Don't shrink */
 }
 
 .attachments-page .section-header h3 {
@@ -85,6 +94,10 @@
 
 .attachments-page .customer-details {
   padding: 2rem;
+  flex: 1; /* Take remaining space */
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center content vertically if not enough */
 }
 
 .attachments-page .customer-name {
@@ -199,16 +212,17 @@
   border: 1px solid #e2e8f0;
 }
 
-/* ===== PDF FORMS SECTION (66%) ===== */
+/* ===== PDF FORMS SECTION (66%) - EQUAL HEIGHT ===== */
 .attachments-page .pdf-forms-section {
   background: #ffffff;
   border: 2px solid #edf2f7;
   border-radius: 16px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  height: fit-content; /* Match customer info height */
+  height: 100%; /* Take full height of grid */
 }
 
 .attachments-page .pdf-forms-section .section-header {
@@ -219,15 +233,18 @@
 .attachments-page .pdf-forms-grid-container {
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden; /* Prevent horizontal scrolling */
+  overflow-x: hidden;
   padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center content if not enough items */
 }
 
 .attachments-page .pdf-forms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Responsive columns that fit container */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
-  grid-auto-rows: max-content;
+  grid-auto-rows: minmax(140px, auto); /* Consistent row heights */
   width: 100%;
 }
 
@@ -245,6 +262,7 @@
   min-height: 140px;
   max-width: 100%;
   box-sizing: border-box;
+  justify-content: space-between; /* Distribute content evenly */
 }
 
 .attachments-page .pdf-form-card:hover {
@@ -326,27 +344,31 @@
   box-shadow: 0 4px 8px rgba(0, 82, 204, 0.4);
 }
 
-/* ===== BOTTOM SECTIONS: 50% | 50% ===== */
+/* ===== BOTTOM SECTIONS: 50% | 50% - EQUAL HEIGHT ===== */
 .attachments-page .bottom-sections {
   display: grid;
   grid-template-columns: 1fr 1fr; /* 50% | 50% */
   gap: 2rem;
+  min-height: 350px; /* Consistent height */
+  align-items: stretch; /* Make children same height */
 }
 
 .attachments-page .forms-section {
   background: #ffffff;
   border: 2px solid #edf2f7;
   border-radius: 16px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   overflow: hidden;
   transition: all 0.2s ease;
-  height: 300px; /* Fixed height */
   display: flex;
   flex-direction: column;
+  height: 100%; /* Take full height */
 }
 
 .attachments-page .forms-section:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
   border-color: rgba(0, 82, 204, 0.3);
 }
 
@@ -364,6 +386,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 250px; /* Ensure minimum content height */
 }
 
 /* ===== EMPTY STATES ===== */
@@ -371,6 +394,10 @@
   text-align: center;
   color: #718096;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .attachments-page .empty-icon {
@@ -414,8 +441,12 @@
 }
 
 @keyframes attachmentsPageSpin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .attachments-page .loading-content h2 {
@@ -461,7 +492,7 @@
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 1200px) {
   .attachments-page .pdf-forms-grid {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Smaller min-width for better fit */
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 }
 
@@ -469,18 +500,25 @@
   .attachments-page .main-layout {
     grid-template-columns: 1fr; /* Stack vertically */
     gap: 1.5rem;
+    min-height: auto;
   }
-  
+
+  .attachments-page .customer-info-section,
   .attachments-page .pdf-forms-section {
-    height: auto; /* Remove fixed height when stacked */
+    min-height: 400px;
   }
-  
+
   .attachments-page .pdf-forms-grid {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Better spacing when stacked */
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
-  
+
   .attachments-page .bottom-sections {
     grid-template-columns: 1fr; /* Stack vertically */
+    min-height: auto;
+  }
+
+  .attachments-page .forms-section {
+    min-height: 300px;
   }
 }
 
@@ -488,20 +526,21 @@
   .attachments-page .page-container {
     padding: 1rem;
   }
-  
+
   .attachments-page .pdf-forms-grid {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Smaller cards on mobile */
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 1rem;
   }
-  
+
+  .attachments-page .customer-info-section,
   .attachments-page .pdf-forms-section {
-    height: auto;
+    min-height: 350px;
   }
-  
+
   .attachments-page .forms-section {
-    height: 250px;
+    min-height: 250px;
   }
-  
+
   .attachments-page .customer-details,
   .attachments-page .pdf-forms-grid-container,
   .attachments-page .forms-content {
