@@ -1,7 +1,7 @@
-// src/components/Header.jsx - Clean header component with page title support
+// src/components/Header.jsx - Clean header component with centered breadcrumb navigation
 import React from "react";
 import sessionManager from "../../services/sessionManager";
-import './Header.css';
+import "./Header.css";
 
 export default function Header({
   user,
@@ -47,20 +47,29 @@ export default function Header({
             />
             <h1>TitanPDF</h1>
           </button>
+        </div>
 
-          {/* Show page title if provided, otherwise show breadcrumbs */}
+        {/* Centered breadcrumb navigation or page title */}
+        <div className="header-center">
           {pageTitle ? (
             <div className="page-title">
               <h2>{pageTitle}</h2>
             </div>
           ) : (
             breadcrumbs.length > 0 && (
-              <nav className="breadcrumb-nav" aria-label="Navigation breadcrumb">
+              <nav
+                className="breadcrumb-nav"
+                aria-label="Navigation breadcrumb"
+              >
                 {breadcrumbs.map((item, index) => (
                   <React.Fragment key={item.id}>
-                    {index > 0 && <span className="breadcrumb-separator">→</span>}
+                    {index > 0 && (
+                      <span className="breadcrumb-separator">→</span>
+                    )}
                     <button
-                      className={`breadcrumb-item ${item.active ? "active" : ""}`}
+                      className={`breadcrumb-item ${
+                        item.active ? "active" : ""
+                      }`}
                       onClick={() =>
                         canNavigateToItem(item, index)
                           ? onNavigate(item.id)
@@ -92,14 +101,14 @@ export default function Header({
           </div>
 
           {/* Session Status Indicator */}
-          <div className="session-status" title={sessionStatus.message}>
+          {/* <div className="session-status" title={sessionStatus.message}>
             <span className={`status-indicator ${sessionStatus.status}`}></span>
             {sessionStatus.status === "expiring_soon" && (
               <span className="session-warning">
                 {sessionStatus.timeRemaining}
               </span>
             )}
-          </div>
+          </div> */}
 
           <button
             onClick={onLogout}
@@ -107,6 +116,43 @@ export default function Header({
             aria-label="Logout from TitanPDF"
           >
             Logout
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Navigation (bottom) */}
+      <div className="mobile-nav">
+        <div className="mobile-nav-items">
+          <button
+            className={`mobile-nav-btn ${
+              currentPage === "jobs" ? "active" : ""
+            }`}
+            onClick={() => onNavigate("jobs")}
+          >
+            <span className="mobile-nav-icon">💼</span>
+            <span className="mobile-nav-label">Jobs</span>
+          </button>
+          <button
+            className={`mobile-nav-btn ${
+              currentPage === "profile" ? "active" : ""
+            }`}
+            onClick={() => onNavigate("profile")}
+          >
+            <span className="mobile-nav-icon">👤</span>
+            <span className="mobile-nav-label">Profile</span>
+          </button>
+          <button
+            className={`mobile-nav-btn ${
+              currentPage === "help" ? "active" : ""
+            }`}
+            onClick={() => onNavigate("help")}
+          >
+            <span className="mobile-nav-icon">❓</span>
+            <span className="mobile-nav-label">Help</span>
+          </button>
+          <button className="mobile-nav-btn logout" onClick={onLogout}>
+            <span className="mobile-nav-icon">🚪</span>
+            <span className="mobile-nav-label">Logout</span>
           </button>
         </div>
       </div>
