@@ -499,6 +499,243 @@
   font-size: 0.9rem;
 }
 
+/* ===== SAVED & UPLOADED FORMS LIST STYLING ===== */
+
+/* ===== SAVED FORMS LIST ===== */
+.attachments-page .saved-forms-list {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  max-height: 300px; /* Prevent overflow */
+}
+
+.attachments-page .saved-form-item {
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  gap: 1rem; /* Add gap between sections */
+}
+
+.attachments-page .saved-form-item:hover {
+  background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
+  border-color: #f093fb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(240, 147, 251, 0.2);
+}
+
+.attachments-page .saved-form-item .form-info {
+  flex: 1;
+  min-width: 0; /* Allow text truncation */
+}
+
+.attachments-page .saved-form-item .form-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachments-page .saved-form-item .form-meta {
+  font-size: 0.8rem;
+  color: #718096;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+/* ===== FORM ACTIONS CONTAINER ===== */
+.attachments-page .form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* ===== EDIT BUTTON ===== */
+.attachments-page .edit-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.attachments-page .edit-btn:hover {
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
+.attachments-page .edit-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+/* ===== UPLOAD BUTTON (Updated) ===== */
+.attachments-page .upload-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(240, 147, 251, 0.3);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.attachments-page .upload-btn:hover {
+  background: linear-gradient(135deg, #e879f9 0%, #f43f5e 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(240, 147, 251, 0.4);
+}
+
+.attachments-page .upload-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(240, 147, 251, 0.3);
+}
+
+/* ===== UPLOADED FORMS LIST ===== */
+.attachments-page .uploaded-forms-list {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  max-height: 300px; /* Prevent overflow */
+}
+
+.attachments-page .uploaded-form-item {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 2px solid #e0f2fe;
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.attachments-page .uploaded-form-item:hover {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  border-color: #4facfe;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(79, 172, 254, 0.2);
+}
+
+.attachments-page .uploaded-form-item .form-info {
+  flex: 1;
+  min-width: 0; /* Allow text truncation */
+}
+
+.attachments-page .uploaded-form-item .form-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachments-page .uploaded-form-item .form-meta {
+  font-size: 0.8rem;
+  color: #718096;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+/* ===== STATUS BADGE FOR COMPLETED FORMS ===== */
+.attachments-page .status-badge.completed {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: 1rem;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+/* ===== SECTION HEADERS ===== */
+.attachments-page .section-header {
+  padding: 1.5rem 2rem;
+  color: #ffffff;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.attachments-page .section-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* ===== LOADING STATE FOR FORMS ===== */
+.attachments-page .loading {
+  padding: 2rem;
+  text-align: center;
+  color: #718096;
+  font-style: italic;
+}
+
+/* ===== LOADING STATE FOR EDITING ===== */
+.attachments-page .edit-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.attachments-page .edit-btn:disabled:hover {
+  background: #9ca3af;
+  transform: none;
+  box-shadow: none;
+}
+
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 1200px) {
   .attachments-page .pdf-forms-grid {
@@ -555,5 +792,72 @@
   .attachments-page .pdf-forms-grid-container,
   .attachments-page .forms-content {
     padding: 1.5rem;
+  }
+
+  /* ===== RESPONSIVE DESIGN FOR FORM ACTIONS ===== */
+  .attachments-page .saved-form-item,
+  .attachments-page .uploaded-form-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .attachments-page .saved-form-item .form-info,
+  .attachments-page .uploaded-form-item .form-info {
+    text-align: center;
+  }
+
+  .attachments-page .form-actions {
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  .attachments-page .edit-btn,
+  .attachments-page .upload-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .attachments-page .status-badge.completed {
+    margin-left: 0;
+    align-self: center;
+  }
+
+  .attachments-page .saved-form-item .form-name,
+  .attachments-page .uploaded-form-item .form-name {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  .attachments-page .saved-form-item .form-meta,
+  .attachments-page .uploaded-form-item .form-meta {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .attachments-page .saved-forms-list,
+  .attachments-page .uploaded-forms-list {
+    padding: 1rem;
+  }
+
+  .attachments-page .section-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .attachments-page .section-header h3 {
+    font-size: 1rem;
+  }
+
+  .attachments-page .form-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .attachments-page .edit-btn,
+  .attachments-page .upload-btn {
+    width: 100%;
   }
 }
