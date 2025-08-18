@@ -149,34 +149,59 @@ export default function Attachments({
     setSelectedPDF(null);
   };
 
-  // ✅ UPDATED: Save PDF as draft using new API
+  // ✅ UPDATED: Save PDF with proper routing logic
   const handleSavePDF = async (pdfData) => {
     try {
-      console.log('💾 Saving PDF as draft:', pdfData);
+      console.log('💾 Handling PDF save...');
+      console.log('📊 Selected PDF object:', selectedPDF);
+      console.log('📄 PDF Data:', pdfData);
       
-      const attachmentId = pdfData.attachmentId || 
-                          selectedPDF?.serviceTitanId || 
-                          selectedPDF?.id ||
-                          pdfData.serviceTitanId ||
-                          pdfData.pdfId;
+      let response;
       
-      if (!attachmentId) {
-        throw new Error("Missing attachment ID - cannot save PDF");
-      }
+      // Check if this is an existing draft (editing a Google Drive file)
+      if (selectedPDF?.googleDriveFileId) {
+        console.log('🔄 Updating existing draft:', selectedPDF.googleDriveFileId);
+        console.log('📝 Update data:', { 
+          jobId: job.id, 
+          objects: pdfData.objects?.length || 0, 
+          fileName: pdfData.fileName 
+        });
+        
+        // Use UPDATE endpoint for existing drafts
+        response = await apiClient.updateDraft(
+          selectedPDF.googleDriveFileId,
+          job.id,
+          pdfData.objects || [],
+          pdfData.fileName
+        );
+        
+      } else {
+        console.log('💾 Saving new draft');
+        
+        const attachmentId = pdfData.attachmentId || 
+                            selectedPDF?.serviceTitanId || 
+                            selectedPDF?.id ||
+                            pdfData.serviceTitanId ||
+                            pdfData.pdfId;
+        
+        if (!attachmentId) {
+          throw new Error("Missing attachment ID - cannot save PDF");
+        }
 
-      console.log('🔑 Using attachment ID:', attachmentId);
+        console.log('🔑 Using attachment ID:', attachmentId);
+        
+        // Use SAVE endpoint for new drafts
+        response = await apiClient.savePDFAsDraft({
+          jobId: job.id,
+          attachmentId: attachmentId,
+          fileName: selectedPDF?.fileName || selectedPDF?.name || 'form.pdf',
+          objects: pdfData.objects || []
+        });
+      }
       
-      // ✅ Updated to use new draft API
-      const response = await apiClient.savePDFAsDraft({
-        jobId: job.id,
-        attachmentId: attachmentId,
-        fileName: selectedPDF?.fileName || selectedPDF?.name || 'form.pdf',
-        objects: pdfData.objects || pdfData.fields || []
-      });
+      console.log('✅ PDF operation completed:', response);
       
-      console.log('✅ PDF saved as draft:', response);
-      
-      // Reload drafts after saving
+      // Reload drafts after saving/updating
       const updatedDrafts = await apiClient.getJobDrafts(job.id);
       setDrafts(updatedDrafts.drafts || []);
       setCompletedFiles(updatedDrafts.completed || []);
@@ -186,16 +211,17 @@ export default function Attachments({
       
       return {
         success: true,
-        message: 'PDF saved as draft successfully',
+        message: selectedPDF?.googleDriveFileId ? 'Draft updated successfully' : 'PDF saved as draft successfully',
         fileName: response.fileName,
         fileId: response.fileId
       };
+      
     } catch (error) {
-      console.error('❌ Error saving PDF as draft:', error);
+      console.error('❌ Error handling PDF save:', error);
       
       return {
         success: false,
-        error: error.message || 'Failed to save PDF as draft'
+        error: error.message || 'Failed to save/update PDF'
       };
     }
   };

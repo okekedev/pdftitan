@@ -102,6 +102,65 @@ router.post('/save', async (req, res) => {
 });
 
 /**
+ * Update existing draft in Google Drive
+ * PUT /api/drafts/update/:fileId
+ */
+router.put('/update/:fileId', async (req, res) => {
+  try {
+    console.log(`🔄 Updating existing draft: ${req.params.fileId}`);
+    const { jobId, objects, fileName } = req.body;
+    const fileId = req.params.fileId;
+
+    if (!jobId || !objects) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: jobId, objects'
+      });
+    }
+
+    // Download the existing PDF from Google Drive
+    console.log('📥 Downloading existing draft from Google Drive...');
+    const downloadResult = await googleDriveService.downloadFile(fileId);
+    
+    if (!downloadResult.success) {
+      throw new Error(`Failed to download existing draft: ${downloadResult.error}`);
+    }
+    
+    const originalPdfBuffer = downloadResult.data;
+    console.log(`✅ Downloaded existing draft: ${originalPdfBuffer.length} bytes`);
+
+    // Generate new filled PDF with updated form fields
+    console.log('🔧 Generating updated PDF with new form fields...');
+    const filledPdfBuffer = await googleDriveService.generateFilledPDF(originalPdfBuffer, objects);
+    
+    // Update the file in Google Drive (replace the existing file)
+    console.log('💾 Updating file in Google Drive...');
+    const updateResult = await googleDriveService.updateFile(fileId, filledPdfBuffer, fileName);
+    
+    if (!updateResult.success) {
+      throw new Error(`Failed to update file in Google Drive: ${updateResult.error}`);
+    }
+
+    console.log('✅ Draft updated successfully in Google Drive');
+    
+    res.json({
+      success: true,
+      message: 'Draft updated successfully',
+      fileId: fileId,
+      fileName: updateResult.fileName || fileName
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating draft:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update draft',
+      details: error.message
+    });
+  }
+});
+
+/**
  * Get drafts and completed files for a specific job
  * GET /api/drafts/:jobId
  */

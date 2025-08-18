@@ -5,7 +5,7 @@
  */
 
 const { google } = require('googleapis');
-const { PDFDocument } = require('pdf-lib');
+const { PDFDocument, rgb } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
 
@@ -173,6 +173,50 @@ class GoogleDriveService {
   }
 
   /**
+   * Update existing file in Google Drive
+   */
+  async updateFile(fileId, pdfBuffer, fileName) {
+    try {
+      if (!this.drive) {
+        throw new Error('Google Drive not initialized');
+      }
+
+      console.log(`🔄 Updating file ${fileId} in Google Drive...`);
+
+      // Create media object for upload
+      const media = {
+        mimeType: 'application/pdf',
+        body: require('stream').Readable.from(pdfBuffer)
+      };
+
+      // Update the file content (keep same name and location)
+      const response = await this.drive.files.update({
+        fileId: fileId,
+        media: media,
+        supportsAllDrives: true,
+        fields: 'id, name, size, modifiedTime'
+      });
+
+      console.log(`✅ File updated successfully: ${response.data.id}`);
+      
+      return {
+        success: true,
+        fileId: response.data.id,
+        fileName: response.data.name,
+        size: response.data.size,
+        modifiedTime: response.data.modifiedTime
+      };
+
+    } catch (error) {
+      console.error('❌ Failed to update file in Google Drive:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Move draft to completed folder (promote)
    */
   async promoteToCompleted(draftFileId, jobId) {
@@ -287,6 +331,7 @@ class GoogleDriveService {
     try {
       const existingPdfDoc = await PDFDocument.load(originalPdfBuffer);
       const pages = existingPdfDoc.getPages();
+      const font = await existingPdfDoc.embedFont('Helvetica');
 
       // Process each form field
       for (const field of formFields) {
@@ -303,12 +348,15 @@ class GoogleDriveService {
 
         switch (field.type) {
           case 'text':
-            page.drawText(field.content || '', {
-              x: field.x,
-              y: adjustedY + (field.height / 2) - 5, // Center vertically
-              size: 12,
-              color: this.hexToRgb(field.color || '#000000')
-            });
+            if (field.content && field.content.toString().trim()) {
+              page.drawText(field.content.toString(), {
+                x: field.x,
+                y: adjustedY + (field.height / 2) - 5, // Center vertically
+                size: field.fontSize || 12,
+                font: font,
+                color: rgb(0, 0, 0)
+              });
+            }
             break;
 
           case 'signature':
@@ -331,22 +379,32 @@ class GoogleDriveService {
 
           case 'date':
           case 'timestamp':
-            const dateText = field.content || new Date().toLocaleDateString();
-            page.drawText(dateText, {
-              x: field.x,
-              y: adjustedY + (field.height / 2) - 5,
-              size: 10,
-              color: this.hexToRgb(field.color || '#000000')
-            });
+            if (field.content && field.content.toString().trim()) {
+              const dateText = field.content.toString();
+              page.drawText(dateText, {
+                x: field.x,
+                y: adjustedY + (field.height / 2) - 5,
+                size: field.fontSize || 10,
+                font: font,
+                color: rgb(0, 0, 0)
+              });
+            }
             break;
 
           case 'checkbox':
-            if (field.checked) {
-              page.drawText('✓', {
+            // Check if checkbox is checked (content should be true for checked boxes)
+            const isChecked = field.content === true || field.content === 'true' || field.content === 1;
+            
+            if (isChecked) {
+              // Render X mark for checked boxes (matching frontend style)
+              const fontSize = 10;
+              
+              page.drawText('X', {
                 x: field.x + 2,
                 y: adjustedY + 2,
-                size: field.height - 4,
-                color: this.hexToRgb(field.color || '#000000')
+                size: fontSize,
+                font: font,
+                color: rgb(0, 0, 1) // Blue color
               });
             }
             break;
@@ -364,7 +422,6 @@ class GoogleDriveService {
    * Convert hex color to RGB
    */
   hexToRgb(hex) {
-    const { rgb } = require('pdf-lib');
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     if (result) {
       return rgb(

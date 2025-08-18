@@ -308,6 +308,29 @@ class ApiClient {
     }
   }
 
+  // 🔄 Update existing draft
+  async updateDraft(fileId, jobId, objects, fileName) {
+    try {
+      console.log(`🔄 Updating existing draft: ${fileId}`);
+      
+      const response = await this.apiCall(`/api/drafts/update/${fileId}`, {
+        method: 'PUT',
+        body: {
+          jobId,
+          objects,
+          fileName
+        }
+      });
+      
+      console.log('✅ Draft updated:', response);
+      return response;
+      
+    } catch (error) {
+      console.error('❌ Error updating draft:', error);
+      throw new Error(`Failed to update draft: ${error.message}`);
+    }
+  }
+
   // 🔍 Get drafts and completed files for a job
   async getJobDrafts(jobId) {
     try {
