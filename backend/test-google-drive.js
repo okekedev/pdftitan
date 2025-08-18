@@ -2,10 +2,24 @@
  * Test script to verify Google Drive Service Account integration
  */
 
+// Load environment variables from .env file
+require('dotenv').config({ path: '../.env' });
+
 const googleDriveService = require('./services/googleDriveService');
 
 async function testGoogleDrive() {
   console.log('🔍 Testing Google Drive Service Account Integration...\n');
+
+  // Debug environment variables
+  console.log('🔧 Environment Variables Debug:');
+  console.log('   GOOGLE_DRIVE_PROJECT_ID:', process.env.GOOGLE_DRIVE_PROJECT_ID ? '✅ Set' : '❌ Missing');
+  console.log('   GOOGLE_DRIVE_PRIVATE_KEY_ID:', process.env.GOOGLE_DRIVE_PRIVATE_KEY_ID ? '✅ Set' : '❌ Missing');
+  console.log('   GOOGLE_DRIVE_PRIVATE_KEY:', process.env.GOOGLE_DRIVE_PRIVATE_KEY ? '✅ Set (truncated)' : '❌ Missing');
+  console.log('   GOOGLE_DRIVE_CLIENT_EMAIL:', process.env.GOOGLE_DRIVE_CLIENT_EMAIL ? '✅ Set' : '❌ Missing');
+  console.log('   GOOGLE_DRIVE_CLIENT_ID:', process.env.GOOGLE_DRIVE_CLIENT_ID ? '✅ Set' : '❌ Missing');
+  console.log('   GOOGLE_DRIVE_DRAFT_FOLDER_ID:', process.env.GOOGLE_DRIVE_DRAFT_FOLDER_ID ? '✅ Set' : '❌ Missing');
+  console.log('   GOOGLE_DRIVE_COMPLETED_FOLDER_ID:', process.env.GOOGLE_DRIVE_COMPLETED_FOLDER_ID ? '✅ Set' : '❌ Missing');
+  console.log('');
 
   try {
     // Test 1: Initialize the service
@@ -122,6 +136,7 @@ async function testGoogleDrive() {
     console.log('   2. Ensure folders are shared with service account');
     console.log('   3. Verify Google Drive API is enabled');
     console.log('   4. Check service account credentials');
+    console.log('   5. Make sure .env file is in the root directory (one level up)');
   }
 }
 
