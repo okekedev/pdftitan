@@ -1,4 +1,4 @@
-// src/pages/Attachments/Attachments.jsx - Redesigned Layout
+// src/pages/Attachments/Attachments.jsx - Redesigned Layout with Drafts Support
 import React, { useState, useEffect } from "react";
 import PDFEditor from "../PDFEditor/PDFEditor";
 import Header from "../../components/Header/Header";
@@ -19,6 +19,11 @@ export default function Attachments({
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingJobDetails, setIsLoadingJobDetails] = useState(true);
   const [error, setError] = useState('');
+
+  // ✅ ADDED: Missing state for drafts functionality
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
+  const [drafts, setDrafts] = useState([]);
+  const [completedFiles, setCompletedFiles] = useState([]);
 
   // Load job details and customer information
   useEffect(() => {
@@ -144,9 +149,10 @@ export default function Attachments({
     setSelectedPDF(null);
   };
 
+  // ✅ UPDATED: Save PDF as draft using new API
   const handleSavePDF = async (pdfData) => {
     try {
-      console.log('💾 Saving PDF in Attachments.jsx:', pdfData);
+      console.log('💾 Saving PDF as draft:', pdfData);
       
       const attachmentId = pdfData.attachmentId || 
                           selectedPDF?.serviceTitanId || 
@@ -160,29 +166,36 @@ export default function Attachments({
 
       console.log('🔑 Using attachment ID:', attachmentId);
       
-      const response = await apiClient.uploadCompletedPDF({
+      // ✅ Updated to use new draft API
+      const response = await apiClient.savePDFAsDraft({
         jobId: job.id,
         attachmentId: attachmentId,
-        fileName: pdfData.fileName,
-        originalFileName: pdfData.originalFileName,
-        fields: pdfData.fields,
-        metadata: pdfData.metadata
+        fileName: selectedPDF?.fileName || selectedPDF?.name || 'form.pdf',
+        objects: pdfData.objects || pdfData.fields || []
       });
       
-      console.log('✅ PDF save response:', response);
+      console.log('✅ PDF saved as draft:', response);
+      
+      // Reload drafts after saving
+      const updatedDrafts = await apiClient.getJobDrafts(job.id);
+      setDrafts(updatedDrafts.drafts || []);
+      setCompletedFiles(updatedDrafts.completed || []);
+      
+      // Close PDF editor
+      setSelectedPDF(null);
       
       return {
         success: true,
-        message: 'PDF saved successfully',
-        fileName: response.fileName || pdfData.fileName,
-        uploadedAt: response.uploadedAt || new Date().toISOString()
+        message: 'PDF saved as draft successfully',
+        fileName: response.fileName,
+        fileId: response.fileId
       };
     } catch (error) {
-      console.error('❌ Error saving PDF:', error);
+      console.error('❌ Error saving PDF as draft:', error);
       
       return {
         success: false,
-        error: error.message || 'Failed to save PDF'
+        error: error.message || 'Failed to save PDF as draft'
       };
     }
   };
@@ -198,7 +211,7 @@ export default function Attachments({
     try {
       console.log('📤 Promoting draft to completed:', fileId);
       
-      const response = await apiClient.promoteToCompleted(fileId);
+      const response = await apiClient.promoteToCompleted(fileId, { jobId: job.id });
       
       if (response.success) {
         alert('Form successfully moved to completed folder!');
@@ -216,7 +229,6 @@ export default function Attachments({
       alert(`Failed to move form: ${error.message}`);
     }
   };
-
 
   // Helper functions
   const getStatusClass = (status) => {
@@ -260,7 +272,6 @@ export default function Attachments({
 
   // Create breadcrumbs for header
   const breadcrumbs = [
-
     {
       id: "attachments",
       label: `Job #${job?.number || "Unknown"} - PDF Forms`,
@@ -511,36 +522,81 @@ export default function Attachments({
 
         {/* Bottom Sections: 50% Saved | 50% Uploaded */}
         <div className="bottom-sections">
-          {/* Saved Forms Section (50%) */}
+          {/* Saved Forms Section (50%) - Updated with actual drafts */}
           <div className="forms-section saved-forms">
             <div className="section-header">
-              <h3>💾 Saved Forms</h3>
+              <h3>💾 Saved Forms ({drafts.length})</h3>
             </div>
             <div className="forms-content">
-              <div className="empty-state">
-                <div className="empty-icon">💾</div>
-                <h4>No Saved Forms</h4>
-                <p>Completed forms will be saved here automatically. Start editing a form to see saved versions.</p>
-              </div>
+              {isLoadingDrafts ? (
+                <div className="loading">Loading saved forms...</div>
+              ) : drafts.length > 0 ? (
+                <div className="saved-forms-list">
+                  {drafts.map((draft) => (
+                    <div key={draft.id} className="saved-form-item">
+                      <div className="form-info">
+                        <div className="form-name">📄 {draft.name}</div>
+                        <div className="form-meta">
+                          Saved: {new Date(draft.modifiedTime).toLocaleDateString()}
+                          {draft.size && ` • ${Math.round(draft.size / 1024)} KB`}
+                        </div>
+                      </div>
+                      <button
+                        className="upload-btn"
+                        onClick={() => handlePromoteToCompleted(draft.id, draft.name)}
+                        title="Upload this form to completed folder"
+                      >
+                        📤 Upload
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon">💾</div>
+                  <h4>No Saved Forms</h4>
+                  <p>Completed forms will be saved here automatically. Start editing a form to see saved versions.</p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Uploaded Forms Section (50%) */}
+          {/* Uploaded Forms Section (50%) - Updated with actual completed files */}
           <div className="forms-section uploaded-forms">
             <div className="section-header">
-              <h3>📤 Uploaded Forms</h3>
+              <h3>📤 Uploaded Forms ({completedFiles.length})</h3>
             </div>
             <div className="forms-content">
-              <div className="empty-state">
-                <div className="empty-icon">📤</div>
-                <h4>No Uploaded Forms</h4>
-                <p>Successfully completed and uploaded forms will appear here with upload timestamps.</p>
-              </div>
+              {isLoadingDrafts ? (
+                <div className="loading">Loading uploaded forms...</div>
+              ) : completedFiles.length > 0 ? (
+                <div className="uploaded-forms-list">
+                  {completedFiles.map((completed) => (
+                    <div key={completed.id} className="uploaded-form-item">
+                      <div className="form-info">
+                        <div className="form-name">✅ {completed.name}</div>
+                        <div className="form-meta">
+                          Uploaded: {new Date(completed.modifiedTime).toLocaleDateString()}
+                          {completed.size && ` • ${Math.round(completed.size / 1024)} KB`}
+                        </div>
+                      </div>
+                      <div className="status-badge completed">
+                        ✅ Completed
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon">📤</div>
+                  <h4>No Uploaded Forms</h4>
+                  <p>Successfully completed and uploaded forms will appear here with upload timestamps.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
-
     </div>
   );
 }

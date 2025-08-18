@@ -5,10 +5,9 @@
 
 const express = require('express');
 const googleDriveService = require('../services/googleDriveService');
-const fetch = require('node-fetch');
+// ❌ REMOVED: const fetch = require('node-fetch'); // This was causing the ES module error
 
 const router = express.Router();
-
 
 /**
  * Save PDF as draft to Google Drive
@@ -50,94 +49,102 @@ router.post('/save', async (req, res) => {
       originalPdfBuffer,
       objects,
       jobId,
-      fileName || 'form.pdf'
+      fileName
     );
 
     if (result.success) {
-      console.log('✅ Draft saved successfully');
+      console.log('✅ PDF saved as draft successfully');
       res.json({
         success: true,
-        message: 'PDF saved as draft successfully',
+        message: 'PDF saved as draft',
         fileId: result.fileId,
         fileName: result.fileName,
-        createdTime: result.createdTime
+        jobId: result.jobId,
+        folderType: result.folderType
       });
     } else {
-      console.error('❌ Failed to save draft');
+      console.log('❌ Failed to save PDF as draft:', result.error);
       res.status(500).json({
         success: false,
-        error: result.error || 'Failed to save draft'
+        error: result.error
       });
     }
 
   } catch (error) {
-    console.error('❌ Error saving draft:', error);
+    console.error('❌ Error saving PDF as draft:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Internal server error'
+      error: error.message
     });
   }
 });
 
 /**
- * Get drafts and completed files for a job
+ * Get drafts and completed files for a specific job
  * GET /api/drafts/:jobId
  */
 router.get('/:jobId', async (req, res) => {
   try {
-    const { jobId } = req.params;
-    console.log(`🔍 Searching for files for job ${jobId}...`);
-
-    const result = await googleDriveService.searchFilesByJobId(jobId);
-
+    console.log(`🔍 Getting files for job: ${req.params.jobId}`);
+    
+    const result = await googleDriveService.getFilesByJobId(req.params.jobId);
+    
     if (result.success) {
+      console.log(`✅ Retrieved files for job ${req.params.jobId}: ${result.drafts.length} drafts, ${result.completed.length} completed`);
       res.json({
         success: true,
+        jobId: result.jobId,
         drafts: result.drafts,
         completed: result.completed
       });
     } else {
+      console.log(`❌ Failed to get files for job ${req.params.jobId}:`, result.error);
       res.status(500).json({
         success: false,
-        error: result.error || 'Failed to search files',
-        drafts: [],
-        completed: []
+        error: result.error
       });
     }
 
   } catch (error) {
-    console.error('❌ Error searching files:', error);
+    console.error('❌ Error getting job files:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Internal server error',
-      drafts: [],
-      completed: []
+      error: error.message
     });
   }
 });
 
 /**
- * Promote draft to completed
+ * Promote a draft to completed
  * POST /api/drafts/:fileId/complete
  */
 router.post('/:fileId/complete', async (req, res) => {
   try {
-    const { fileId } = req.params;
-    console.log(`📤 Promoting draft ${fileId} to completed...`);
+    console.log(`📤 Promoting draft to completed: ${req.params.fileId}`);
+    const { jobId } = req.body;
 
-    const result = await googleDriveService.promoteToCompleted(fileId);
+    if (!jobId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: jobId'
+      });
+    }
 
+    const result = await googleDriveService.promoteToCompleted(req.params.fileId, jobId);
+    
     if (result.success) {
-      console.log('✅ Draft promoted to completed');
+      console.log(`✅ Draft ${req.params.fileId} promoted to completed for job ${jobId}`);
       res.json({
         success: true,
-        message: 'Draft successfully moved to completed folder'
+        message: 'Draft promoted to completed',
+        fileId: req.params.fileId,
+        jobId: jobId
       });
     } else {
-      console.error('❌ Failed to promote draft');
+      console.log(`❌ Failed to promote draft ${req.params.fileId}:`, result.error);
       res.status(500).json({
         success: false,
-        error: result.error || 'Failed to promote draft'
+        error: result.error
       });
     }
 
@@ -145,31 +152,49 @@ router.post('/:fileId/complete', async (req, res) => {
     console.error('❌ Error promoting draft:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Internal server error'
+      error: error.message
     });
   }
 });
 
 /**
- * Delete a draft
- * DELETE /api/drafts/:fileId
+ * Get all job files overview
+ * GET /api/drafts/all/jobs
  */
-router.delete('/:fileId', async (req, res) => {
+router.get('/all/jobs', async (req, res) => {
   try {
-    const { fileId } = req.params;
-    console.log(`🗑️ Deleting draft ${fileId}...`);
-
-    // Note: Implement delete functionality in googleDriveService if needed
-    res.json({
-      success: true,
-      message: 'Draft deletion not implemented yet'
-    });
+    console.log('📋 Getting all job files overview...');
+    
+    const result = await googleDriveService.getAllJobFiles();
+    
+    if (result.success) {
+      const draftJobCount = Object.keys(result.drafts).length;
+      const completedJobCount = Object.keys(result.completed).length;
+      
+      console.log(`✅ Retrieved overview: ${draftJobCount} jobs with drafts, ${completedJobCount} jobs with completed files`);
+      
+      res.json({
+        success: true,
+        drafts: result.drafts,
+        completed: result.completed,
+        summary: {
+          jobsWithDrafts: draftJobCount,
+          jobsWithCompleted: completedJobCount
+        }
+      });
+    } else {
+      console.log('❌ Failed to get all job files:', result.error);
+      res.status(500).json({
+        success: false,
+        error: result.error
+      });
+    }
 
   } catch (error) {
-    console.error('❌ Error deleting draft:', error);
+    console.error('❌ Error getting all job files:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Internal server error'
+      error: error.message
     });
   }
 });

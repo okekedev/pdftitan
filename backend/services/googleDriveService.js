@@ -1,36 +1,68 @@
 /**
- * Backend Google Drive Service for PDF Titan App
- * Handles server-side Google Drive operations
+ * Production Google Drive Service for PDF Titan App
+ * Organizes files by Job ID in separate folders
+ * Uses working syntax from successful tests
  */
 
 const { google } = require('googleapis');
 const { PDFDocument } = require('pdf-lib');
+const fs = require('fs');
+const path = require('path');
 
-// Service Account credentials
+// Service Account credentials from environment variables
 const GOOGLE_CREDENTIALS = {
   "type": "service_account",
-  "project_id": "backflow-reports-467621",
-  "private_key_id": "b67b2e1c5a092717e87e1a1aa212ffae436efed0",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC56TetE5FwV+TV\nAVrlgoQIguMWEjfMwu5ehmg1rceXtUMsVsxM5Jgx6gx+3O5/kHlNb4sVe2ezcFN7\n19kL0mdynDyLGvbdj4eU9tflpoRS1WmV6WzmUe51f1SavVE6/3f+CKZ+vq3jRJSa\nINAV2GFiNkPbsE+GjhopqKOfDGFwUNzDf7bHwzw9PsiIFGLDbrfiNQnsch6LQUPG\nx+hLB5IKu+gQrixyCl3QfOq3qCs3vHhSW9enakJGaBawHV06N241rmnQhawOYrxg\nqfUFksAeTmbfYxtIH30uEZd2Y1LLcibiRcFelpElABQhYrf5liz48uum952IKkxR\nN+9Irfr7AgMBAAECggEABjKJk7ON/h4+XefRKJesuhhO5KRcoTuzgYnE48E0YNDL\nxlvp+WHUPWaHEYJg6vZQea3cIS4ZDpWSGuDe3RkfyX8yBeF/7qV2iH2gEQl3g/r8\nRy4qxK5hHu0AAraIt8kRx9fW+qB1oH75RMtCOvAyWUYXOTWyUpLeUwD9qPNbNJWK\nEl+eEiemXsbGWHIYAsIY4GDMfBj9XxSJkzLm6fUgwg5erqcP+DdSoyOiV+WqC0GA\n0JGI8DtNbXG4CrNPkeAle8XhYeVzY5SWgh2Cj52NvAffpaGnQ2IfXTRV064WCnzy\nXV9Yld0wOd80jPvZb0H4arcnuTWR1tFF2xd9mzq/RQKBgQDx0Xs0ewV4D9d/6Kx5\nrJpBU5H3L+/0YhxcjKznMXZid3DMvVFCR6IBfYpVht9gImkw4gcqcqQ2uxXjuqv9\nSRqr4EW4TBJ60pJGrN8PHTuxdX3caEaGiXUlnBEWXBALsmHWOoA4ov8Z+ARaEzO4\nAtDAi//F3Jp60U0CXczlA6fD1QKBgQDE0GB9K6vJxoDxdn6H9Crm1C91G7ISJ4Or\nuC47V6S3uhyDFanH/7hsKMdDj3C3khptbnA5dgmLc2xF3n4+lSwRQ0khePZsHLrC\ndzKImGYt3axD11awxQSlYqxyziVgXVhZqgUqwSAkzcilX+pmwI1VSNOxPLUbi2PH\nIAjGPr+7jwKBgBClCaT4Hs0/0eaE/nI1ljyO4wovq4WXxzn7mN8lAXAPpp0BHvm/\n8n/Fw2LVsMRuOe1acYHTeEgoIn6VV8dMY+CWxFXGLrNzkQv6VDQ3H+e8HZixOMGD\n7qNTFb4DQjt74M4dIrxDQ+nmr23/ylyNHQ9T05wr7hosE+/owvS0hrStAoGBALYz\nblASoMuAMBjZqNO1sA3Xe0O/6v8xg4zySiJ3xa6s5f5YjL/xNcsziR07ao8W+845\nAj2/z6BAr4iTLG5FbPFiSA5rzD1T73VeIfMgmt91Kyf273NgQSfWjG0P+LwYTlVb\nt8LX3SkVNN4cSITtVyoP7KJU4Bjq1ukd9+GHb7pzAoGBAMJn+xmqVBW2cvKq+/8a\n9/CKOScSAu/m7hvatIuMXYS1V14PfAVxEDySoqngQYC1ZH3UKwm8t7IMuP7ib0gq\nAZhhsWXHkyLPPhAH66KwbDOYupRsHZXaKhLnENKM3p8Ot3R4dcv75xAXFnUmsrn1\nUnSpYGhG3QmUn0OlhS8GR7Jj\n-----END PRIVATE KEY-----\n",
-  "client_email": "backflow-drive-uploader@backflow-reports-467621.iam.gserviceaccount.com",
-  "client_id": "101768063531205664883",
+  "project_id": process.env.GOOGLE_DRIVE_PROJECT_ID,
+  "private_key_id": process.env.GOOGLE_DRIVE_PRIVATE_KEY_ID,
+  "private_key": process.env.GOOGLE_DRIVE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  "client_email": process.env.GOOGLE_DRIVE_CLIENT_EMAIL,
+  "client_id": process.env.GOOGLE_DRIVE_CLIENT_ID,
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
   "token_uri": "https://oauth2.googleapis.com/token",
   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/backflow-drive-uploader%40backflow-reports-467621.iam.gserviceaccount.com",
+  "client_x509_cert_url": `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.GOOGLE_DRIVE_CLIENT_EMAIL)}`,
   "universe_domain": "googleapis.com"
 };
 
-// Google Drive folder IDs
+// Google Drive folder IDs from environment variables
 const FOLDER_IDS = {
-  DRAFT: '1HF9vdmHZxg4DOr6c2fhOYTViAgvXxz9n',
-  COMPLETED: '1SjlgRd0Nq-A3pGH-LrRnwLHUGTWq5LjO'
+  DRAFT: process.env.GOOGLE_DRIVE_DRAFT_FOLDER_ID,      // 1GNrVdoGnWNHC6_QmvNkZEIUroNwg-q29
+  COMPLETED: process.env.GOOGLE_DRIVE_COMPLETED_FOLDER_ID // 1tTsOoGiBJPvJucrpjIQvVvXJSIP8SVbJ
 };
 
 class GoogleDriveService {
   constructor() {
     this.drive = null;
     this.initialized = false;
+    this.validateEnvironmentVariables();
+  }
+
+  /**
+   * Validate that all required environment variables are set
+   */
+  validateEnvironmentVariables() {
+    const required = [
+      'GOOGLE_DRIVE_PROJECT_ID',
+      'GOOGLE_DRIVE_PRIVATE_KEY_ID', 
+      'GOOGLE_DRIVE_PRIVATE_KEY',
+      'GOOGLE_DRIVE_CLIENT_EMAIL',
+      'GOOGLE_DRIVE_CLIENT_ID',
+      'GOOGLE_DRIVE_DRAFT_FOLDER_ID',
+      'GOOGLE_DRIVE_COMPLETED_FOLDER_ID'
+    ];
+
+    const missing = required.filter(env => !process.env[env]);
+    
+    if (missing.length > 0) {
+      console.error('❌ Missing required Google Drive environment variables:');
+      missing.forEach(env => console.error(`   - ${env}`));
+      throw new Error(`Missing Google Drive environment variables: ${missing.join(', ')}`);
+    }
+
+    console.log('✅ All Google Drive environment variables are set');
+    console.log(`📧 Service Account: ${GOOGLE_CREDENTIALS.client_email}`);
+    console.log(`📁 Draft Folder: ${FOLDER_IDS.DRAFT}`);
+    console.log(`📁 Completed Folder: ${FOLDER_IDS.COMPLETED}`);
   }
 
   /**
@@ -43,7 +75,7 @@ class GoogleDriveService {
       // Create service account authentication
       const auth = new google.auth.GoogleAuth({
         credentials: GOOGLE_CREDENTIALS,
-        scopes: ['https://www.googleapis.com/auth/drive.file']
+        scopes: ['https://www.googleapis.com/auth/drive']
       });
 
       // Get authenticated client
@@ -64,6 +96,51 @@ class GoogleDriveService {
   }
 
   /**
+   * Create or get a job folder within the specified parent folder
+   */
+  async createOrGetJobFolder(jobId, parentFolderId) {
+    try {
+      if (!this.drive) {
+        throw new Error('Google Drive not initialized');
+      }
+
+      // First, check if the job folder already exists
+      const existingFolders = await this.drive.files.list({
+        q: `'${parentFolderId}' in parents and name = '${jobId}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+        fields: 'files(id, name)'
+      });
+
+      if (existingFolders.data.files.length > 0) {
+        console.log(`📁 Found existing job folder: ${jobId}`);
+        return existingFolders.data.files[0].id;
+      }
+
+      // Create new job folder
+      console.log(`📁 Creating new job folder: ${jobId}`);
+      const folderMetadata = {
+        name: jobId,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentFolderId]
+      };
+
+      const folderResponse = await this.drive.files.create({
+        resource: folderMetadata,
+        supportsAllDrives: true,
+        fields: 'id, name'
+      });
+
+      console.log(`✅ Created job folder: ${jobId} (${folderResponse.data.id})`);
+      return folderResponse.data.id;
+
+    } catch (error) {
+      console.error(`❌ Failed to create/get job folder ${jobId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Generate PDF with form fields and save as draft
    */
   async savePDFAsDraft(originalPdfBuffer, formFields, jobId, fileName) {
@@ -72,13 +149,20 @@ class GoogleDriveService {
         await this.initialize();
       }
 
+      // Get or create job folder in Drafts
+      const jobFolderId = await this.createOrGetJobFolder(jobId, FOLDER_IDS.DRAFT);
+
       // Generate filled PDF
       const filledPdfBuffer = await this.generateFilledPDF(originalPdfBuffer, formFields);
       
-      // Save to Google Drive draft folder
-      const result = await this.uploadToFolder(filledPdfBuffer, jobId, fileName, FOLDER_IDS.DRAFT);
+      // Save to Google Drive job folder
+      const result = await this.uploadToFolder(filledPdfBuffer, fileName, jobFolderId);
       
-      return result;
+      return {
+        ...result,
+        jobId,
+        folderType: 'draft'
+      };
     } catch (error) {
       console.error('❌ Failed to save PDF as draft:', error);
       return {
@@ -89,40 +173,114 @@ class GoogleDriveService {
   }
 
   /**
-   * Generate filled PDF from original PDF and form fields
+   * Move draft to completed folder (promote)
+   */
+  async promoteToCompleted(draftFileId, jobId) {
+    try {
+      if (!this.drive) {
+        throw new Error('Google Drive not initialized');
+      }
+
+      // Get or create job folder in Completed
+      const completedJobFolderId = await this.createOrGetJobFolder(jobId, FOLDER_IDS.COMPLETED);
+
+      // Get the draft job folder ID
+      const draftJobFolderId = await this.createOrGetJobFolder(jobId, FOLDER_IDS.DRAFT);
+
+      // Move file from draft job folder to completed job folder
+      await this.drive.files.update({
+        fileId: draftFileId,
+        addParents: completedJobFolderId,
+        removeParents: draftJobFolderId,
+        supportsAllDrives: true,
+        fields: 'id, parents'
+      });
+
+      console.log(`✅ File ${draftFileId} promoted to completed for job ${jobId}`);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Failed to promote to completed:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Generate filled PDF with form fields
    */
   async generateFilledPDF(originalPdfBuffer, formFields) {
     try {
-      // Load the original PDF
-      const pdfDoc = await PDFDocument.load(originalPdfBuffer);
-      const pages = pdfDoc.getPages();
+      const existingPdfDoc = await PDFDocument.load(originalPdfBuffer);
+      const pages = existingPdfDoc.getPages();
 
-      // Group fields by page
-      const fieldsByPage = {};
-      formFields.forEach(field => {
-        const pageNum = field.page || 1;
-        if (!fieldsByPage[pageNum]) {
-          fieldsByPage[pageNum] = [];
-        }
-        fieldsByPage[pageNum].push(field);
-      });
-
-      // Draw fields on each page
-      for (const pageNum of Object.keys(fieldsByPage)) {
-        const page = pages[parseInt(pageNum) - 1];
-        if (!page) continue;
-
-        const { width, height } = page.getSize();
+      // Process each form field
+      for (const field of formFields) {
+        const pageIndex = (field.page || 1) - 1; // Convert to 0-based index
+        const page = pages[pageIndex];
         
-        for (const field of fieldsByPage[pageNum]) {
-          await this.drawFieldOnPage(page, field, height, pdfDoc);
+        if (!page) {
+          console.warn(`⚠️ Page ${field.page} not found, skipping field ${field.id}`);
+          continue;
+        }
+
+        const { height: pageHeight } = page.getSize();
+        const adjustedY = pageHeight - field.y - field.height; // Convert coordinate system
+
+        switch (field.type) {
+          case 'text':
+            page.drawText(field.content || '', {
+              x: field.x,
+              y: adjustedY + (field.height / 2) - 5, // Center vertically
+              size: 12,
+              color: this.hexToRgb(field.color || '#000000')
+            });
+            break;
+
+          case 'signature':
+            if (field.content && field.content.startsWith('data:image/')) {
+              try {
+                const base64Data = field.content.replace(/^data:image\/[a-z]+;base64,/, '');
+                const signatureImage = await existingPdfDoc.embedPng(Buffer.from(base64Data, 'base64'));
+                
+                page.drawImage(signatureImage, {
+                  x: field.x,
+                  y: adjustedY,
+                  width: field.width,
+                  height: field.height
+                });
+              } catch (imgError) {
+                console.warn('⚠️ Failed to embed signature image:', imgError.message);
+              }
+            }
+            break;
+
+          case 'date':
+          case 'timestamp':
+            const dateText = field.content || new Date().toLocaleDateString();
+            page.drawText(dateText, {
+              x: field.x,
+              y: adjustedY + (field.height / 2) - 5,
+              size: 10,
+              color: this.hexToRgb(field.color || '#000000')
+            });
+            break;
+
+          case 'checkbox':
+            if (field.checked) {
+              page.drawText('✓', {
+                x: field.x + 2,
+                y: adjustedY + 2,
+                size: field.height - 4,
+                color: this.hexToRgb(field.color || '#000000')
+              });
+            }
+            break;
         }
       }
 
-      // Return the PDF as buffer
-      const pdfBytes = await pdfDoc.save();
-      return Buffer.from(pdfBytes);
-      
+      return await existingPdfDoc.save();
     } catch (error) {
       console.error('❌ Failed to generate filled PDF:', error);
       throw error;
@@ -130,102 +288,7 @@ class GoogleDriveService {
   }
 
   /**
-   * Draw a field on a PDF page
-   */
-  async drawFieldOnPage(page, field, pageHeight, pdfDoc) {
-    try {
-      const { x, y, width, height, content, type, fontSize = 11, color = '#1e3a8a' } = field;
-      
-      // Convert coordinates (PDF coordinates start from bottom-left)
-      const pdfY = pageHeight - y - height;
-      
-      if (type === 'text' && content) {
-        page.drawText(content.toString(), {
-          x: x,
-          y: pdfY + height - fontSize, // Adjust y position for text baseline
-          size: fontSize,
-          color: this.hexToRgb(color)
-        });
-      } else if (type === 'date' && content) {
-        page.drawText(content.toString(), {
-          x: x,
-          y: pdfY + height - fontSize,
-          size: fontSize,
-          color: this.hexToRgb(color)
-        });
-      } else if (type === 'timestamp' && content) {
-        page.drawText(content.toString(), {
-          x: x,
-          y: pdfY + height - fontSize,
-          size: fontSize,
-          color: this.hexToRgb(color)
-        });
-      } else if (type === 'checkbox' && content) {
-        page.drawText('✓', {
-          x: x + 2,
-          y: pdfY + 2,
-          size: Math.min(fontSize * 1.5, height - 4),
-          color: this.hexToRgb(color)
-        });
-      } else if (type === 'signature' && content) {
-        if (content.startsWith('data:image')) {
-          try {
-            // Extract image data from data URL
-            const base64Data = content.split(',')[1];
-            const imageBytes = Buffer.from(base64Data, 'base64');
-            
-            // Determine image type from data URL
-            let image;
-            if (content.startsWith('data:image/png')) {
-              image = await pdfDoc.embedPng(imageBytes);
-            } else if (content.startsWith('data:image/jpeg') || content.startsWith('data:image/jpg')) {
-              image = await pdfDoc.embedJpg(imageBytes);
-            } else {
-              // Fallback to text if unsupported image format
-              page.drawText('[Signature]', {
-                x: x,
-                y: pdfY + height - fontSize,
-                size: fontSize,
-                color: this.hexToRgb(color)
-              });
-              return;
-            }
-            
-            // Draw the signature image
-            page.drawImage(image, {
-              x: x,
-              y: pdfY,
-              width: width,
-              height: height
-            });
-            
-          } catch (imageError) {
-            console.error('❌ Failed to embed signature image:', imageError);
-            // Fallback to text
-            page.drawText('[Signature]', {
-              x: x,
-              y: pdfY + height - fontSize,
-              size: fontSize,
-              color: this.hexToRgb(color)
-            });
-          }
-        } else {
-          // Text signature
-          page.drawText(content.toString(), {
-            x: x,
-            y: pdfY + height - fontSize,
-            size: fontSize,
-            color: this.hexToRgb(color)
-          });
-        }
-      }
-    } catch (error) {
-      console.error('❌ Failed to draw field on page:', error);
-    }
-  }
-
-  /**
-   * Convert hex color to RGB for pdf-lib
+   * Convert hex color to RGB
    */
   hexToRgb(hex) {
     const { rgb } = require('pdf-lib');
@@ -241,30 +304,37 @@ class GoogleDriveService {
   }
 
   /**
-   * Upload PDF to specified Google Drive folder
+   * Upload PDF to specified folder using proven working syntax
    */
-  async uploadToFolder(pdfBuffer, jobId, fileName, folderId) {
+  async uploadToFolder(pdfBuffer, fileName, folderId) {
     try {
       if (!this.drive) {
         throw new Error('Google Drive not initialized');
       }
 
+      // Create temp file (most reliable method)
+      const tempFilePath = path.join(__dirname, `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.pdf`);
+      fs.writeFileSync(tempFilePath, Buffer.from(pdfBuffer));
+
       const fileMetadata = {
-        name: `${jobId} - ${fileName}`,
+        name: fileName,
         parents: [folderId]
       };
 
-      const { Readable } = require('stream');
       const media = {
         mimeType: 'application/pdf',
-        body: Readable.from(pdfBuffer)
+        body: fs.createReadStream(tempFilePath)
       };
 
       const response = await this.drive.files.create({
         resource: fileMetadata,
         media: media,
-        fields: 'id, name, createdTime, size'
+        fields: 'id, name, createdTime, size, parents',
+        supportsAllDrives: true
       });
+
+      // Clean up temp file
+      fs.unlinkSync(tempFilePath);
 
       console.log('✅ PDF uploaded to Google Drive:', response.data);
       return {
@@ -272,10 +342,19 @@ class GoogleDriveService {
         fileId: response.data.id,
         fileName: response.data.name,
         createdTime: response.data.createdTime,
-        size: response.data.size
+        size: response.data.size,
+        parents: response.data.parents
       };
 
     } catch (error) {
+      // Clean up temp file if it exists
+      const tempFiles = fs.readdirSync(__dirname).filter(f => f.startsWith('temp-'));
+      tempFiles.forEach(f => {
+        try {
+          fs.unlinkSync(path.join(__dirname, f));
+        } catch (e) {}
+      });
+
       console.error('❌ Failed to upload to Google Drive:', error);
       return {
         success: false,
@@ -285,26 +364,109 @@ class GoogleDriveService {
   }
 
   /**
-   * Search for files by Job ID
+   * Get all drafts and completed files organized by Job ID
    */
-  async searchFilesByJobId(jobId) {
+  async getAllJobFiles() {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const [draftJobs, completedJobs] = await Promise.all([
+        this.getJobsFromFolder(FOLDER_IDS.DRAFT, 'drafts'),
+        this.getJobsFromFolder(FOLDER_IDS.COMPLETED, 'completed')
+      ]);
+
+      return {
+        success: true,
+        drafts: draftJobs,
+        completed: completedJobs
+      };
+    } catch (error) {
+      console.error('❌ Failed to get job files:', error);
+      return {
+        success: false,
+        error: error.message,
+        drafts: {},
+        completed: {}
+      };
+    }
+  }
+
+  /**
+   * Get jobs and their files from a specific folder
+   */
+  async getJobsFromFolder(parentFolderId, folderType) {
+    try {
+      // Get all job folders in the parent folder
+      const jobFolders = await this.drive.files.list({
+        q: `'${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+        fields: 'files(id, name, createdTime)',
+        orderBy: 'createdTime desc'
+      });
+
+      const jobs = {};
+
+      // For each job folder, get the files inside
+      for (const jobFolder of jobFolders.data.files) {
+        const jobId = jobFolder.name;
+        
+        const filesInJob = await this.drive.files.list({
+          q: `'${jobFolder.id}' in parents and mimeType = 'application/pdf' and trashed = false`,
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
+          fields: 'files(id, name, createdTime, modifiedTime, size)',
+          orderBy: 'modifiedTime desc'
+        });
+
+        if (filesInJob.data.files.length > 0) {
+          jobs[jobId] = {
+            jobId,
+            folderId: jobFolder.id,
+            folderCreated: jobFolder.createdTime,
+            files: filesInJob.data.files.map(file => ({
+              id: file.id,
+              name: file.name,
+              createdTime: file.createdTime,
+              modifiedTime: file.modifiedTime,
+              size: file.size,
+              type: folderType
+            }))
+          };
+        }
+      }
+
+      return jobs;
+    } catch (error) {
+      console.error(`❌ Failed to get jobs from ${folderType} folder:`, error);
+      return {};
+    }
+  }
+
+  /**
+   * Get files for a specific job ID
+   */
+  async getFilesByJobId(jobId) {
     try {
       if (!this.initialized) {
         await this.initialize();
       }
 
       const [draftFiles, completedFiles] = await Promise.all([
-        this.searchInFolder(jobId, FOLDER_IDS.DRAFT),
-        this.searchInFolder(jobId, FOLDER_IDS.COMPLETED)
+        this.getFilesInJobFolder(jobId, FOLDER_IDS.DRAFT),
+        this.getFilesInJobFolder(jobId, FOLDER_IDS.COMPLETED)
       ]);
 
       return {
         success: true,
+        jobId,
         drafts: draftFiles,
         completed: completedFiles
       };
     } catch (error) {
-      console.error('❌ Failed to search files:', error);
+      console.error('❌ Failed to get files by job ID:', error);
       return {
         success: false,
         error: error.message,
@@ -315,48 +477,37 @@ class GoogleDriveService {
   }
 
   /**
-   * Search in specific folder
+   * Get files in a specific job folder
    */
-  async searchInFolder(jobId, folderId) {
+  async getFilesInJobFolder(jobId, parentFolderId) {
     try {
-      const query = `'${folderId}' in parents and name contains '${jobId}' and trashed = false`;
-      
-      const response = await this.drive.files.list({
-        q: query,
+      // Find the job folder
+      const jobFolders = await this.drive.files.list({
+        q: `'${parentFolderId}' in parents and name = '${jobId}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+        fields: 'files(id, name)'
+      });
+
+      if (jobFolders.data.files.length === 0) {
+        return []; // No job folder exists yet
+      }
+
+      const jobFolderId = jobFolders.data.files[0].id;
+
+      // Get files in the job folder
+      const filesResponse = await this.drive.files.list({
+        q: `'${jobFolderId}' in parents and mimeType = 'application/pdf' and trashed = false`,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
         fields: 'files(id, name, createdTime, modifiedTime, size)',
         orderBy: 'modifiedTime desc'
       });
 
-      return response.data.files || [];
+      return filesResponse.data.files || [];
     } catch (error) {
-      console.error('❌ Failed to search folder:', error);
+      console.error(`❌ Failed to get files in job folder ${jobId}:`, error);
       return [];
-    }
-  }
-
-  /**
-   * Move draft to completed folder
-   */
-  async promoteToCompleted(draftFileId) {
-    try {
-      if (!this.drive) {
-        throw new Error('Google Drive not initialized');
-      }
-
-      await this.drive.files.update({
-        fileId: draftFileId,
-        addParents: FOLDER_IDS.COMPLETED,
-        removeParents: FOLDER_IDS.DRAFT,
-        fields: 'id, parents'
-      });
-
-      return { success: true };
-    } catch (error) {
-      console.error('❌ Failed to promote to completed:', error);
-      return {
-        success: false,
-        error: error.message
-      };
     }
   }
 }
