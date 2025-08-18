@@ -939,14 +939,14 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
       const result = await onSave(saveData);
       
       if (result?.success) {
-        alert('PDF saved successfully!');
+        alert('PDF saved as draft successfully!');
         onClose();
       } else {
-        alert('Save completed but there may have been issues.');
+        alert('Draft save completed but there may have been issues.');
       }
     } catch (error) {
       console.error('Save failed:', error);
-      alert(`Save failed: ${error.message}`);
+      alert(`Draft save failed: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -1036,7 +1036,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
               🗑️ Clear
             </button>
             <button className="pdf-btn" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Saving...' : '💾 Save'}
+              {isSaving ? 'Saving Draft...' : '💾 Save as Draft'}
             </button>
             <button className="pdf-btn" onClick={onClose}>← Back</button>
           </div>

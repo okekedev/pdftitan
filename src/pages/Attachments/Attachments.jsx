@@ -13,6 +13,9 @@ export default function Attachments({ job, onBack, onPdfEditorStateChange, techn
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingJobDetails, setIsLoadingJobDetails] = useState(true);
   const [error, setError] = useState('');
+  const [drafts, setDrafts] = useState([]);
+  const [completedFiles, setCompletedFiles] = useState([]);
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
 
   // Load job details and customer information
   useEffect(() => {
@@ -81,6 +84,33 @@ export default function Attachments({ job, onBack, onPdfEditorStateChange, techn
     }
   }, [job]);
 
+  // Load drafts and completed files
+  useEffect(() => {
+    const loadDrafts = async () => {
+      try {
+        setIsLoadingDrafts(true);
+        
+        console.log('📄 Loading drafts for job:', job.id);
+        
+        const response = await apiClient.getJobDrafts(job.id);
+        setDrafts(response.drafts || []);
+        setCompletedFiles(response.completed || []);
+        
+        console.log(`✅ Drafts loaded: ${response.drafts?.length || 0} drafts, ${response.completed?.length || 0} completed`);
+        
+      } catch (error) {
+        console.error('❌ Error loading drafts:', error);
+        // Don't show error for drafts - it's optional functionality
+      } finally {
+        setIsLoadingDrafts(false);
+      }
+    };
+
+    if (job?.id) {
+      loadDrafts();
+    }
+  }, [job]);
+
   // Notify App component when PDF Editor state changes
   useEffect(() => {
     if (onPdfEditorStateChange) {
@@ -108,7 +138,7 @@ export default function Attachments({ job, onBack, onPdfEditorStateChange, techn
 
   const handleSavePDF = async (pdfData) => {
     try {
-      console.log('💾 Saving PDF in Attachments.jsx:', pdfData);
+      console.log('💾 Saving PDF as draft in Attachments.jsx:', pdfData);
       
       const attachmentId = pdfData.attachmentId || 
                           selectedPDF?.serviceTitanId || 
@@ -122,33 +152,73 @@ export default function Attachments({ job, onBack, onPdfEditorStateChange, techn
 
       console.log('🔑 Using attachment ID:', attachmentId);
       
-      const response = await apiClient.uploadCompletedPDF({
+      // Save as draft to Google Drive
+      const response = await apiClient.savePDFAsDraft({
         jobId: job.id,
         attachmentId: attachmentId,
         fileName: pdfData.fileName,
-        originalFileName: pdfData.originalFileName,
-        fields: pdfData.fields,
-        metadata: pdfData.metadata
+        objects: pdfData.objects
       });
       
-      console.log('✅ PDF save response:', response);
+      console.log('✅ PDF draft save response:', response);
+      
+      // Reload drafts after successful save
+      try {
+        const draftsResponse = await apiClient.getJobDrafts(job.id);
+        setDrafts(draftsResponse.drafts || []);
+        setCompletedFiles(draftsResponse.completed || []);
+      } catch (error) {
+        console.warn('⚠️ Failed to reload drafts after save:', error);
+      }
       
       return {
         success: true,
-        message: 'PDF saved successfully',
+        message: 'PDF saved as draft successfully',
         fileName: response.fileName || pdfData.fileName,
-        uploadedAt: response.uploadedAt || new Date().toISOString()
+        savedAt: response.createdTime || new Date().toISOString()
       };
       
     } catch (error) {
-      console.error('❌ Error saving PDF:', error);
+      console.error('❌ Error saving PDF draft:', error);
+      
       
       return {
         success: false,
-        error: error.message || 'Failed to save PDF'
+        error: error.message || 'Failed to save PDF draft'
       };
     }
   };
+
+  // Handle promoting draft to completed
+  const handlePromoteToCompleted = async (fileId, fileName) => {
+    const confirmUpload = window.confirm(`Is the form "${fileName}" ready to be uploaded to the completed folder?`);
+    
+    if (!confirmUpload) {
+      return;
+    }
+
+    try {
+      console.log('📤 Promoting draft to completed:', fileId);
+      
+      const response = await apiClient.promoteToCompleted(fileId);
+      
+      if (response.success) {
+        alert('Form successfully moved to completed folder!');
+        
+        // Reload drafts to reflect changes
+        const draftsResponse = await apiClient.getJobDrafts(job.id);
+        setDrafts(draftsResponse.drafts || []);
+        setCompletedFiles(draftsResponse.completed || []);
+      } else {
+        alert('Failed to move form to completed folder.');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error promoting draft:', error);
+      alert(`Failed to move form: ${error.message}`);
+    }
+  };
+
 
   // Helper functions
   const getStatusClass = (status) => {
@@ -410,32 +480,99 @@ export default function Attachments({ job, onBack, onPdfEditorStateChange, techn
           {/* Saved Forms Section (50%) */}
           <div className="forms-section saved-forms">
             <div className="section-header">
-              <h3>💾 Saved Forms</h3>
+              <h3>💾 Saved Forms (Drafts)</h3>
             </div>
             <div className="forms-content">
-              <div className="empty-state">
-                <div className="empty-icon">💾</div>
-                <h4>No Saved Forms</h4>
-                <p>Completed forms will be saved here automatically. Start editing a form to see saved versions.</p>
-              </div>
+              {isLoadingDrafts ? (
+                <div className="loading-content">
+                  <div className="loading-spinner"></div>
+                  <p>Loading drafts...</p>
+                </div>
+              ) : drafts.length > 0 ? (
+                <div className="forms-list">
+                  {drafts.map((draft, index) => (
+                    <div key={draft.id || index} className="form-item">
+                      <div className="form-info">
+                        <div className="form-name">{draft.name}</div>
+                        <div className="form-meta">
+                          <span>💾 Draft</span>
+                          <span>{draft.modifiedTime ? new Date(draft.modifiedTime).toLocaleString() : 'Unknown date'}</span>
+                          <span>{draft.size ? `${Math.round(draft.size / 1024)} KB` : 'Unknown size'}</span>
+                        </div>
+                      </div>
+                      <div className="form-actions">
+                        <button 
+                          className="edit-btn"
+                          onClick={() => console.log('Edit draft:', draft.id)}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button 
+                          className="upload-btn"
+                          onClick={() => handlePromoteToCompleted(draft.id, draft.name)}
+                        >
+                          📤 Upload
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon">💾</div>
+                  <h4>No Saved Forms</h4>
+                  <p>Completed forms will be saved here automatically. Start editing a form to see saved versions.</p>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Uploaded Forms Section (50%) */}
           <div className="forms-section uploaded-forms">
             <div className="section-header">
-              <h3>📤 Uploaded Forms</h3>
+              <h3>📤 Uploaded Forms (Completed)</h3>
             </div>
             <div className="forms-content">
-              <div className="empty-state">
-                <div className="empty-icon">📤</div>
-                <h4>No Uploaded Forms</h4>
-                <p>Successfully completed and uploaded forms will appear here with upload timestamps.</p>
-              </div>
+              {isLoadingDrafts ? (
+                <div className="loading-content">
+                  <div className="loading-spinner"></div>
+                  <p>Loading completed forms...</p>
+                </div>
+              ) : completedFiles.length > 0 ? (
+                <div className="forms-list">
+                  {completedFiles.map((completed, index) => (
+                    <div key={completed.id || index} className="form-item">
+                      <div className="form-info">
+                        <div className="form-name">{completed.name}</div>
+                        <div className="form-meta">
+                          <span>✅ Completed</span>
+                          <span>{completed.modifiedTime ? new Date(completed.modifiedTime).toLocaleString() : 'Unknown date'}</span>
+                          <span>{completed.size ? `${Math.round(completed.size / 1024)} KB` : 'Unknown size'}</span>
+                        </div>
+                      </div>
+                      <div className="form-actions">
+                        <button 
+                          className="view-btn"
+                          onClick={() => console.log('View completed:', completed.id)}
+                        >
+                          👁️ View
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon">📤</div>
+                  <h4>No Uploaded Forms</h4>
+                  <p>Successfully completed and uploaded forms will appear here with upload timestamps.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
     </div>
   );
 }
