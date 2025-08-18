@@ -217,7 +217,7 @@ function usePDFEditor(pdf, job) {
         hour12: true
       });
     } else if (type === 'checkbox') {
-      content = false;
+      content = true; // ← CHANGED: Default to checked (true) instead of unchecked (false)
     }
     
     const newField = {
@@ -419,9 +419,14 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
   };
 
   const handleContentChange = (e) => {
-    const newValue = object.type === 'checkbox' ? !value : e.target.value;
-    setValue(newValue);
-    onUpdate(object.id, { content: newValue });
+    if (object.type === 'checkbox') {
+      // Checkboxes are always checked, no toggling allowed
+      return;
+    } else {
+      const newValue = e.target.value;
+      setValue(newValue);
+      onUpdate(object.id, { content: newValue });
+    }
   };
 
   const renderContent = () => {
@@ -435,13 +440,11 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             width: '100%',
             height: '100%',
             fontWeight: 'bold',
-            cursor: 'pointer',
             fontSize: `${Math.max(16, object.fontSize)}px`,
-            color: value ? '#1e3a8a' : '#9ca3af' // Royal blue when checked, gray when unchecked
+            color: '#1e3a8a' // Always blue since always checked
           }}
-          onClick={handleContentChange}
         >
-          ✓
+          X
         </div>
       );
     }
@@ -960,6 +963,13 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     setIsSaving(true);
     
     try {
+      // Debug: Log checkbox objects before saving
+      const checkboxes = objects.filter(obj => obj.type === 'checkbox');
+      console.log('📊 Checkbox objects before save:', checkboxes);
+      checkboxes.forEach(cb => {
+        console.log(`Checkbox ${cb.id}: content=${cb.content} (${typeof cb.content})`);
+      });
+      
       const saveData = {
         objects: objects,
         fileName: `${pdf.name || 'document'}_filled.pdf`,
