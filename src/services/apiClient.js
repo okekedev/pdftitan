@@ -273,6 +273,63 @@ class ApiClient {
     }
   }
 
+  // 💾 NEW: Save PDF as draft to Google Drive
+  async savePDFAsDraft(pdfData) {
+    try {
+      console.log('💾 Saving PDF as draft to Google Drive:', pdfData);
+      
+      const response = await this.apiCall('/api/drafts/save', {
+        method: 'POST',
+        body: pdfData
+      });
+      
+      console.log('✅ PDF saved as draft:', response);
+      
+      return response;
+      
+    } catch (error) {
+      console.error('❌ Error saving PDF as draft:', error);
+      throw new Error(`Failed to save PDF as draft: ${error.message}`);
+    }
+  }
+
+  // 🔍 NEW: Get drafts and completed files for a job
+  async getJobDrafts(jobId) {
+    try {
+      console.log(`🔍 Fetching drafts for job: ${jobId}`);
+      
+      const response = await this.apiCall(`/api/drafts/${jobId}`);
+      
+      console.log(`✅ Drafts fetched: ${response.drafts?.length || 0} drafts, ${response.completed?.length || 0} completed`);
+      
+      return response;
+      
+    } catch (error) {
+      console.error('❌ Error fetching job drafts:', error);
+      throw new Error(`Failed to fetch job drafts: ${error.message}`);
+    }
+  }
+
+  // 📤 NEW: Promote draft to completed
+  async promoteToCompleted(fileId) {
+    try {
+      console.log(`📤 Promoting draft to completed: ${fileId}`);
+      
+      const response = await this.apiCall(`/api/drafts/${fileId}/complete`, {
+        method: 'POST'
+      });
+      
+      console.log('✅ Draft promoted to completed:', response);
+      
+      return response;
+      
+    } catch (error) {
+      console.error('❌ Error promoting draft:', error);
+      throw new Error(`Failed to promote draft: ${error.message}`);
+    }
+  }
+
+
   // ================== UTILITIES ==================
 
   // Test connection to backend

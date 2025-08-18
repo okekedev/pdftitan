@@ -330,11 +330,13 @@ app.use((req, res, next) => {
 const authAPI = require('./api/auth');
 const jobsAPI = require('./api/jobs'); // ✅ Changed from appointments to jobs
 const attachmentsAPI = require('./api/attachments');
+const draftsAPI = require('./api/drafts');
 
 // ✅ FIXED: API Routes - removed old appointments API, using jobs API
 app.use('/api', authAPI);
 app.use('/api', jobsAPI); // ✅ Jobs API handles both job listing and job details
 app.use('/api', attachmentsAPI);
+app.use('/api/drafts', draftsAPI);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
