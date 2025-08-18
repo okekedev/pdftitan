@@ -208,37 +208,50 @@ class GoogleDriveService {
   }
 
   /**
-   * 🚀 NEW: Download file content from Google Drive
+   * ✅ FIXED: Download file content from Google Drive
    */
   async downloadFile(fileId) {
     try {
-      if (!this.drive) {
-        throw new Error('Google Drive not initialized');
+      if (!this.initialized) {
+        await this.initialize();
       }
 
       console.log(`📥 Downloading file from Google Drive: ${fileId}`);
 
+      // Download the file content
       const response = await this.drive.files.get({
         fileId: fileId,
         alt: 'media',
         supportsAllDrives: true
+      }, {
+        responseType: 'stream'
       });
 
-      if (response.status === 200) {
-        console.log(`✅ Successfully downloaded file: ${fileId}`);
-        return Buffer.from(response.data);
-      } else {
-        throw new Error(`Download failed with status: ${response.status}`);
+      // Convert stream to buffer
+      const chunks = [];
+      for await (const chunk of response.data) {
+        chunks.push(chunk);
       }
+      const buffer = Buffer.concat(chunks);
+
+      console.log(`✅ File downloaded successfully: ${buffer.length} bytes`);
+
+      return {
+        success: true,
+        data: buffer
+      };
 
     } catch (error) {
       console.error(`❌ Failed to download file ${fileId}:`, error);
-      throw error;
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
   /**
-   * 🚀 NEW: Get file metadata from Google Drive
+   * Get file metadata from Google Drive
    */
   async getFileMetadata(fileId) {
     try {

@@ -142,44 +142,58 @@ class ApiClient {
 
   async getJobAttachments(jobId) {
     try {
-      console.log(`📎 Fetching PDF attachments for job: ${jobId}`);
+      console.log(`📎 Fetching attachments for job: ${jobId}`);
       
       const response = await this.apiCall(`/api/job/${jobId}/attachments`);
       
-      console.log(`✅ Attachments fetched: ${response.data?.length || 0} PDFs found`);
+      console.log(`✅ Attachments fetched: ${response.data?.length || 0} attachments`);
       
       return response.data || [];
 
     } catch (error) {
-      console.error('❌ Error fetching job attachments:', error);
-      
-      // If no attachments found, return empty array instead of throwing
-      if (error.message.includes('404') || error.message.includes('not found')) {
-        console.log(`ℹ️ No attachments found for job ${jobId}`);
-        return [];
-      }
-      
-      throw new Error(`Failed to fetch job attachments: ${error.message}`);
+      console.error('❌ Error fetching attachments:', error);
+      throw new Error(`Failed to fetch attachments: ${error.message}`);
     }
   }
 
-  // Get download URL for attachment
-  getAttachmentDownloadUrl(jobId, attachmentId) {
-    return `${this.baseUrl}/api/job/${jobId}/attachment/${attachmentId}/download`;
+  // ================== PDF PROCESSING ==================
+
+  async downloadPDF(jobId, attachmentId) {
+    try {
+      console.log(`📄 Downloading PDF: Job ${jobId}, Attachment ${attachmentId}`);
+      
+      const url = `${this.baseUrl}/api/job/${jobId}/attachment/${attachmentId}/download`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to download PDF: ${response.statusText}`);
+      }
+
+      console.log(`✅ PDF downloaded successfully`);
+      
+      return await response.arrayBuffer();
+
+    } catch (error) {
+      console.error('❌ Error downloading PDF:', error);
+      throw new Error(`Failed to download PDF: ${error.message}`);
+    }
   }
 
-  // ✅ UPDATED: Save completed PDF form with in-app notification (no download)
-  async saveCompletedPDFForm(jobId, attachmentId, formData) {
+  async savePDFForm(formData) {
     try {
-      console.log(`💾 Saving completed PDF form: ${attachmentId} for job: ${jobId}`);
+      console.log('💾 Saving PDF form with data:', formData);
       
-      const url = `${this.baseUrl}/api/job/${jobId}/attachment/${attachmentId}/save`;
+      const url = `${this.baseUrl}/api/form/save`;
       
       const fetchOptions = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json', // ✅ CHANGED: Expect JSON response now
+          'Accept': 'application/json',
         },
         credentials: 'include',
         body: JSON.stringify(formData)
@@ -205,7 +219,6 @@ class ApiClient {
         throw new Error(errorMessage);
       }
 
-      // ✅ CHANGED: Always expect JSON response (no more PDF downloads)
       const result = await response.json();
       console.log(`✅ PDF form processing result:`, result);
       
@@ -250,7 +263,9 @@ class ApiClient {
     window.URL.revokeObjectURL(url);
   }
 
-  // 📄 NEW: Get saved forms for a job
+  // ================== GOOGLE DRIVE INTEGRATION ==================
+
+  // 📄 Get saved forms for a job
   async getSavedForms(jobId) {
     try {
       console.log(`📄 Fetching saved forms for job: ${jobId}`);
@@ -273,7 +288,7 @@ class ApiClient {
     }
   }
 
-  // 💾 NEW: Save PDF as draft to Google Drive
+  // 💾 Save PDF as draft to Google Drive
   async savePDFAsDraft(pdfData) {
     try {
       console.log('💾 Saving PDF as draft to Google Drive:', pdfData);
@@ -293,7 +308,7 @@ class ApiClient {
     }
   }
 
-  // 🔍 NEW: Get drafts and completed files for a job
+  // 🔍 Get drafts and completed files for a job
   async getJobDrafts(jobId) {
     try {
       console.log(`🔍 Fetching drafts for job: ${jobId}`);
@@ -310,13 +325,14 @@ class ApiClient {
     }
   }
 
-  // 📤 NEW: Promote draft to completed
-  async promoteToCompleted(fileId) {
+  // 📤 Promote draft to completed
+  async promoteToCompleted(fileId, jobId) {
     try {
       console.log(`📤 Promoting draft to completed: ${fileId}`);
       
       const response = await this.apiCall(`/api/drafts/${fileId}/complete`, {
-        method: 'POST'
+        method: 'POST',
+        body: { jobId }
       });
       
       console.log('✅ Draft promoted to completed:', response);
@@ -329,6 +345,76 @@ class ApiClient {
     }
   }
 
+  // 📥 NEW: Download PDF from Google Drive
+  async downloadFromGoogleDrive(fileId, fileName) {
+    try {
+      console.log(`📥 Downloading from Google Drive: ${fileId}`);
+      
+      const url = `${this.baseUrl}/api/google-drive/download/${fileId}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to download from Google Drive: ${response.statusText}`);
+      }
+
+      console.log(`✅ Google Drive file downloaded successfully`);
+      
+      return await response.arrayBuffer();
+
+    } catch (error) {
+      console.error('❌ Error downloading from Google Drive:', error);
+      throw new Error(`Failed to download from Google Drive: ${error.message}`);
+    }
+  }
+
+  // 📥 NEW: Load PDF from Google Drive for editing
+  async loadPDFFromGoogleDrive(googleDriveFileId) {
+    try {
+      console.log(`📥 Loading PDF from Google Drive for editing: ${googleDriveFileId}`);
+      
+      const url = `${this.baseUrl}/api/google-drive/load/${googleDriveFileId}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to load PDF from Google Drive: ${response.statusText}`);
+      }
+
+      console.log(`✅ PDF loaded from Google Drive successfully`);
+      
+      return await response.arrayBuffer();
+
+    } catch (error) {
+      console.error('❌ Error loading PDF from Google Drive:', error);
+      throw new Error(`Failed to load PDF from Google Drive: ${error.message}`);
+    }
+  }
+
+  // 🔗 NEW: Get Google Drive file info
+  async getGoogleDriveFileInfo(fileId) {
+    try {
+      console.log(`🔗 Getting Google Drive file info: ${fileId}`);
+      
+      const response = await this.apiCall(`/api/google-drive/info/${fileId}`);
+      
+      console.log('✅ Google Drive file info retrieved:', response);
+      
+      return response;
+      
+    } catch (error) {
+      console.error('❌ Error getting Google Drive file info:', error);
+      throw new Error(`Failed to get Google Drive file info: ${error.message}`);
+    }
+  }
 
   // ================== UTILITIES ==================
 
@@ -336,146 +422,18 @@ class ApiClient {
   async testConnection() {
     try {
       const response = await this.getHealth();
-      return {
-        connected: true,
-        serverStatus: response.status,
-        message: response.message,
-        uploadCapable: true
-      };
-    } catch (error) {
-      return {
-        connected: false,
-        error: error.message,
-        uploadCapable: false
-      };
+      return response?.status === 'OK';
+    } catch {
+      return false;
     }
   }
 
-  // Format API errors for user display
-  formatError(error) {
-    if (typeof error === 'string') return error;
-    if (error?.message) return error.message;
-    if (error?.error) return error.error;
-    return 'An unexpected error occurred';
-  }
-
-  // Handle API errors with user-friendly messages
-  handleApiError(error) {
-    const userMessage = this.formatError(error);
-    
-    // Enhanced error categorization
-    let category = 'unknown';
-    if (error.message?.includes('network') || error.message?.includes('connection')) {
-      category = 'network';
-    } else if (error.message?.includes('timeout')) {
-      category = 'timeout';
-    } else if (error.message?.includes('401') || error.message?.includes('403')) {
-      category = 'permission';
-    } else if (error.message?.includes('404')) {
-      category = 'not_found';
-    } else if (error.message?.includes('500')) {
-      category = 'server_error';
-    }
-    
-    return {
-      userMessage,
-      category,
-      originalError: error,
-      timestamp: new Date().toISOString(),
-      suggestions: this.getErrorSuggestions(category)
-    };
-  }
-
-  // Get helpful suggestions based on error category
-  getErrorSuggestions(category) {
-    switch (category) {
-      case 'network':
-        return [
-          'Check your internet connection',
-          'Make sure the server is running',
-          'Try refreshing the page'
-        ];
-      case 'timeout':
-        return [
-          'The request took too long - try again',
-          'Check your internet connection speed',
-          'Try uploading a smaller file'
-        ];
-      case 'permission':
-        return [
-          'Check your ServiceTitan access permissions',
-          'Make sure you are logged in',
-          'Contact your administrator if needed'
-        ];
-      case 'not_found':
-        return [
-          'The requested item may have been deleted',
-          'Check that the job or attachment exists',
-          'Try refreshing the page'
-        ];
-      case 'server_error':
-        return [
-          'ServiceTitan server is experiencing issues',
-          'Please try again in a few minutes',
-          'Contact support if the problem persists'
-        ];
-      default:
-        return [
-          'Please try again',
-          'Check your connection',
-          'Contact support if needed'
-        ];
-    }
-  }
-
-  // 🔍 NEW: Enhanced debugging for uploads
-  async debugUploadCapabilities() {
-    try {
-      const health = await this.getHealth();
-      const session = sessionManager.getTechnicianSession();
-      
-      const debugInfo = {
-        serverHealth: health.status === 'healthy',
-        serviceTitanConfigured: health.serviceIntegration?.configured || false,
-        userLoggedIn: !!session?.technician?.id,
-        environment: health.serviceIntegration?.environment || 'unknown',
-        uploadEndpointsAvailable: true, // Based on our implementation
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log('🔍 Upload capabilities debug:', debugInfo);
-      return debugInfo;
-      
-    } catch (error) {
-      console.error('❌ Error checking upload capabilities:', error);
-      return {
-        serverHealth: false,
-        serviceTitanConfigured: false,
-        userLoggedIn: false,
-        environment: 'unknown',
-        uploadEndpointsAvailable: false,
-        error: error.message,
-        timestamp: new Date().toISOString()
-      };
-    }
+  // Log out (clear session)
+  logout() {
+    sessionManager.clearSession();
   }
 }
 
 // Export singleton instance
 const apiClient = new ApiClient();
-
-// Add development helpers
-if (process.env.NODE_ENV === 'development') {
-  window.apiClient = apiClient;
-  
-  // Log capabilities on load
-  apiClient.debugUploadCapabilities().then(capabilities => {
-    if (capabilities.serverHealth && capabilities.serviceTitanConfigured) {
-      console.log('🚀 TitanPDF API Client Ready - ServiceTitan Upload Enabled');
-    } else {
-      console.warn('⚠️ TitanPDF API Client - Limited functionality');
-    }
-  });
-}
-
 export default apiClient;
