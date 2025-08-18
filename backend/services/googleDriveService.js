@@ -208,6 +208,66 @@ class GoogleDriveService {
   }
 
   /**
+   * 🚀 NEW: Download file content from Google Drive
+   */
+  async downloadFile(fileId) {
+    try {
+      if (!this.drive) {
+        throw new Error('Google Drive not initialized');
+      }
+
+      console.log(`📥 Downloading file from Google Drive: ${fileId}`);
+
+      const response = await this.drive.files.get({
+        fileId: fileId,
+        alt: 'media',
+        supportsAllDrives: true
+      });
+
+      if (response.status === 200) {
+        console.log(`✅ Successfully downloaded file: ${fileId}`);
+        return Buffer.from(response.data);
+      } else {
+        throw new Error(`Download failed with status: ${response.status}`);
+      }
+
+    } catch (error) {
+      console.error(`❌ Failed to download file ${fileId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🚀 NEW: Get file metadata from Google Drive
+   */
+  async getFileMetadata(fileId) {
+    try {
+      if (!this.drive) {
+        throw new Error('Google Drive not initialized');
+      }
+
+      console.log(`🔍 Getting file metadata: ${fileId}`);
+
+      const response = await this.drive.files.get({
+        fileId: fileId,
+        fields: 'id, name, size, mimeType, createdTime, modifiedTime, parents',
+        supportsAllDrives: true
+      });
+
+      if (response.status === 200) {
+        console.log(`✅ Retrieved metadata for file: ${response.data.name}`);
+        return response.data;
+      } else {
+        throw new Error(`Metadata fetch failed with status: ${response.status}`);
+      }
+
+    } catch (error) {
+      console.error(`❌ Failed to get metadata for file ${fileId}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Generate filled PDF with form fields
    */
   async generateFilledPDF(originalPdfBuffer, formFields) {

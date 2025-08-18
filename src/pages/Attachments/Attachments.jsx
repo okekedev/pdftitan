@@ -200,6 +200,57 @@ export default function Attachments({
     }
   };
 
+  // 🚀 NEW: Handle editing saved drafts
+  const handleEditDraft = async (draft) => {
+    try {
+      console.log('✏️ Editing saved draft:', draft.name);
+      
+      // Create a PDF object that mimics the original attachment structure
+      // but uses the Google Drive file as the source
+      const draftPdfData = {
+        id: `draft_${draft.id}`, // Unique ID for the draft
+        serviceTitanId: `draft_${draft.id}`,
+        name: draft.name,
+        fileName: draft.name,
+        // Use Google Drive download URL for the PDF source
+        googleDriveFileId: draft.id,
+        isDraft: true, // Flag to indicate this is a saved draft
+        originalAttachmentId: extractOriginalAttachmentId(draft.name), // Extract from filename if possible
+        type: 'PDF Document',
+        size: draft.size,
+        modifiedTime: draft.modifiedTime
+      };
+
+      console.log('📝 Opening draft PDF for editing:', draftPdfData);
+      
+      setSelectedPDF(draftPdfData);
+    } catch (error) {
+      console.error('❌ Error opening draft for editing:', error);
+      alert('Failed to open draft for editing. Please try again.');
+    }
+  };
+
+  // 🚀 NEW: Helper function to extract original attachment ID from filename
+  const extractOriginalAttachmentId = (fileName) => {
+    // Try to extract attachment ID from filename patterns
+    // This is a best-effort approach based on common filename patterns
+    const patterns = [
+      /(\d+)\.pdf$/i, // Numbers at the end
+      /attachment[_-](\d+)/i, // attachment_123 or attachment-123
+      /id[_-](\d+)/i, // id_123 or id-123
+    ];
+    
+    for (const pattern of patterns) {
+      const match = fileName.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+    
+    // If no pattern matches, return null - the editor will handle this gracefully
+    return null;
+  };
+
   // Handle promoting draft to completed
   const handlePromoteToCompleted = async (fileId, fileName) => {
     const confirmUpload = window.confirm(`Is the form "${fileName}" ready to be uploaded to the completed folder?`);
@@ -522,7 +573,7 @@ export default function Attachments({
 
         {/* Bottom Sections: 50% Saved | 50% Uploaded */}
         <div className="bottom-sections">
-          {/* Saved Forms Section (50%) - Updated with actual drafts */}
+          {/* 🚀 ENHANCED: Saved Forms Section with Edit Button */}
           <div className="forms-section saved-forms">
             <div className="section-header">
               <h3>💾 Saved Forms ({drafts.length})</h3>
@@ -541,13 +592,22 @@ export default function Attachments({
                           {draft.size && ` • ${Math.round(draft.size / 1024)} KB`}
                         </div>
                       </div>
-                      <button
-                        className="upload-btn"
-                        onClick={() => handlePromoteToCompleted(draft.id, draft.name)}
-                        title="Upload this form to completed folder"
-                      >
-                        📤 Upload
-                      </button>
+                      <div className="form-actions">
+                        <button
+                          className="edit-btn"
+                          onClick={() => handleEditDraft(draft)}
+                          title="Edit this saved form"
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          className="upload-btn"
+                          onClick={() => handlePromoteToCompleted(draft.id, draft.name)}
+                          title="Upload this form to completed folder"
+                        >
+                          📤 Upload
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
