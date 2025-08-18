@@ -326,17 +326,39 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ FIXED: Import API modules AFTER setting up global serviceTitan
-const authAPI = require('./api/auth');
-const jobsAPI = require('./api/jobs'); // ✅ Changed from appointments to jobs
-const attachmentsAPI = require('./api/attachments');
-const draftsAPI = require('./api/drafts');
+// ✅ TEMPORARILY REMOVED: Import API modules that don't exist yet
+// We'll add these back one by one as we create the files
+try {
+  const authAPI = require('./api/auth');
+  app.use('/api', authAPI);
+  console.log('✅ Auth API loaded');
+} catch (error) {
+  console.log('⚠️ Auth API not found, skipping...');
+}
 
-// ✅ FIXED: API Routes - removed old appointments API, using jobs API
-app.use('/api', authAPI);
-app.use('/api', jobsAPI); // ✅ Jobs API handles both job listing and job details
-app.use('/api', attachmentsAPI);
-app.use('/api/drafts', draftsAPI);
+try {
+  const jobsAPI = require('./api/jobs');
+  app.use('/api', jobsAPI);
+  console.log('✅ Jobs API loaded');
+} catch (error) {
+  console.log('⚠️ Jobs API not found, skipping...');
+}
+
+try {
+  const attachmentsAPI = require('./api/attachments');
+  app.use('/api', attachmentsAPI);
+  console.log('✅ Attachments API loaded');
+} catch (error) {
+  console.log('⚠️ Attachments API not found, skipping...');
+}
+
+try {
+  const draftsAPI = require('./api/drafts');
+  app.use('/api/drafts', draftsAPI);
+  console.log('✅ Drafts API loaded');
+} catch (error) {
+  console.log('⚠️ Drafts API not found, skipping...');
+}
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -388,12 +410,7 @@ if (!isDevelopment) {
       ],
       endpoints: {
         health: 'GET /health',
-        technicianValidate: 'POST /api/technician/validate',
-        technicianJobs: 'GET /api/technician/:id/jobs', // ✅ Updated endpoint name
-        jobDetails: 'GET /api/job/:jobId',
-        jobAttachments: 'GET /api/job/:jobId/attachments',
-        downloadAttachment: 'GET /api/job/:jobId/attachment/:attachmentId/download',
-        saveAttachment: 'POST /api/job/:jobId/attachment/:attachmentId/save'
+        note: 'Other endpoints will be available as API modules are loaded'
       }
     });
   });
@@ -419,15 +436,7 @@ app.use((req, res) => {
     error: 'Endpoint not found',
     path: req.path,
     method: req.method,
-    availableEndpoints: [
-      'GET /health',
-      'POST /api/technician/validate',
-      'GET /api/technician/:id/jobs',  // ✅ Updated endpoint documentation
-      'GET /api/job/:jobId',
-      'GET /api/job/:jobId/attachments',
-      'GET /api/job/:jobId/attachment/:attachmentId/download',
-      'POST /api/job/:jobId/attachment/:attachmentId/save'
-    ]
+    note: 'Available endpoints depend on which API modules are loaded'
   });
 });
 
@@ -442,20 +451,7 @@ app.listen(PORT, () => {
   
   if (isDevelopment) {
     console.log('🔥 Development mode active');
-    console.log('📋 Available API Endpoints:');
-    console.log('   GET  /health');
-    console.log('   POST /api/technician/validate');
-    console.log('   GET  /api/technician/:id/jobs');  // ✅ Updated endpoint name
-    console.log('   GET  /api/job/:jobId');
-    console.log('   GET  /api/job/:jobId/attachments');
-    console.log('   GET  /api/job/:jobId/attachment/:attachmentId/download');
-    console.log('   POST /api/job/:jobId/attachment/:attachmentId/save');
-    console.log('');
-    console.log('🎯 Job-Focused Improvements:');
-    console.log('   ✅ Renamed appointments API to jobs API');
-    console.log('   ✅ Job-centric data model and endpoints');
-    console.log('   ✅ Better business logic alignment');
-    console.log('   ✅ Simplified frontend integration');
+    console.log('📋 Server started - API endpoints will be available as modules are loaded');
   } else {
     console.log('🏭 Production mode: Serving React app + API (Job-Focused)');
     console.log('📱 App available at: http://localhost:' + PORT);

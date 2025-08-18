@@ -137,7 +137,7 @@ router.get('/:jobId', async (req, res) => {
 });
 
 /**
- * 🚀 NEW: Download PDF from Google Drive for editing
+ * ✅ FIXED: Download PDF from Google Drive for editing
  * GET /api/drafts/download/:fileId
  */
 router.get('/download/:fileId', async (req, res) => {
@@ -147,7 +147,17 @@ router.get('/download/:fileId', async (req, res) => {
     console.log(`📥 Downloading PDF from Google Drive: ${fileId}`);
     
     // Download file from Google Drive
-    const pdfBuffer = await googleDriveService.downloadFile(fileId);
+    const result = await googleDriveService.downloadFile(fileId);
+    
+    if (!result.success) {
+      console.log(`❌ Failed to download file ${fileId}:`, result.error);
+      return res.status(500).json({
+        success: false,
+        error: result.error
+      });
+    }
+    
+    const pdfBuffer = result.data;
     
     if (!pdfBuffer) {
       return res.status(404).json({
@@ -170,8 +180,7 @@ router.get('/download/:fileId', async (req, res) => {
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Length': pdfBuffer.length,
-      'Cache-Control': 'private, max-age=3600',
-      'Accept-Ranges': 'bytes'
+      'Cache-Control': 'private, no-cache'
     });
     
     res.send(pdfBuffer);
@@ -188,7 +197,7 @@ router.get('/download/:fileId', async (req, res) => {
 });
 
 /**
- * 🚀 NEW: Get Google Drive file metadata
+ * Get Google Drive file metadata
  * GET /api/drafts/info/:fileId
  */
 router.get('/info/:fileId', async (req, res) => {
@@ -222,7 +231,7 @@ router.get('/info/:fileId', async (req, res) => {
 });
 
 /**
- * 🚀 ENHANCED: Promote a draft to completed + Upload to ServiceTitan
+ * Promote a draft to completed + Upload to ServiceTitan
  * POST /api/drafts/:fileId/complete
  * 
  * This endpoint now does 3 things:
@@ -256,12 +265,13 @@ router.post('/:fileId/complete', async (req, res) => {
 
     // Step 2: Download the completed PDF from Google Drive
     console.log('📥 Step 2: Downloading completed PDF from Google Drive...');
-    const pdfBuffer = await googleDriveService.downloadFile(fileId);
+    const downloadResult = await googleDriveService.downloadFile(fileId);
     
-    if (!pdfBuffer) {
-      throw new Error('Failed to download completed PDF from Google Drive');
+    if (!downloadResult.success) {
+      throw new Error(`Failed to download completed PDF from Google Drive: ${downloadResult.error}`);
     }
     
+    const pdfBuffer = downloadResult.data;
     console.log(`✅ Step 2 complete: Downloaded ${pdfBuffer.length} bytes from Google Drive`);
 
     // Step 3: Upload to ServiceTitan
@@ -314,7 +324,7 @@ router.post('/:fileId/complete', async (req, res) => {
 });
 
 /**
- * 🚀 HELPER FUNCTION: Upload PDF to ServiceTitan
+ * HELPER FUNCTION: Upload PDF to ServiceTitan
  * Uses the same logic as the existing attachments save endpoint
  */
 async function uploadToServiceTitan(jobId, pdfBuffer, fileName) {

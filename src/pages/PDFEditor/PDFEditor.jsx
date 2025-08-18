@@ -1,12 +1,12 @@
 /**
- * PDFEditor.jsx - Fixed Version with No Infinite Loops and No Double Jump
+ * PDFEditor.jsx - Fixed Version with No Infinite Loops and Google Drive Support
  */
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import './PDFEditor.css';
 
 /**
- * Fixed PDF Editor Hook - No infinite re-renders
+ * Fixed PDF Editor Hook - No infinite re-renders + Google Drive support
  */
 function usePDFEditor(pdf, job) {
   // Core PDF state
@@ -42,7 +42,7 @@ function usePDFEditor(pdf, job) {
   };
 
   /**
-   * Load PDF document - NOT wrapped in useCallback
+   * Load PDF document - Added Google Drive support
    */
   const loadPDF = async () => {
     if (!pdf || pdfLoaded || isRendering) return;
@@ -58,7 +58,37 @@ function usePDFEditor(pdf, job) {
       
       let pdfSource;
       
-      if (pdf.dataUrl && pdf.dataUrl.startsWith('data:')) {
+      // NEW: Google Drive file loading
+      if (pdf.googleDriveFileId) {
+        console.log('🎯 Loading from Google Drive:', pdf.googleDriveFileId);
+        
+        // Use the drafts download endpoint for Google Drive files
+        const downloadUrl = `/api/drafts/download/${pdf.googleDriveFileId}`;
+        console.log('🔗 Fetching PDF from Google Drive:', downloadUrl);
+        
+        const response = await fetch(downloadUrl, {
+          method: 'GET',
+          headers: { 'Accept': 'application/pdf,*/*' },
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to load from Google Drive: ${response.status} - ${errorText}`);
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const isValidPDF = arrayBuffer.byteLength > 0 && 
+                          new Uint8Array(arrayBuffer).slice(0, 4).toString() === '37,80,68,70';
+        
+        if (!isValidPDF) {
+          throw new Error('Downloaded file from Google Drive is not a valid PDF document');
+        }
+        
+        pdfSource = { data: arrayBuffer };
+        console.log('✅ PDF loaded from Google Drive, size:', arrayBuffer.byteLength, 'bytes');
+        
+      } else if (pdf.dataUrl && pdf.dataUrl.startsWith('data:')) {
         console.log('🎯 Using dataUrl source');
         pdfSource = pdf.dataUrl;
         
@@ -647,6 +677,7 @@ function SignatureOptionsDialog({ isOpen, onClose, onUseExisting, onReplace, onC
     </div>
   );
 }
+
 function SignatureDialog({ isOpen, onClose, onSave, signatureType }) {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -982,6 +1013,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
         <div>Loading PDF...</div>
+        {pdf.googleDriveFileId && <p>Loading draft from Google Drive...</p>}
       </div>
     );
   }
@@ -991,6 +1023,19 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
       {/* Centered Toolbar */}
       <div className="pdf-editor-toolbar">
         <div className="toolbar-content">
+          {pdf.googleDriveFileId && (
+            <span style={{ 
+              backgroundColor: '#1e3a8a', 
+              color: 'white', 
+              padding: '4px 8px', 
+              borderRadius: '4px', 
+              fontSize: '12px',
+              marginRight: '10px'
+            }}>
+              📝 Editing Draft
+            </span>
+          )}
+          
           <button className="pdf-btn" onClick={addTextObject}>📝 Text</button>
           <button className="pdf-btn" onClick={handleAddMySignature}>
             ✍️ {mySignature ? 'My Signature' : 'Create My Signature'}
@@ -1050,6 +1095,10 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             ref={canvasRef}
             onClick={handleCanvasClick}
             className="pdf-canvas"
+            style={{ 
+              opacity: isRendering ? 0.7 : 1,
+              transition: 'opacity 0.2s ease'
+            }}
           />
           
           {/* Render fields - positions remain relative to canvas */}
