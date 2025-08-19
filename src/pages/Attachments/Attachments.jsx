@@ -287,23 +287,42 @@ export default function Attachments({
 
     try {
       console.log('📤 Promoting draft to completed:', fileId);
+      console.log('📋 Job ID:', job.id);
       
-      const response = await apiClient.promoteToCompleted(fileId, { jobId: job.id });
+      // Pass jobId directly, not wrapped in an object
+      const response = await apiClient.promoteToCompleted(fileId, job.id);
       
       if (response.success) {
-        alert('Form successfully moved to completed folder!');
+        alert('✅ Form successfully moved to completed folder and uploaded to ServiceTitan!');
         
-        // Reload drafts to reflect changes
+        // Reload drafts and completed files to reflect changes
         const draftsResponse = await apiClient.getJobDrafts(job.id);
         setDrafts(draftsResponse.drafts || []);
         setCompletedFiles(draftsResponse.completed || []);
+        
+        console.log('✅ Successfully promoted draft to completed');
+        console.log('📁 Updated drafts:', draftsResponse.drafts?.length || 0);
+        console.log('📁 Updated completed:', draftsResponse.completed?.length || 0);
       } else {
-        alert('Failed to move form to completed folder.');
+        const errorMsg = response.error || 'Unknown error occurred';
+        console.error('❌ Failed to promote draft:', errorMsg);
+        alert(`Failed to move form to completed folder: ${errorMsg}`);
       }
       
     } catch (error) {
       console.error('❌ Error promoting draft:', error);
-      alert(`Failed to move form: ${error.message}`);
+      
+      // Provide more detailed error message
+      let errorMessage = 'Failed to move form: ';
+      if (error.response?.data?.error) {
+        errorMessage += error.response.data.error;
+      } else if (error.message) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += 'Unknown error occurred';
+      }
+      
+      alert(errorMessage);
     }
   };
 
