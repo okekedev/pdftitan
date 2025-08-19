@@ -183,10 +183,14 @@ class GoogleDriveService {
 
       console.log(`🔄 Updating file ${fileId} in Google Drive...`);
 
-      // Create media object for upload
+      // Create temp file (same approach as uploadToFolder method)
+      const tempFilePath = path.join(__dirname, `temp-update-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.pdf`);
+      fs.writeFileSync(tempFilePath, Buffer.from(pdfBuffer));
+
+      // Create media object for upload using file stream
       const media = {
         mimeType: 'application/pdf',
-        body: require('stream').Readable.from(pdfBuffer)
+        body: fs.createReadStream(tempFilePath)
       };
 
       // Update the file content (keep same name and location)
@@ -196,6 +200,9 @@ class GoogleDriveService {
         supportsAllDrives: true,
         fields: 'id, name, size, modifiedTime'
       });
+
+      // Clean up temp file
+      fs.unlinkSync(tempFilePath);
 
       console.log(`✅ File updated successfully: ${response.data.id}`);
       
@@ -208,6 +215,14 @@ class GoogleDriveService {
       };
 
     } catch (error) {
+      // Clean up temp file if it exists
+      const tempFiles = fs.readdirSync(__dirname).filter(f => f.startsWith('temp-update-'));
+      tempFiles.forEach(f => {
+        try {
+          fs.unlinkSync(path.join(__dirname, f));
+        } catch (e) {}
+      });
+
       console.error('❌ Failed to update file in Google Drive:', error);
       return {
         success: false,
