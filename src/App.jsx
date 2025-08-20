@@ -80,18 +80,27 @@ export default function App() {
       {/* Main Content */}
       <main className="app-main">
         {currentPage === "jobs" && (
-          <Jobs technician={technician} onSelectJob={handleSelectJob} />
-        )}
-        
-        {currentPage === "attachments" && (
-          <Attachments 
-            job={selectedJob} 
-            onBack={handleBackToJobs}
+          <Jobs
+            technician={technician}
+            onSelectJob={handleSelectJob}
+            onLogout={handleLogout} // ADD THIS LINE
           />
         )}
-        
+
+        {currentPage === "attachments" && (
+          <Attachments
+            job={selectedJob}
+            onBack={handleBackToJobs}
+            technician={technician} // ADD THIS LINE
+            onLogout={handleLogout} // ADD THIS LINE
+          />
+        )}
+
         {currentPage === "documentation" && (
-          <Documentation onBack={() => handleNavigate("jobs")} />
+          <Documentation
+            onBack={() => handleNavigate("jobs")}
+            onLogout={handleLogout} // ADD THIS LINE (if Documentation has a header)
+          />
         )}
       </main>
     </div>
