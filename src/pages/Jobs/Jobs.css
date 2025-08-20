@@ -2,7 +2,9 @@
 
 /* Scope all styles under .jobs-page to avoid conflicts */
 .jobs-page {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
 }
 
 .jobs-page .page-container {
@@ -18,7 +20,8 @@
   padding: 3rem;
   background: #ffffff;
   border-radius: 16px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
   margin: 3rem auto;
   max-width: 400px;
 }
@@ -34,8 +37,12 @@
 }
 
 @keyframes jobsPageSpin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .jobs-page .loading-content h2 {
@@ -58,7 +65,8 @@
   border-radius: 12px;
   margin-bottom: 1.5rem;
   background: #ffffff;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .jobs-page .alert-error {
@@ -125,10 +133,12 @@
 
 .jobs-page .jobs-timeline {
   position: relative;
+  padding: 0 1rem;
 }
 
 .jobs-page .date-section {
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
+  position: relative;
 }
 
 .jobs-page .date-header {
@@ -143,58 +153,56 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  z-index: 1;
-  min-width: 30px;
 }
 
 .jobs-page .date-dot {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #cbd5e0;
-  border: 3px solid #ffffff;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  transition: all 0.15s ease;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 0 0 4px var(--bg-light);
 }
 
 .jobs-page .date-dot.today {
-  background: #48bb78;
-  box-shadow: 0 0 0 4px rgba(72, 187, 120, 0.2);
-  animation: jobsPagePulse 2s infinite;
+  background: var(--primary-gradient);
+  box-shadow: 0 0 0 4px rgba(0, 82, 204, 0.1), 0 0 20px rgba(0, 82, 204, 0.4);
 }
 
 .jobs-page .date-dot.yesterday {
-  background: #ff9500;
+  background: linear-gradient(135deg, #64648b 0%, #475569 100%);
 }
 
 .jobs-page .date-dot.past {
-  background: #cbd5e0;
+  background: linear-gradient(135deg, #cbd5e0 0%, #94a3b8 100%);
 }
 
 @keyframes jobsPagePulse {
-  0% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(72, 187, 120, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(72, 187, 120, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(72, 187, 120, 0);
+  }
 }
 
 .jobs-page .date-line {
+  position: absolute;
+  top: 20px;
   width: 2px;
-  height: 60px;
-  background: #e2e8f0;
-  margin-top: 0.25rem;
+  height: calc(100% + 2rem);
+  background: linear-gradient(180deg, var(--border-light) 0%, transparent 100%);
+  left: 7px;
 }
 
 .jobs-page .date-info {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #0052cc 0%, #667eea 100%);
-  color: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  gap: 1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
 }
 
 .jobs-page .date-title {
@@ -204,13 +212,9 @@
 }
 
 .jobs-page .job-count {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  font-weight: 600;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .jobs-page .jobs-grid {
@@ -221,20 +225,45 @@
 }
 
 .jobs-page .job-card {
-  background: #ffffff;
-  border: 2px solid #edf2f7;
-  border-radius: 12px;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  background: white;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border-light);
+  padding: 1.5rem;
+  margin-left: 2rem;
+  transition: all var(--transition-normal);
   cursor: pointer;
-  transition: all 0.2s ease;
-  overflow: hidden;
   position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.jobs-page .job-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--primary-gradient);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
 }
 
 .jobs-page .job-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  border-color: #0052cc;
+  transform: translateX(4px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-blue);
+}
+
+.jobs-page .job-card:hover::before {
+  opacity: 1;
+}
+
+.jobs-page .job-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
 }
 
 .jobs-page .job-card:focus {
@@ -258,10 +287,10 @@
 }
 
 .jobs-page .job-identifier {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  flex: 1;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  margin: 0;
 }
 
 .jobs-page .customer-name {
@@ -450,7 +479,8 @@
 .jobs-page .btn:hover {
   background: #003d99;
   transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .jobs-page .btn-primary {
@@ -468,49 +498,49 @@
   .jobs-page .page-container {
     padding: 1rem;
   }
-  
+
   .jobs-page .jobs-grid {
     margin-left: 0;
     grid-template-columns: 1fr;
   }
-  
+
   .jobs-page .date-header {
     flex-direction: column;
     gap: 0.5rem;
   }
-  
+
   .jobs-page .date-info {
     flex-direction: column;
     gap: 0.5rem;
     text-align: center;
   }
-  
+
   .jobs-page .date-indicator {
     display: none;
   }
-  
+
   .jobs-page .job-identifier {
     text-align: left;
   }
-  
+
   .jobs-page .customer-name {
     font-size: 1rem;
   }
-  
+
   .jobs-page .next-appointment-centered {
     padding: 0.25rem;
   }
-  
+
   .jobs-page .appointment-time {
     font-size: 0.85rem;
   }
-  
+
   .jobs-page .card-header {
     flex-direction: column;
     gap: 0.5rem;
     align-items: flex-start;
   }
-  
+
   .jobs-page .status-badge {
     align-self: flex-start;
   }
