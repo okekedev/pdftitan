@@ -17,13 +17,13 @@ function getGoogleCredentials() {
   try {
     // Method 1: Base64-encoded credentials (recommended for GitHub Actions)
     if (process.env.GOOGLE_CREDENTIALS_BASE64) {
-      console.log('🔍 Found base64-encoded Google credentials');
+      console.log('🔍 Found GOOGLE_CREDENTIALS_BASE64 environment variable');
       
       // Decode the base64 string to get the JSON
       const decodedCredentials = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf8');
       const credentials = JSON.parse(decodedCredentials);
       
-      console.log('✅ Successfully decoded base64 Google credentials');
+      console.log('✅ Successfully decoded GOOGLE_CREDENTIALS_BASE64');
       console.log(`📧 Service Account: ${credentials.client_email}`);
       
       return credentials;
@@ -68,7 +68,7 @@ function getGoogleCredentials() {
     
     // Enhanced error messaging for common issues
     if (error.message.includes('JSON.parse')) {
-      console.error('💡 The base64-encoded credentials may be corrupted. Try re-encoding your service account JSON file.');
+      console.error('💡 The GOOGLE_CREDENTIALS_BASE64 may be corrupted. Try re-encoding your service account JSON file.');
     }
     if (error.message.includes('DECODER routines')) {
       console.error('💡 Private key format error. Ensure your private key is properly formatted with actual newlines.');
@@ -95,7 +95,7 @@ class GoogleDriveService {
    * Validate that all required environment variables are set
    */
   validateEnvironmentVariables() {
-    // Check for base64 credentials first
+    // Check for GOOGLE_CREDENTIALS_BASE64 first
     if (process.env.GOOGLE_CREDENTIALS_BASE64) {
       console.log('✅ Found GOOGLE_CREDENTIALS_BASE64 environment variable');
       
@@ -190,7 +190,7 @@ class GoogleDriveService {
       if (error.message.includes('DECODER routines')) {
         console.error('🔍 OpenSSL private key format error detected');
         console.error('💡 This usually means the private key format is incorrect');
-        console.error('💡 If using base64 credentials, ensure they are properly encoded');
+        console.error('💡 If using GOOGLE_CREDENTIALS_BASE64, ensure they are properly encoded');
         console.error('💡 If using individual env vars, ensure private key has proper newlines');
       }
       if (error.message.includes('timeout')) {
