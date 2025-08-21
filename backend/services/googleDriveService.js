@@ -1,7 +1,7 @@
 /**
  * Production Google Drive Service for PDF Titan App
+ * Enhanced with Base64 credentials support for GitHub Actions
  * Organizes files by Job ID in separate folders
- * Uses working syntax from successful tests
  */
 
 const { google } = require('googleapis');
@@ -9,20 +9,74 @@ const { PDFDocument, rgb } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
 
-// Service Account credentials from environment variables
-const GOOGLE_CREDENTIALS = {
-  "type": "service_account",
-  "project_id": process.env.GOOGLE_DRIVE_PROJECT_ID,
-  "private_key_id": process.env.GOOGLE_DRIVE_PRIVATE_KEY_ID,
-  "private_key": process.env.GOOGLE_DRIVE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  "client_email": process.env.GOOGLE_DRIVE_CLIENT_EMAIL,
-  "client_id": process.env.GOOGLE_DRIVE_CLIENT_ID,
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.GOOGLE_DRIVE_CLIENT_EMAIL)}`,
-  "universe_domain": "googleapis.com"
-};
+/**
+ * Get Google credentials from environment variables
+ * Supports both base64-encoded JSON and individual environment variables
+ */
+function getGoogleCredentials() {
+  try {
+    // Method 1: Base64-encoded credentials (recommended for GitHub Actions)
+    if (process.env.GOOGLE_CREDENTIALS_BASE64) {
+      console.log('🔍 Found base64-encoded Google credentials');
+      
+      // Decode the base64 string to get the JSON
+      const decodedCredentials = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf8');
+      const credentials = JSON.parse(decodedCredentials);
+      
+      console.log('✅ Successfully decoded base64 Google credentials');
+      console.log(`📧 Service Account: ${credentials.client_email}`);
+      
+      return credentials;
+    }
+    
+    // Method 2: Individual environment variables (fallback)
+    else if (process.env.GOOGLE_DRIVE_PRIVATE_KEY) {
+      console.log('🔍 Using individual Google Drive environment variables');
+      
+      // Process private key - handle newlines properly
+      let privateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY;
+      
+      // Replace \\n with actual newlines
+      privateKey = privateKey.replace(/\\n/g, '\n');
+      
+      const credentials = {
+        "type": "service_account",
+        "project_id": process.env.GOOGLE_DRIVE_PROJECT_ID,
+        "private_key_id": process.env.GOOGLE_DRIVE_PRIVATE_KEY_ID,
+        "private_key": privateKey,
+        "client_email": process.env.GOOGLE_DRIVE_CLIENT_EMAIL,
+        "client_id": process.env.GOOGLE_DRIVE_CLIENT_ID,
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.GOOGLE_DRIVE_CLIENT_EMAIL)}`,
+        "universe_domain": "googleapis.com"
+      };
+      
+      console.log('✅ Successfully built credentials from individual env vars');
+      console.log(`📧 Service Account: ${credentials.client_email}`);
+      
+      return credentials;
+    }
+    
+    else {
+      throw new Error('No Google credentials found. Please set either GOOGLE_CREDENTIALS_BASE64 or individual GOOGLE_DRIVE_* environment variables');
+    }
+    
+  } catch (error) {
+    console.error('❌ Failed to process Google credentials:', error.message);
+    
+    // Enhanced error messaging for common issues
+    if (error.message.includes('JSON.parse')) {
+      console.error('💡 The base64-encoded credentials may be corrupted. Try re-encoding your service account JSON file.');
+    }
+    if (error.message.includes('DECODER routines')) {
+      console.error('💡 Private key format error. Ensure your private key is properly formatted with actual newlines.');
+    }
+    
+    throw new Error(`Google credentials error: ${error.message}`);
+  }
+}
 
 // Google Drive folder IDs from environment variables
 const FOLDER_IDS = {
@@ -41,28 +95,57 @@ class GoogleDriveService {
    * Validate that all required environment variables are set
    */
   validateEnvironmentVariables() {
-    const required = [
-      'GOOGLE_DRIVE_PROJECT_ID',
-      'GOOGLE_DRIVE_PRIVATE_KEY_ID', 
-      'GOOGLE_DRIVE_PRIVATE_KEY',
-      'GOOGLE_DRIVE_CLIENT_EMAIL',
-      'GOOGLE_DRIVE_CLIENT_ID',
-      'GOOGLE_DRIVE_DRAFT_FOLDER_ID',
-      'GOOGLE_DRIVE_COMPLETED_FOLDER_ID'
-    ];
+    // Check for base64 credentials first
+    if (process.env.GOOGLE_CREDENTIALS_BASE64) {
+      console.log('✅ Found GOOGLE_CREDENTIALS_BASE64 environment variable');
+      
+      // Still need folder IDs
+      const requiredFolders = [
+        'GOOGLE_DRIVE_DRAFT_FOLDER_ID',
+        'GOOGLE_DRIVE_COMPLETED_FOLDER_ID'
+      ];
+      
+      const missing = requiredFolders.filter(env => !process.env[env]);
+      
+      if (missing.length > 0) {
+        console.error('❌ Missing required Google Drive folder environment variables:');
+        missing.forEach(env => console.error(`   - ${env}`));
+        throw new Error(`Missing Google Drive folder environment variables: ${missing.join(', ')}`);
+      }
+    }
+    // Fallback to individual variables
+    else {
+      const required = [
+        'GOOGLE_DRIVE_PROJECT_ID',
+        'GOOGLE_DRIVE_PRIVATE_KEY_ID', 
+        'GOOGLE_DRIVE_PRIVATE_KEY',
+        'GOOGLE_DRIVE_CLIENT_EMAIL',
+        'GOOGLE_DRIVE_CLIENT_ID',
+        'GOOGLE_DRIVE_DRAFT_FOLDER_ID',
+        'GOOGLE_DRIVE_COMPLETED_FOLDER_ID'
+      ];
 
-    const missing = required.filter(env => !process.env[env]);
-    
-    if (missing.length > 0) {
-      console.error('❌ Missing required Google Drive environment variables:');
-      missing.forEach(env => console.error(`   - ${env}`));
-      throw new Error(`Missing Google Drive environment variables: ${missing.join(', ')}`);
+      const missing = required.filter(env => !process.env[env]);
+      
+      if (missing.length > 0) {
+        console.error('❌ Missing required Google Drive environment variables:');
+        missing.forEach(env => console.error(`   - ${env}`));
+        throw new Error(`Missing Google Drive environment variables: ${missing.join(', ')}`);
+      }
     }
 
-    console.log('✅ All Google Drive environment variables are set');
-    console.log(`📧 Service Account: ${GOOGLE_CREDENTIALS.client_email}`);
+    console.log('✅ All required Google Drive environment variables are set');
     console.log(`📁 Draft Folder: ${FOLDER_IDS.DRAFT}`);
     console.log(`📁 Completed Folder: ${FOLDER_IDS.COMPLETED}`);
+    
+    // Test credentials processing
+    try {
+      const credentials = getGoogleCredentials();
+      console.log(`🔑 Credentials validation successful for: ${credentials.client_email}`);
+    } catch (error) {
+      console.error('❌ Credentials validation failed:', error.message);
+      throw error;
+    }
   }
 
   /**
@@ -72,14 +155,23 @@ class GoogleDriveService {
     try {
       console.log('🔐 Initializing Google Drive service with Service Account...');
       
+      // Get credentials using the enhanced function
+      const GOOGLE_CREDENTIALS = getGoogleCredentials();
+      
       // Create service account authentication
       const auth = new google.auth.GoogleAuth({
         credentials: GOOGLE_CREDENTIALS,
         scopes: ['https://www.googleapis.com/auth/drive']
       });
 
-      // Get authenticated client
-      const authClient = await auth.getClient();
+      // Get authenticated client with timeout
+      console.log('🔄 Requesting authenticated client...');
+      const authClient = await Promise.race([
+        auth.getClient(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Authentication timeout after 15 seconds')), 15000)
+        )
+      ]);
       
       this.drive = google.drive({ version: 'v3', auth: authClient });
       this.initialized = true;
@@ -87,11 +179,47 @@ class GoogleDriveService {
       console.log('✅ Google Drive service initialized with Service Account');
       console.log(`📧 Service Account: ${GOOGLE_CREDENTIALS.client_email}`);
       
+      // Test connectivity
+      await this.testConnection();
+      
       return true;
     } catch (error) {
       console.error('❌ Failed to initialize Google Drive:', error);
+      
+      // Enhanced error reporting for common issues
+      if (error.message.includes('DECODER routines')) {
+        console.error('🔍 OpenSSL private key format error detected');
+        console.error('💡 This usually means the private key format is incorrect');
+        console.error('💡 If using base64 credentials, ensure they are properly encoded');
+        console.error('💡 If using individual env vars, ensure private key has proper newlines');
+      }
+      if (error.message.includes('timeout')) {
+        console.error('🔍 Authentication timeout - this may be a network or credentials issue');
+      }
+      
       this.initialized = false;
       return false;
+    }
+  }
+
+  /**
+   * Test Google Drive connectivity
+   */
+  async testConnection() {
+    try {
+      console.log('🧪 Testing Google Drive connectivity...');
+      
+      const response = await this.drive.about.get({
+        fields: 'user'
+      });
+      
+      console.log('✅ Google Drive connection test successful');
+      console.log(`👤 Connected as: ${response.data.user.emailAddress}`);
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Google Drive connection test failed:', error.message);
+      throw new Error(`Google Drive connectivity test failed: ${error.message}`);
     }
   }
 
