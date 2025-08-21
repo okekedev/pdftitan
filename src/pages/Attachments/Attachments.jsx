@@ -18,7 +18,7 @@ export default function Attachments({
   const [customerData, setCustomerData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingJobDetails, setIsLoadingJobDetails] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   // ✅ ADDED: Missing state for drafts functionality
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
@@ -102,17 +102,20 @@ export default function Attachments({
     const loadDrafts = async () => {
       try {
         setIsLoadingDrafts(true);
-        
-        console.log('📄 Loading drafts for job:', job.id);
-        
+
+        console.log("📄 Loading drafts for job:", job.id);
+
         const response = await apiClient.getJobDrafts(job.id);
         setDrafts(response.drafts || []);
         setCompletedFiles(response.completed || []);
-        
-        console.log(`✅ Drafts loaded: ${response.drafts?.length || 0} drafts, ${response.completed?.length || 0} completed`);
-        
+
+        console.log(
+          `✅ Drafts loaded: ${response.drafts?.length || 0} drafts, ${
+            response.completed?.length || 0
+          } completed`
+        );
       } catch (error) {
-        console.error('❌ Error loading drafts:', error);
+        console.error("❌ Error loading drafts:", error);
         // Don't show error for drafts - it's optional functionality
       } finally {
         setIsLoadingDrafts(false);
@@ -152,21 +155,24 @@ export default function Attachments({
   // ✅ UPDATED: Save PDF with proper routing logic
   const handleSavePDF = async (pdfData) => {
     try {
-      console.log('💾 Handling PDF save...');
-      console.log('📊 Selected PDF object:', selectedPDF);
-      console.log('📄 PDF Data:', pdfData);
-      
+      console.log("💾 Handling PDF save...");
+      console.log("📊 Selected PDF object:", selectedPDF);
+      console.log("📄 PDF Data:", pdfData);
+
       let response;
-      
+
       // Check if this is an existing draft (editing a Google Drive file)
       if (selectedPDF?.googleDriveFileId) {
-        console.log('🔄 Updating existing draft:', selectedPDF.googleDriveFileId);
-        console.log('📝 Update data:', { 
-          jobId: job.id, 
-          objects: pdfData.objects?.length || 0, 
-          fileName: pdfData.fileName 
+        console.log(
+          "🔄 Updating existing draft:",
+          selectedPDF.googleDriveFileId
+        );
+        console.log("📝 Update data:", {
+          jobId: job.id,
+          objects: pdfData.objects?.length || 0,
+          fileName: pdfData.fileName,
         });
-        
+
         // Use UPDATE endpoint for existing drafts
         response = await apiClient.updateDraft(
           selectedPDF.googleDriveFileId,
@@ -174,54 +180,55 @@ export default function Attachments({
           pdfData.objects || [],
           pdfData.fileName
         );
-        
       } else {
-        console.log('💾 Saving new draft');
-        
-        const attachmentId = pdfData.attachmentId || 
-                            selectedPDF?.serviceTitanId || 
-                            selectedPDF?.id ||
-                            pdfData.serviceTitanId ||
-                            pdfData.pdfId;
-        
+        console.log("💾 Saving new draft");
+
+        const attachmentId =
+          pdfData.attachmentId ||
+          selectedPDF?.serviceTitanId ||
+          selectedPDF?.id ||
+          pdfData.serviceTitanId ||
+          pdfData.pdfId;
+
         if (!attachmentId) {
           throw new Error("Missing attachment ID - cannot save PDF");
         }
 
-        console.log('🔑 Using attachment ID:', attachmentId);
-        
+        console.log("🔑 Using attachment ID:", attachmentId);
+
         // Use SAVE endpoint for new drafts
         response = await apiClient.savePDFAsDraft({
           jobId: job.id,
           attachmentId: attachmentId,
-          fileName: selectedPDF?.fileName || selectedPDF?.name || 'form.pdf',
-          objects: pdfData.objects || []
+          fileName: selectedPDF?.fileName || selectedPDF?.name || "form.pdf",
+          objects: pdfData.objects || [],
         });
       }
-      
-      console.log('✅ PDF operation completed:', response);
-      
+
+      console.log("✅ PDF operation completed:", response);
+
       // Reload drafts after saving/updating
       const updatedDrafts = await apiClient.getJobDrafts(job.id);
       setDrafts(updatedDrafts.drafts || []);
       setCompletedFiles(updatedDrafts.completed || []);
-      
+
       // Close PDF editor
       setSelectedPDF(null);
-      
+
       return {
         success: true,
-        message: selectedPDF?.googleDriveFileId ? 'Draft updated successfully' : 'PDF saved as draft successfully',
+        message: selectedPDF?.googleDriveFileId
+          ? "Draft updated successfully"
+          : "PDF saved as draft successfully",
         fileName: response.fileName,
-        fileId: response.fileId
+        fileId: response.fileId,
       };
-      
     } catch (error) {
-      console.error('❌ Error handling PDF save:', error);
-      
+      console.error("❌ Error handling PDF save:", error);
+
       return {
         success: false,
-        error: error.message || 'Failed to save/update PDF'
+        error: error.message || "Failed to save/update PDF",
       };
     }
   };
@@ -229,8 +236,8 @@ export default function Attachments({
   // 🚀 NEW: Handle editing saved drafts
   const handleEditDraft = async (draft) => {
     try {
-      console.log('✏️ Editing saved draft:', draft.name);
-      
+      console.log("✏️ Editing saved draft:", draft.name);
+
       // Create a PDF object that mimics the original attachment structure
       // but uses the Google Drive file as the source
       const draftPdfData = {
@@ -242,17 +249,17 @@ export default function Attachments({
         googleDriveFileId: draft.id,
         isDraft: true, // Flag to indicate this is a saved draft
         originalAttachmentId: extractOriginalAttachmentId(draft.name), // Extract from filename if possible
-        type: 'PDF Document',
+        type: "PDF Document",
         size: draft.size,
-        modifiedTime: draft.modifiedTime
+        modifiedTime: draft.modifiedTime,
       };
 
-      console.log('📝 Opening draft PDF for editing:', draftPdfData);
-      
+      console.log("📝 Opening draft PDF for editing:", draftPdfData);
+
       setSelectedPDF(draftPdfData);
     } catch (error) {
-      console.error('❌ Error opening draft for editing:', error);
-      alert('Failed to open draft for editing. Please try again.');
+      console.error("❌ Error opening draft for editing:", error);
+      alert("Failed to open draft for editing. Please try again.");
     }
   };
 
@@ -265,63 +272,69 @@ export default function Attachments({
       /attachment[_-](\d+)/i, // attachment_123 or attachment-123
       /id[_-](\d+)/i, // id_123 or id-123
     ];
-    
+
     for (const pattern of patterns) {
       const match = fileName.match(pattern);
       if (match) {
         return match[1];
       }
     }
-    
+
     // If no pattern matches, return null - the editor will handle this gracefully
     return null;
   };
 
   // Handle promoting draft to completed
   const handlePromoteToCompleted = async (fileId, fileName) => {
-    const confirmUpload = window.confirm(`Is the form "${fileName}" ready to be uploaded to the completed folder?`);
-    
+    const confirmUpload = window.confirm(
+      `Is the form "${fileName}" ready to be uploaded to the completed folder?`
+    );
+
     if (!confirmUpload) {
       return;
     }
 
     try {
-      console.log('📤 Promoting draft to completed:', fileId);
-      console.log('📋 Job ID:', job.id);
-      
+      console.log("📤 Promoting draft to completed:", fileId);
+      console.log("📋 Job ID:", job.id);
+
       // Pass jobId directly, not wrapped in an object
       const response = await apiClient.promoteToCompleted(fileId, job.id);
-      
+
       if (response.success) {
-        alert('✅ Form successfully moved to completed folder and uploaded to ServiceTitan!');
-        
+        alert(
+          "✅ Form successfully moved to completed folder and uploaded to ServiceTitan!"
+        );
+
         // Reload drafts and completed files to reflect changes
         const draftsResponse = await apiClient.getJobDrafts(job.id);
         setDrafts(draftsResponse.drafts || []);
         setCompletedFiles(draftsResponse.completed || []);
-        
-        console.log('✅ Successfully promoted draft to completed');
-        console.log('📁 Updated drafts:', draftsResponse.drafts?.length || 0);
-        console.log('📁 Updated completed:', draftsResponse.completed?.length || 0);
+
+        console.log("✅ Successfully promoted draft to completed");
+        console.log("📁 Updated drafts:", draftsResponse.drafts?.length || 0);
+        console.log(
+          "📁 Updated completed:",
+          draftsResponse.completed?.length || 0
+        );
       } else {
-        const errorMsg = response.error || 'Unknown error occurred';
-        console.error('❌ Failed to promote draft:', errorMsg);
+        const errorMsg = response.error || "Unknown error occurred";
+        console.error("❌ Failed to promote draft:", errorMsg);
         alert(`Failed to move form to completed folder: ${errorMsg}`);
       }
-      
     } catch (error) {
-      console.error('❌ Error promoting draft:', error);
-      
+      console.error("❌ Error promoting draft:", error);
+
       // Provide more detailed error message
-      let errorMessage = 'Failed to move form: ';
+      let errorMessage = "Failed to move form: ";
       if (error.response?.data?.error) {
         errorMessage += error.response.data.error;
       } else if (error.message) {
         errorMessage += error.message;
       } else {
-        errorMessage += 'Unknown error occurred';
+        errorMessage += "Unknown error occurred";
       }
-      
+
       alert(errorMessage);
     }
   };
@@ -566,20 +579,7 @@ export default function Attachments({
                     >
                       <div className="form-icon">📄</div>
                       <div className="form-name">{attachment.name}</div>
-                      <div className="form-meta">
-                        <span>
-                          {attachment.size
-                            ? `${Math.round(attachment.size / 1024)} KB`
-                            : "Unknown size"}
-                        </span>
-                        <span>
-                          {attachment.uploadedOn
-                            ? new Date(
-                                attachment.uploadedOn
-                              ).toLocaleDateString()
-                            : "Unknown date"}
-                        </span>
-                      </div>
+                      <div className="form-meta"></div>
                       <button
                         className="form-action"
                         onClick={(e) => {
@@ -587,7 +587,7 @@ export default function Attachments({
                           handleOpenPDF(attachment);
                         }}
                       >
-                        ✏️ Edit Form
+                        Edit Form
                       </button>
                     </div>
                   ))
@@ -621,7 +621,7 @@ export default function Attachments({
           {/* 🚀 ENHANCED: Saved Forms Section with Edit Button */}
           <div className="forms-section saved-forms">
             <div className="section-header">
-              <h3>💾 Saved Forms ({drafts.length})</h3>
+              <h3>Saved Forms ({drafts.length})</h3>
             </div>
             <div className="forms-content">
               {isLoadingDrafts ? (
@@ -633,8 +633,10 @@ export default function Attachments({
                       <div className="form-info">
                         <div className="form-name">📄 {draft.name}</div>
                         <div className="form-meta">
-                          Saved: {new Date(draft.modifiedTime).toLocaleDateString()}
-                          {draft.size && ` • ${Math.round(draft.size / 1024)} KB`}
+                          Saved:{" "}
+                          {new Date(draft.modifiedTime).toLocaleDateString()}
+                          {draft.size &&
+                            ` • ${Math.round(draft.size / 1024)} KB`}
                         </div>
                       </div>
                       <div className="form-actions">
@@ -647,7 +649,9 @@ export default function Attachments({
                         </button>
                         <button
                           className="upload-btn"
-                          onClick={() => handlePromoteToCompleted(draft.id, draft.name)}
+                          onClick={() =>
+                            handlePromoteToCompleted(draft.id, draft.name)
+                          }
                           title="Upload this form to completed folder"
                         >
                           📤 Upload
@@ -660,7 +664,10 @@ export default function Attachments({
                 <div className="empty-state">
                   <div className="empty-icon">💾</div>
                   <h4>No Saved Forms</h4>
-                  <p>Completed forms will be saved here automatically. Start editing a form to see saved versions.</p>
+                  <p>
+                    Completed forms will be saved here automatically. Start
+                    editing a form to see saved versions.
+                  </p>
                 </div>
               )}
             </div>
@@ -669,7 +676,7 @@ export default function Attachments({
           {/* Uploaded Forms Section (50%) - Updated with actual completed files */}
           <div className="forms-section uploaded-forms">
             <div className="section-header">
-              <h3>📤 Uploaded Forms ({completedFiles.length})</h3>
+              <h3>Uploaded Forms ({completedFiles.length})</h3>
             </div>
             <div className="forms-content">
               {isLoadingDrafts ? (
@@ -681,13 +688,15 @@ export default function Attachments({
                       <div className="form-info">
                         <div className="form-name">✅ {completed.name}</div>
                         <div className="form-meta">
-                          Uploaded: {new Date(completed.modifiedTime).toLocaleDateString()}
-                          {completed.size && ` • ${Math.round(completed.size / 1024)} KB`}
+                          Uploaded:{" "}
+                          {new Date(
+                            completed.modifiedTime
+                          ).toLocaleDateString()}
+                          {completed.size &&
+                            ` • ${Math.round(completed.size / 1024)} KB`}
                         </div>
                       </div>
-                      <div className="status-badge completed">
-                        ✅ Completed
-                      </div>
+                      <div className="status-badge completed">✅ Completed</div>
                     </div>
                   ))}
                 </div>
@@ -695,7 +704,10 @@ export default function Attachments({
                 <div className="empty-state">
                   <div className="empty-icon">📤</div>
                   <h4>No Uploaded Forms</h4>
-                  <p>Successfully completed and uploaded forms will appear here with upload timestamps.</p>
+                  <p>
+                    Successfully completed and uploaded forms will appear here
+                    with upload timestamps.
+                  </p>
                 </div>
               )}
             </div>
