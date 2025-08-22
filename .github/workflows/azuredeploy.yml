@@ -104,6 +104,7 @@ jobs:
           --set-env-vars \
             "NODE_ENV=production" \
             "PORT=3000" \
+            "NODE_OPTIONS=--openssl-legacy-provider" \
             "GHCR_TOKEN=${{ secrets.GHCR_TOKEN }}" \
             "REACT_APP_SERVICETITAN_CLIENT_ID=${{ secrets.REACT_APP_SERVICETITAN_CLIENT_ID }}" \
             "REACT_APP_SERVICETITAN_CLIENT_SECRET=${{ secrets.REACT_APP_SERVICETITAN_CLIENT_SECRET }}" \
