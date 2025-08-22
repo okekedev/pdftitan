@@ -20,6 +20,9 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# ✅ ADD: Set NODE_OPTIONS for OpenSSL compatibility with Google service account keys
+ENV NODE_OPTIONS="--openssl-legacy-provider"
+
 # Copy backend package files
 COPY backend/package*.json ./
 
