@@ -85,7 +85,6 @@ class GoogleDriveService {
     this.initialized = false;
     this.validateEnvironmentVariables();
   }
-
   /**
    * Validate that all required environment variables are set
    */
