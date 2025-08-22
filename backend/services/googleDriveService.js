@@ -19,13 +19,14 @@ function getGoogleCredentials() {
     if (process.env.GOOGLE_CREDENTIALS_BASE64) {
       console.log('🔍 Found GOOGLE_CREDENTIALS_BASE64 environment variable');
       
-      // Decode the base64 string to get the JSON
+      // Just decode the base64, don't modify anything
       const decodedCredentials = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf8');
       const credentials = JSON.parse(decodedCredentials);
       
-      console.log('✅ Successfully decoded GOOGLE_CREDENTIALS_BASE64');
+      console.log('✅ Successfully decoded GOOGLE_CREDENTIALS_BASE64 (no modifications)');
       console.log(`📧 Service Account: ${credentials.client_email}`);
       
+      // Return credentials exactly as they were in the original JSON
       return credentials;
     }
     
@@ -33,17 +34,11 @@ function getGoogleCredentials() {
     else if (process.env.GOOGLE_DRIVE_PRIVATE_KEY) {
       console.log('🔍 Using individual Google Drive environment variables');
       
-      // Process private key - handle newlines properly
-      let privateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY;
-      
-      // Replace \\n with actual newlines
-      privateKey = privateKey.replace(/\\n/g, '\n');
-      
       const credentials = {
         "type": "service_account",
         "project_id": process.env.GOOGLE_DRIVE_PROJECT_ID,
         "private_key_id": process.env.GOOGLE_DRIVE_PRIVATE_KEY_ID,
-        "private_key": privateKey,
+        "private_key": process.env.GOOGLE_DRIVE_PRIVATE_KEY, // No processing at all
         "client_email": process.env.GOOGLE_DRIVE_CLIENT_EMAIL,
         "client_id": process.env.GOOGLE_DRIVE_CLIENT_ID,
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -53,7 +48,7 @@ function getGoogleCredentials() {
         "universe_domain": "googleapis.com"
       };
       
-      console.log('✅ Successfully built credentials from individual env vars');
+      console.log('✅ Successfully built credentials from individual env vars (no modifications)');
       console.log(`📧 Service Account: ${credentials.client_email}`);
       
       return credentials;
