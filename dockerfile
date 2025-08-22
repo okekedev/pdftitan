@@ -1,5 +1,5 @@
 # TitanPDF Dockerfile - Fixed to properly build React app
-FROM node:16-alpine AS builder
+FROM node:18-alpine AS builder
 
 # Build React frontend
 WORKDIR /app
@@ -16,7 +16,7 @@ COPY public/ ./public/
 RUN npm run build
 
 # Production stage
-FROM node:16-alpine
+FROM node:18-alpine
 
 WORKDIR /app
 
