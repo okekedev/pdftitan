@@ -1,4 +1,4 @@
-/* PDFEditor.css - Centered Layout Matching Current Structure */
+/* PDFEditor.css - Touch-Enabled Version with Mobile Support */
 
 /* ===== CSS VARIABLES ===== */
 :root {
@@ -8,7 +8,6 @@
   --pdf-editor-warning: #ffc107;
   --pdf-editor-danger: #dc3545;
   --pdf-editor-secondary: #6c757d;
-  
   
   --pdf-bg-light: #f5f5f5;
   --pdf-bg-white: #ffffff;
@@ -40,6 +39,12 @@
   background: var(--pdf-bg-light);
   align-items: center; /* Center everything horizontally */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  /* TOUCH SUPPORT: Prevent default touch behaviors at container level */
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 /* ===== CENTERED TOOLBAR ===== */
@@ -55,6 +60,8 @@
   width: 100%;
   box-sizing: border-box;
   box-shadow: var(--pdf-shadow-sm);
+  /* TOUCH SUPPORT: Allow normal touch interactions on toolbar */
+  touch-action: auto;
 }
 
 .toolbar-content {
@@ -88,6 +95,10 @@
   white-space: nowrap;
   user-select: none;
   font-family: inherit;
+  /* TOUCH SUPPORT: Minimum touch target size */
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
 }
 
 .pdf-btn:hover:not(:disabled) {
@@ -132,6 +143,9 @@
   font-size: 14px;
   font-family: inherit;
   cursor: pointer;
+  /* TOUCH SUPPORT: Minimum touch target */
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 .scale-select:focus {
@@ -150,12 +164,17 @@
   display: flex;
   justify-content: center; /* Center the PDF horizontally */
   align-items: flex-start; /* Align to top for proper scrolling */
+  /* TOUCH SUPPORT: Allow scrolling but prevent other gestures */
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .pdf-canvas-wrapper {
   position: relative;
   display: inline-block;
   /* This container will be centered by the parent flex container */
+  /* TOUCH SUPPORT: No touch actions allowed on wrapper */
+  touch-action: none;
 }
 
 /* ===== PDF CANVAS ===== */
@@ -166,6 +185,14 @@
   display: block;
   cursor: crosshair;
   background: white;
+  /* CRITICAL TOUCH SUPPORT: Prevent all default touch behaviors */
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 /* ===== EDITABLE FIELDS ===== */
@@ -184,6 +211,16 @@
   z-index: 100;
   transform: translateZ(0); /* Force hardware acceleration */
   will-change: auto;
+  /* CRITICAL TOUCH SUPPORT: Prevent default touch behaviors */
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  /* TOUCH TARGET SIZE: Ensure minimum touch targets */
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .editable-field:hover {
@@ -203,6 +240,9 @@
   opacity: 0.9;
   z-index: 1001;
   will-change: transform;
+  /* Enhanced performance during touch dragging */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 /* ===== FIELD TYPES ===== */
@@ -252,6 +292,13 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  /* TOUCH SUPPORT: Prevent image gestures */
+  touch-action: none;
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
 }
 
 /* ===== FIELD INPUTS (EDITING MODE) ===== */
@@ -268,6 +315,12 @@
   padding: 0;
   margin: 0;
   resize: none;
+  /* TOUCH SUPPORT: Allow normal text input */
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 }
 
 .field-textarea {
@@ -289,6 +342,9 @@
   box-shadow: var(--pdf-shadow-sm);
   z-index: 1002;
   transition: var(--pdf-transition-fast);
+  /* TOUCH SUPPORT: Prevent default behaviors, larger touch target on mobile */
+  touch-action: none;
+  -webkit-touch-callout: none;
 }
 
 .field-resize-handle:hover {
@@ -313,6 +369,8 @@
   justify-content: center;
   z-index: 10000;
   backdrop-filter: blur(2px);
+  /* TOUCH SUPPORT: Allow normal modal interactions */
+  touch-action: auto;
 }
 
 .modal-dialog {
@@ -323,6 +381,8 @@
   max-width: 500px;
   width: 90%;
   animation: modalAppear 0.2s ease-out;
+  /* TOUCH SUPPORT: Allow normal interactions within modal */
+  touch-action: auto;
 }
 
 @keyframes modalAppear {
@@ -372,6 +432,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* TOUCH SUPPORT: Minimum touch target */
+  min-height: 48px;
+  touch-action: manipulation;
 }
 
 .signature-option-btn.use-existing {
@@ -409,6 +472,9 @@
   border-radius: var(--pdf-radius-sm);
   cursor: pointer;
   font-size: 14px;
+  /* TOUCH SUPPORT: Minimum touch target */
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 /* ===== SIGNATURE DIALOG ===== */
@@ -434,6 +500,11 @@
   margin: 10px 0;
   background: transparent;
   cursor: crosshair;
+  /* CRITICAL TOUCH SUPPORT: Allow drawing on signature canvas */
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .signature-actions {
@@ -445,11 +516,25 @@
 .signature-clear-btn {
   background-color: var(--pdf-editor-warning);
   color: var(--pdf-text-dark);
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--pdf-radius-sm);
+  cursor: pointer;
+  /* TOUCH SUPPORT: Minimum touch target */
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 .signature-save-btn {
   background-color: var(--pdf-editor-success);
   color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--pdf-radius-sm);
+  cursor: pointer;
+  /* TOUCH SUPPORT: Minimum touch target */
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 /* ===== ERROR & LOADING STATES ===== */
@@ -491,7 +576,7 @@
   100% { transform: rotate(360deg); }
 }
 
-/* ===== RESPONSIVE DESIGN ===== */
+/* ===== RESPONSIVE DESIGN & TOUCH OPTIMIZATIONS ===== */
 @media (max-width: 768px) {
   .pdf-editor-toolbar {
     flex-direction: column;
@@ -507,8 +592,11 @@
   }
   
   .pdf-btn {
-    padding: 6px 10px;
-    font-size: 13px;
+    padding: 8px 12px;
+    font-size: 14px;
+    /* TOUCH: Ensure minimum touch targets on mobile */
+    min-height: 48px;
+    min-width: 48px;
   }
   
   .pdf-canvas-container {
@@ -521,19 +609,24 @@
   }
   
   .signature-options-buttons {
-    gap: 8px;
+    gap: 12px;
   }
   
   .signature-option-btn {
-    padding: 10px 14px;
-    font-size: 13px;
+    padding: 12px 16px;
+    font-size: 14px;
+    /* TOUCH: Larger buttons on mobile */
+    min-height: 52px;
   }
 }
 
 @media (max-width: 480px) {
   .pdf-btn {
-    padding: 5px 8px;
-    font-size: 12px;
+    padding: 8px 10px;
+    font-size: 13px;
+    /* TOUCH: Even larger minimum targets on small screens */
+    min-height: 52px;
+    min-width: 52px;
   }
   
   .page-info {
@@ -541,19 +634,30 @@
   }
   
   .scale-select {
-    padding: 4px 6px;
-    font-size: 12px;
+    padding: 8px 10px;
+    font-size: 14px;
+    /* TOUCH: Larger select on mobile */
+    min-height: 52px;
   }
   
   .editable-field {
-    border-width: 3px; /* Slightly thicker borders on small screens */
+    border-width: 3px; /* Thicker borders for better touch visibility */
+    /* TOUCH: Larger minimum touch targets on mobile */
+    min-width: 52px;
+    min-height: 52px;
   }
   
   .field-resize-handle {
-    width: 16px;
-    height: 16px;
-    bottom: -8px;
-    right: -8px;
+    width: 20px; /* Larger touch target */
+    height: 20px;
+    bottom: -10px;
+    right: -10px;
+  }
+  
+  /* TOUCH: Make signature canvas larger on mobile */
+  .signature-canvas {
+    min-width: 300px;
+    min-height: 120px;
   }
 }
 
@@ -574,6 +678,59 @@
   box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.2);
 }
 
+/* ===== TOUCH-SPECIFIC IMPROVEMENTS ===== */
+@media (hover: none) and (pointer: coarse) {
+  /* This targets touch devices specifically */
+  
+  .pdf-btn:hover {
+    /* Remove hover effects on touch devices to prevent sticky hover states */
+    background: var(--pdf-bg-white);
+    color: var(--pdf-text-dark);
+    border-color: var(--pdf-border-medium);
+    transform: none;
+    box-shadow: none;
+  }
+  
+  .editable-field:hover {
+    /* Remove hover effects on touch devices */
+    border-color: transparent;
+    background: transparent;
+  }
+  
+  .field-resize-handle:hover {
+    /* Remove hover effects on touch devices */
+    background: var(--pdf-editor-primary);
+    transform: none;
+  }
+  
+  /* Larger touch targets on touch devices */
+  .pdf-btn {
+    min-height: 52px;
+    min-width: 52px;
+  }
+  
+  .editable-field {
+    min-width: 52px;
+    min-height: 52px;
+  }
+  
+  .field-resize-handle {
+    width: 24px;
+    height: 24px;
+    bottom: -12px;
+    right: -12px;
+  }
+}
+
+/* ===== HIGH DPI / RETINA DISPLAYS ===== */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .pdf-canvas {
+    /* Improve canvas rendering on high DPI displays */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
 /* ===== UTILITY CLASSES ===== */
 .sr-only {
   position: absolute;
@@ -585,4 +742,17 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ===== PERFORMANCE OPTIMIZATIONS ===== */
+.pdf-canvas,
+.editable-field,
+.field-resize-handle {
+  /* Hardware acceleration for smooth interactions */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 1000px;
+  perspective: 1000px;
 }
