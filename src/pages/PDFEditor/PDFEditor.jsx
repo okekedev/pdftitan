@@ -1,5 +1,5 @@
 /**
- * PDFEditor.jsx - Fixed Version with No Infinite Loops and Google Drive Support
+ * PDFEditor.jsx - Fixed Version with Touch Support and Google Drive Support
  */
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
@@ -217,7 +217,7 @@ function usePDFEditor(pdf, job) {
         hour12: true
       });
     } else if (type === 'checkbox') {
-      content = true; // ← CHANGED: Default to checked (true) instead of unchecked (false)
+      content = true; // Default to checked (true) instead of unchecked (false)
     }
     
     const newField = {
@@ -314,7 +314,7 @@ function usePDFEditor(pdf, job) {
 }
 
 /**
- * FIXED EditableField - No Double Jump on Drag Release
+ * FIXED EditableField - Touch Support Added
  */
 function EditableField({ object, scale, selected, editing, onUpdate, onSelect, onStartEdit, onFinishEdit }) {
   const [value, setValue] = useState(object.content || '');
@@ -412,10 +412,43 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
       
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove, { passive: false });
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    const handleTouchMove = (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const touchEvent = { clientX: touch.clientX, clientY: touch.clientY };
+      handleMouseMove(touchEvent);
+    };
+
+    const handleTouchEnd = (e) => {
+      e.preventDefault();
+      handleMouseUp({ clientX: startX, clientY: startY }); // Pass dummy coordinates
     };
     
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+  };
+
+  // NEW: Touch event handler
+  const handleTouchStart = (e) => {
+    e.preventDefault(); // Critical - prevents scrolling and default touch behaviors
+    e.stopPropagation();
+    
+    // Convert touch event to same format as mouse event
+    const touchEvent = {
+      clientX: e.touches[0].clientX,
+      clientY: e.touches[0].clientY,
+      preventDefault: () => e.preventDefault(),
+      stopPropagation: () => e.stopPropagation()
+    };
+    
+    // Use the existing mouse handler logic
+    handleMouseDown(touchEvent);
   };
 
   const handleContentChange = (e) => {
@@ -533,6 +566,7 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     <div
       style={fieldStyle}
       onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}  // NEW: Add touch support
       className={`editable-field field-${object.type} ${selected ? 'selected' : ''}`}
     >
       {renderContent()}
@@ -575,10 +609,56 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             const handleMouseUp = () => {
               document.removeEventListener('mousemove', handleMouseMove);
               document.removeEventListener('mouseup', handleMouseUp);
+              document.removeEventListener('touchmove', handleTouchMove, { passive: false });
+              document.removeEventListener('touchend', handleTouchEnd);
+            };
+
+            const handleTouchMove = (e) => {
+              e.preventDefault();
+              const touch = e.touches[0];
+              const touchEvent = { clientX: touch.clientX, clientY: touch.clientY };
+              handleMouseMove(touchEvent);
+            };
+
+            const handleTouchEnd = () => {
+              handleMouseUp();
             };
             
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd);
+          }}
+          onTouchStart={(e) => {  // NEW: Touch support for resize handle
+            e.stopPropagation();
+            e.preventDefault();
+            
+            const startX = e.touches[0].clientX;
+            const startY = e.touches[0].clientY;
+            const startWidth = object.width;
+            const startHeight = object.height;
+            
+            const handleTouchMove = (e) => {
+              e.preventDefault();
+              const deltaX = (e.touches[0].clientX - startX) / scale;
+              const deltaY = (e.touches[0].clientY - startY) / scale;
+              
+              const newWidth = Math.max(30, startWidth + deltaX);
+              const newHeight = Math.max(20, startHeight + deltaY);
+              
+              onUpdate(object.id, {
+                width: newWidth,
+                height: newHeight
+              });
+            };
+            
+            const handleTouchEnd = () => {
+              document.removeEventListener('touchmove', handleTouchMove);
+              document.removeEventListener('touchend', handleTouchEnd);
+            };
+            
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd);
           }}
         />
       )}
@@ -768,6 +848,29 @@ function SignatureDialog({ isOpen, onClose, onSave, signatureType }) {
           onMouseMove={draw}
           onMouseUp={stopDrawing}
           onMouseLeave={stopDrawing}
+          // NEW: Touch events for signature canvas
+          onTouchStart={(e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+              clientX: touch.clientX,
+              clientY: touch.clientY
+            });
+            startDrawing(mouseEvent);
+          }}
+          onTouchMove={(e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+              clientX: touch.clientX,
+              clientY: touch.clientY
+            });
+            draw(mouseEvent);
+          }}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            stopDrawing();
+          }}
         />
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
           <button onClick={onClose}>Cancel</button>
@@ -783,7 +886,7 @@ function SignatureDialog({ isOpen, onClose, onSave, signatureType }) {
 }
 
 /**
- * Main PDFEditor Component - Fixed
+ * Main PDFEditor Component - Touch Support Added
  */
 export default function PDFEditor({ pdf, job, onClose, onSave }) {
   const {
@@ -1104,6 +1207,10 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
           <canvas
             ref={canvasRef}
             onClick={handleCanvasClick}
+            onTouchStart={(e) => {  // NEW: Touch support for canvas
+              e.preventDefault();
+              handleCanvasClick();
+            }}
             className="pdf-canvas"
             style={{ 
               opacity: isRendering ? 0.7 : 1,
