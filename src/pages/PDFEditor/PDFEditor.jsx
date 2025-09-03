@@ -965,13 +965,22 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
 
   // Drag scrolling handlers
   const handleContainerMouseDown = (e) => {
-    // Only start drag scrolling if clicking on the container itself (not on fields or canvas)
-    if (e.target === containerRef.current || e.target.closest('.pdf-canvas-wrapper')) {
+    // Start drag scrolling if clicking on container, canvas wrapper, or canvas itself (but not on form fields)
+    const isClickableArea = e.target === containerRef.current || 
+                           e.target.closest('.pdf-canvas-wrapper') ||
+                           e.target === canvasRef.current ||
+                           (e.target.classList && e.target.classList.contains('pdf-canvas'));
+    
+    const isFormField = e.target.closest('.editable-field');
+    
+    if (isClickableArea && !isFormField) {
       setIsDraggingContainer(true);
       const startX = e.clientX;
       const startY = e.clientY;
       const startScrollLeft = containerRef.current.scrollLeft;
       const startScrollTop = containerRef.current.scrollTop;
+
+      let hasMoved = false;
 
       const handleMouseMove = (e) => {
         if (!isDraggingContainer) return;
@@ -979,12 +988,25 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         const deltaX = startX - e.clientX;
         const deltaY = startY - e.clientY;
         
-        containerRef.current.scrollLeft = startScrollLeft + deltaX;
-        containerRef.current.scrollTop = startScrollTop + deltaY;
+        // Check if we've moved enough to consider this a drag
+        if (!hasMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
+          hasMoved = true;
+        }
+        
+        if (hasMoved) {
+          containerRef.current.scrollLeft = startScrollLeft + deltaX;
+          containerRef.current.scrollTop = startScrollTop + deltaY;
+        }
       };
 
       const handleMouseUp = () => {
         setIsDraggingContainer(false);
+        
+        // If we didn't move much, treat it as a click to deselect fields
+        if (!hasMoved && (e.target === canvasRef.current || e.target.classList.contains('pdf-canvas'))) {
+          handleCanvasClick();
+        }
+        
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
         document.removeEventListener('touchmove', handleTouchMove, { passive: false });
@@ -998,12 +1020,25 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         const deltaX = startX - e.touches[0].clientX;
         const deltaY = startY - e.touches[0].clientY;
         
-        containerRef.current.scrollLeft = startScrollLeft + deltaX;
-        containerRef.current.scrollTop = startScrollTop + deltaY;
+        // Check if we've moved enough to consider this a drag
+        if (!hasMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
+          hasMoved = true;
+        }
+        
+        if (hasMoved) {
+          containerRef.current.scrollLeft = startScrollLeft + deltaX;
+          containerRef.current.scrollTop = startScrollTop + deltaY;
+        }
       };
 
       const handleTouchEnd = (e) => {
         e.preventDefault();
+        
+        // If we didn't move much, treat it as a tap to deselect fields
+        if (!hasMoved && (e.target === canvasRef.current || e.target.classList.contains('pdf-canvas'))) {
+          handleCanvasClick();
+        }
+        
         handleMouseUp();
       };
 
@@ -1017,8 +1052,15 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
   const handleContainerTouchStart = (e) => {
     if (!e.touches || e.touches.length === 0) return;
     
-    // Only start drag scrolling if touching the container itself (not on fields or canvas)
-    if (e.target === containerRef.current || e.target.closest('.pdf-canvas-wrapper')) {
+    // Start drag scrolling if touching container, canvas wrapper, or canvas itself (but not on form fields)
+    const isClickableArea = e.target === containerRef.current || 
+                           e.target.closest('.pdf-canvas-wrapper') ||
+                           e.target === canvasRef.current ||
+                           (e.target.classList && e.target.classList.contains('pdf-canvas'));
+    
+    const isFormField = e.target.closest('.editable-field');
+    
+    if (isClickableArea && !isFormField) {
       e.preventDefault();
       const touchEvent = {
         clientX: e.touches[0].clientX,
@@ -1309,13 +1351,6 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         <div className="pdf-canvas-wrapper">
           <canvas
             ref={canvasRef}
-            onClick={handleCanvasClick}
-            onTouchStart={(e) => {  // Touch support for canvas
-              if (!e.touches || e.touches.length === 0) return;
-              e.preventDefault();
-              e.stopPropagation();
-              handleCanvasClick();
-            }}
             className="pdf-canvas"
             style={{ 
               opacity: isRendering ? 0.7 : 1,
