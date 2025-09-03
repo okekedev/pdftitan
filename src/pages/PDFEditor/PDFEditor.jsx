@@ -197,10 +197,10 @@ function usePDFEditor(pdf, job) {
     
     // Simple default sizes
     const fieldConfigs = {
-      text: { width: 200, height: 30, fontSize: 11 },
+      text: { width: 200, height: 20, fontSize: 11 }, // Reduced height from 30 to 20
       signature: { width: 180, height: 35, fontSize: 12 }, // Reduced width from 250 to 180
-      date: { width: 120, height: 30, fontSize: 11 },
-      timestamp: { width: 150, height: 30, fontSize: 11 },
+      date: { width: 120, height: 20, fontSize: 11 }, // Reduced height from 30 to 20
+      timestamp: { width: 150, height: 20, fontSize: 11 }, // Reduced height from 30 to 20
       checkbox: { width: 30, height: 30, fontSize: 18 }
     };
     
@@ -965,110 +965,99 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
 
   // Drag scrolling handlers
   const handleContainerMouseDown = (e) => {
-    // Start drag scrolling if clicking on container, canvas wrapper, or canvas itself (but not on form fields)
-    const isClickableArea = e.target === containerRef.current || 
-                           e.target.closest('.pdf-canvas-wrapper') ||
-                           e.target === canvasRef.current ||
-                           (e.target.classList && e.target.classList.contains('pdf-canvas'));
-    
+    // Don't interfere with form field interactions
     const isFormField = e.target.closest('.editable-field');
-    
-    if (isClickableArea && !isFormField) {
-      setIsDraggingContainer(true);
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const startScrollLeft = containerRef.current.scrollLeft;
-      const startScrollTop = containerRef.current.scrollTop;
+    if (isFormField) return;
 
-      let hasMoved = false;
+    // Start drag scrolling
+    e.preventDefault();
+    setIsDraggingContainer(true);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startScrollLeft = containerRef.current.scrollLeft;
+    const startScrollTop = containerRef.current.scrollTop;
 
-      const handleMouseMove = (e) => {
-        if (!isDraggingContainer) return;
-        
-        const deltaX = startX - e.clientX;
-        const deltaY = startY - e.clientY;
-        
-        // Check if we've moved enough to consider this a drag
-        if (!hasMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
-          hasMoved = true;
-        }
-        
-        if (hasMoved) {
-          containerRef.current.scrollLeft = startScrollLeft + deltaX;
-          containerRef.current.scrollTop = startScrollTop + deltaY;
-        }
-      };
+    let hasMoved = false;
 
-      const handleMouseUp = () => {
-        setIsDraggingContainer(false);
-        
-        // If we didn't move much, treat it as a click to deselect fields
-        if (!hasMoved && (e.target === canvasRef.current || e.target.classList.contains('pdf-canvas'))) {
-          handleCanvasClick();
-        }
-        
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        document.removeEventListener('touchmove', handleTouchMove, { passive: false });
-        document.removeEventListener('touchend', handleTouchEnd);
-      };
+    const handleMouseMove = (e) => {
+      const deltaX = startX - e.clientX;
+      const deltaY = startY - e.clientY;
+      
+      // Check if we've moved enough to consider this a drag
+      if (!hasMoved && (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2)) {
+        hasMoved = true;
+      }
+      
+      if (hasMoved) {
+        containerRef.current.scrollLeft = startScrollLeft + deltaX;
+        containerRef.current.scrollTop = startScrollTop + deltaY;
+      }
+    };
 
-      const handleTouchMove = (e) => {
-        if (!isDraggingContainer || !e.touches || e.touches.length === 0) return;
-        e.preventDefault();
-        
-        const deltaX = startX - e.touches[0].clientX;
-        const deltaY = startY - e.touches[0].clientY;
-        
-        // Check if we've moved enough to consider this a drag
-        if (!hasMoved && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
-          hasMoved = true;
-        }
-        
-        if (hasMoved) {
-          containerRef.current.scrollLeft = startScrollLeft + deltaX;
-          containerRef.current.scrollTop = startScrollTop + deltaY;
-        }
-      };
+    const handleMouseUp = () => {
+      setIsDraggingContainer(false);
+      
+      // If we didn't move much, treat it as a click to deselect fields
+      if (!hasMoved && (e.target === canvasRef.current || e.target.classList.contains('pdf-canvas'))) {
+        handleCanvasClick();
+      }
+      
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove, { passive: false });
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
 
-      const handleTouchEnd = (e) => {
-        e.preventDefault();
-        
-        // If we didn't move much, treat it as a tap to deselect fields
-        if (!hasMoved && (e.target === canvasRef.current || e.target.classList.contains('pdf-canvas'))) {
-          handleCanvasClick();
-        }
-        
-        handleMouseUp();
-      };
+    const handleTouchMove = (e) => {
+      if (!e.touches || e.touches.length === 0) return;
+      e.preventDefault();
+      
+      const deltaX = startX - e.touches[0].clientX;
+      const deltaY = startY - e.touches[0].clientY;
+      
+      // Check if we've moved enough to consider this a drag
+      if (!hasMoved && (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2)) {
+        hasMoved = true;
+      }
+      
+      if (hasMoved) {
+        containerRef.current.scrollLeft = startScrollLeft + deltaX;
+        containerRef.current.scrollTop = startScrollTop + deltaY;
+      }
+    };
 
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.addEventListener('touchmove', handleTouchMove, { passive: false });
-      document.addEventListener('touchend', handleTouchEnd);
-    }
+    const handleTouchEnd = (e) => {
+      e.preventDefault();
+      
+      // If we didn't move much, treat it as a tap to deselect fields
+      if (!hasMoved && (e.target === canvasRef.current || e.target.classList.contains('pdf-canvas'))) {
+        handleCanvasClick();
+      }
+      
+      handleMouseUp();
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
   };
 
   const handleContainerTouchStart = (e) => {
     if (!e.touches || e.touches.length === 0) return;
     
-    // Start drag scrolling if touching container, canvas wrapper, or canvas itself (but not on form fields)
-    const isClickableArea = e.target === containerRef.current || 
-                           e.target.closest('.pdf-canvas-wrapper') ||
-                           e.target === canvasRef.current ||
-                           (e.target.classList && e.target.classList.contains('pdf-canvas'));
-    
+    // Don't interfere with form field interactions
     const isFormField = e.target.closest('.editable-field');
+    if (isFormField) return;
     
-    if (isClickableArea && !isFormField) {
-      e.preventDefault();
-      const touchEvent = {
-        clientX: e.touches[0].clientX,
-        clientY: e.touches[0].clientY,
-        target: e.target
-      };
-      handleContainerMouseDown(touchEvent);
-    }
+    // Convert touch event to mouse-like event and handle it
+    const touchEvent = {
+      clientX: e.touches[0].clientX,
+      clientY: e.touches[0].clientY,
+      target: e.target,
+      preventDefault: () => e.preventDefault()
+    };
+    handleContainerMouseDown(touchEvent);
   };
 
   const handleAddMySignature = () => {

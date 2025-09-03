@@ -233,8 +233,8 @@
   position: relative;
   display: inline-block;
   /* This container will be centered by the parent flex container */
-  /* TOUCH SUPPORT: No touch actions allowed on wrapper */
-  touch-action: none;
+  /* TOUCH SUPPORT: Allow normal touch scrolling on wrapper */
+  touch-action: auto;
 }
 
 /* ===== PDF CANVAS ===== */
@@ -243,10 +243,10 @@
   border-radius: var(--pdf-radius-sm);
   box-shadow: var(--pdf-shadow-md);
   display: block;
-  cursor: crosshair;
+  cursor: grab;
   background: white;
-  /* CRITICAL TOUCH SUPPORT: Prevent all default touch behaviors */
-  touch-action: none;
+  /* TOUCH SUPPORT: Allow pan gestures for scrolling */
+  touch-action: pan-x pan-y;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   -khtml-user-select: none;
