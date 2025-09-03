@@ -510,7 +510,8 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     
     if (editing) {
       return object.type === 'text' ? (
-        <textarea
+        <input
+          type="text"
           value={value}
           onChange={handleContentChange}
           onBlur={onFinishEdit}
@@ -520,16 +521,12 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             height: '100%',
             border: 'none',
             background: 'transparent',
-            resize: 'none',
             outline: 'none',
             fontSize: `${object.fontSize}px`,
             color: 'inherit',
             fontFamily: 'Arial, sans-serif',
-            lineHeight: '1.2',
             padding: '0',
-            margin: '0',
-            wordWrap: 'break-word',
-            whiteSpace: 'pre-wrap'
+            margin: '0'
           }}
         />
       ) : (
@@ -960,7 +957,77 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     return localStorage.getItem('myName') || '';
   });
 
+  // Drag scrolling state
+  const [isDraggingContainer, setIsDraggingContainer] = useState(false);
+  const containerRef = useRef(null);
+
   const currentObjects = objects.filter(obj => obj.page === currentPage);
+
+  // Drag scrolling handlers
+  const handleContainerMouseDown = (e) => {
+    // Only start drag scrolling if clicking on the container itself (not on fields or canvas)
+    if (e.target === containerRef.current || e.target.closest('.pdf-canvas-wrapper')) {
+      setIsDraggingContainer(true);
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startScrollLeft = containerRef.current.scrollLeft;
+      const startScrollTop = containerRef.current.scrollTop;
+
+      const handleMouseMove = (e) => {
+        if (!isDraggingContainer) return;
+        
+        const deltaX = startX - e.clientX;
+        const deltaY = startY - e.clientY;
+        
+        containerRef.current.scrollLeft = startScrollLeft + deltaX;
+        containerRef.current.scrollTop = startScrollTop + deltaY;
+      };
+
+      const handleMouseUp = () => {
+        setIsDraggingContainer(false);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('touchmove', handleTouchMove, { passive: false });
+        document.removeEventListener('touchend', handleTouchEnd);
+      };
+
+      const handleTouchMove = (e) => {
+        if (!isDraggingContainer || !e.touches || e.touches.length === 0) return;
+        e.preventDefault();
+        
+        const deltaX = startX - e.touches[0].clientX;
+        const deltaY = startY - e.touches[0].clientY;
+        
+        containerRef.current.scrollLeft = startScrollLeft + deltaX;
+        containerRef.current.scrollTop = startScrollTop + deltaY;
+      };
+
+      const handleTouchEnd = (e) => {
+        e.preventDefault();
+        handleMouseUp();
+      };
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleTouchEnd);
+    }
+  };
+
+  const handleContainerTouchStart = (e) => {
+    if (!e.touches || e.touches.length === 0) return;
+    
+    // Only start drag scrolling if touching the container itself (not on fields or canvas)
+    if (e.target === containerRef.current || e.target.closest('.pdf-canvas-wrapper')) {
+      e.preventDefault();
+      const touchEvent = {
+        clientX: e.touches[0].clientX,
+        clientY: e.touches[0].clientY,
+        target: e.target
+      };
+      handleContainerMouseDown(touchEvent);
+    }
+  };
 
   const handleAddMySignature = () => {
     if (mySignature) {
@@ -1233,7 +1300,12 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
       </div>
 
       {/* Centered PDF Canvas Container */}
-      <div className="pdf-canvas-container">
+      <div 
+        ref={containerRef}
+        className={`pdf-canvas-container ${isDraggingContainer ? 'dragging' : ''}`}
+        onMouseDown={handleContainerMouseDown}
+        onTouchStart={handleContainerTouchStart}
+      >
         <div className="pdf-canvas-wrapper">
           <canvas
             ref={canvasRef}
