@@ -1247,21 +1247,21 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             </span>
           )}
           
-          <button className="pdf-btn" onClick={addTextObject}>📝 Text</button>
-          <button className="pdf-btn" onClick={handleAddMySignature}>
+          <button className="pdf-btn form-element" onClick={addTextObject}>📝 Text</button>
+          <button className="pdf-btn form-element" onClick={handleAddMySignature}>
             ✍️ {mySignature ? 'My Signature' : 'Create My Signature'}
           </button>
-          <button className="pdf-btn" onClick={handleAddCustomerSignature}>✍️ Customer Signature</button>
-          <button className="pdf-btn" onClick={handleAddMyName}>
+          <button className="pdf-btn form-element" onClick={handleAddCustomerSignature}>✍️ Customer Signature</button>
+          <button className="pdf-btn form-element" onClick={handleAddMyName}>
             👤 {myName ? `My Name (${myName})` : 'Set My Name'}
           </button>
-          <button className="pdf-btn" onClick={addDateObject}>📅 Date</button>
-          <button className="pdf-btn" onClick={addTimestampObject}>🕐 Timestamp</button>
-          <button className="pdf-btn" onClick={addCheckboxObject}>☑️ Checkbox</button>
+          <button className="pdf-btn form-element" onClick={addDateObject}>📅 Date</button>
+          <button className="pdf-btn form-element" onClick={addTimestampObject}>🕐 Timestamp</button>
+          <button className="pdf-btn form-element" onClick={addCheckboxObject}>☑️ Checkbox</button>
           
           <div className="toolbar-controls">
             <button 
-              className="pdf-btn"
+              className="pdf-btn navigation"
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage <= 1}
             >
@@ -1269,7 +1269,7 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             </button>
             <span className="page-info">Page {currentPage} of {totalPages}</span>
             <button 
-              className="pdf-btn"
+              className="pdf-btn navigation"
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage >= totalPages}
             >
@@ -1288,13 +1288,13 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
               <option value={1.5}>150%</option>
             </select>
             
-            <button className="pdf-btn" onClick={clearAllObjects} disabled={objects.length === 0}>
+            <button className="pdf-btn action" onClick={clearAllObjects} disabled={objects.length === 0}>
               🗑️ Clear
             </button>
-            <button className="pdf-btn" onClick={handleSave} disabled={isSaving}>
+            <button className="pdf-btn save" onClick={handleSave} disabled={isSaving}>
               {isSaving ? 'Saving Draft...' : '💾 Save as Draft'}
             </button>
-            <button className="pdf-btn" onClick={onClose}>← Back</button>
+            <button className="pdf-btn navigation" onClick={onClose}>← Back</button>
           </div>
         </div>
       </div>
