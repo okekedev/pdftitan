@@ -101,10 +101,59 @@
   touch-action: manipulation;
 }
 
-.pdf-btn:hover:not(:disabled) {
+/* FORM CREATION BUTTONS - BLUE */
+.pdf-btn.form-element {
   background: var(--pdf-editor-primary);
   color: white;
   border-color: var(--pdf-editor-primary);
+}
+
+.pdf-btn.form-element:hover:not(:disabled) {
+  background: #1e40af; /* Darker blue */
+  border-color: #1e40af;
+  transform: translateY(-1px);
+  box-shadow: var(--pdf-shadow-sm);
+}
+
+/* NAVIGATION BUTTONS - WHITE (default styling) */
+.pdf-btn.navigation {
+  background: var(--pdf-bg-white);
+  color: var(--pdf-text-dark);
+  border-color: var(--pdf-border-medium);
+}
+
+.pdf-btn.navigation:hover:not(:disabled) {
+  background: #f8fafc;
+  color: var(--pdf-text-dark);
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+  box-shadow: var(--pdf-shadow-sm);
+}
+
+/* ACTION BUTTONS - RED */
+.pdf-btn.action {
+  background: var(--pdf-editor-danger);
+  color: white;
+  border-color: var(--pdf-editor-danger);
+}
+
+.pdf-btn.action:hover:not(:disabled) {
+  background: #b91c1c; /* Darker red */
+  border-color: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: var(--pdf-shadow-sm);
+}
+
+/* SAVE BUTTON - GREEN */
+.pdf-btn.save {
+  background: var(--pdf-editor-success);
+  color: white;
+  border-color: var(--pdf-editor-success);
+}
+
+.pdf-btn.save:hover:not(:disabled) {
+  background: #16a34a; /* Darker green */
+  border-color: #16a34a;
   transform: translateY(-1px);
   box-shadow: var(--pdf-shadow-sm);
 }
