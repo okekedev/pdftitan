@@ -418,14 +418,24 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
 
     const handleTouchMove = (e) => {
       e.preventDefault();
-      const touch = e.touches[0];
-      const touchEvent = { clientX: touch.clientX, clientY: touch.clientY };
-      handleMouseMove(touchEvent);
+      if (e.touches && e.touches.length > 0) {
+        const touch = e.touches[0];
+        const touchEvent = { clientX: touch.clientX, clientY: touch.clientY };
+        handleMouseMove(touchEvent);
+      }
     };
 
     const handleTouchEnd = (e) => {
       e.preventDefault();
-      handleMouseUp({ clientX: startX, clientY: startY }); // Pass dummy coordinates
+      // Get final touch position from changedTouches for accurate end coordinates
+      let finalX = startX;
+      let finalY = startY;
+      if (e.changedTouches && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        finalX = touch.clientX;
+        finalY = touch.clientY;
+      }
+      handleMouseUp({ clientX: finalX, clientY: finalY });
     };
     
     document.addEventListener('mousemove', handleMouseMove);
@@ -434,17 +444,23 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     document.addEventListener('touchend', handleTouchEnd);
   };
 
-  // NEW: Touch event handler
+  // Touch event handler - improved simulation
   const handleTouchStart = (e) => {
+    if (!e.touches || e.touches.length === 0) return;
+    
     e.preventDefault(); // Critical - prevents scrolling and default touch behaviors
     e.stopPropagation();
     
-    // Convert touch event to same format as mouse event
+    // Convert touch event to same format as mouse event with all necessary properties
+    const touch = e.touches[0];
     const touchEvent = {
-      clientX: e.touches[0].clientX,
-      clientY: e.touches[0].clientY,
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      target: e.target,
+      currentTarget: e.currentTarget,
       preventDefault: () => e.preventDefault(),
-      stopPropagation: () => e.stopPropagation()
+      stopPropagation: () => e.stopPropagation(),
+      type: 'mousedown'
     };
     
     // Use the existing mouse handler logic
@@ -615,12 +631,15 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
 
             const handleTouchMove = (e) => {
               e.preventDefault();
-              const touch = e.touches[0];
-              const touchEvent = { clientX: touch.clientX, clientY: touch.clientY };
-              handleMouseMove(touchEvent);
+              if (e.touches && e.touches.length > 0) {
+                const touch = e.touches[0];
+                const touchEvent = { clientX: touch.clientX, clientY: touch.clientY };
+                handleMouseMove(touchEvent);
+              }
             };
 
-            const handleTouchEnd = () => {
+            const handleTouchEnd = (e) => {
+              e.preventDefault();
               handleMouseUp();
             };
             
@@ -640,19 +659,22 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             
             const handleTouchMove = (e) => {
               e.preventDefault();
-              const deltaX = (e.touches[0].clientX - startX) / scale;
-              const deltaY = (e.touches[0].clientY - startY) / scale;
-              
-              const newWidth = Math.max(30, startWidth + deltaX);
-              const newHeight = Math.max(20, startHeight + deltaY);
-              
-              onUpdate(object.id, {
-                width: newWidth,
-                height: newHeight
-              });
+              if (e.touches && e.touches.length > 0) {
+                const deltaX = (e.touches[0].clientX - startX) / scale;
+                const deltaY = (e.touches[0].clientY - startY) / scale;
+                
+                const newWidth = Math.max(30, startWidth + deltaX);
+                const newHeight = Math.max(20, startHeight + deltaY);
+                
+                onUpdate(object.id, {
+                  width: newWidth,
+                  height: newHeight
+                });
+              }
             };
             
-            const handleTouchEnd = () => {
+            const handleTouchEnd = (e) => {
+              e.preventDefault();
               document.removeEventListener('touchmove', handleTouchMove);
               document.removeEventListener('touchend', handleTouchEnd);
             };
@@ -848,23 +870,32 @@ function SignatureDialog({ isOpen, onClose, onSave, signatureType }) {
           onMouseMove={draw}
           onMouseUp={stopDrawing}
           onMouseLeave={stopDrawing}
-          // NEW: Touch events for signature canvas
+          // Touch events for signature canvas - improved handling
           onTouchStart={(e) => {
+            if (!e.touches || e.touches.length === 0) return;
             e.preventDefault();
             const touch = e.touches[0];
-            const mouseEvent = new MouseEvent('mousedown', {
+            const rect = canvasRef.current.getBoundingClientRect();
+            const mouseEvent = {
               clientX: touch.clientX,
-              clientY: touch.clientY
-            });
+              clientY: touch.clientY,
+              target: e.target,
+              preventDefault: () => e.preventDefault(),
+              stopPropagation: () => e.stopPropagation()
+            };
             startDrawing(mouseEvent);
           }}
           onTouchMove={(e) => {
+            if (!e.touches || e.touches.length === 0) return;
             e.preventDefault();
             const touch = e.touches[0];
-            const mouseEvent = new MouseEvent('mousemove', {
+            const mouseEvent = {
               clientX: touch.clientX,
-              clientY: touch.clientY
-            });
+              clientY: touch.clientY,
+              target: e.target,
+              preventDefault: () => e.preventDefault(),
+              stopPropagation: () => e.stopPropagation()
+            };
             draw(mouseEvent);
           }}
           onTouchEnd={(e) => {
@@ -1207,8 +1238,10 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
           <canvas
             ref={canvasRef}
             onClick={handleCanvasClick}
-            onTouchStart={(e) => {  // NEW: Touch support for canvas
+            onTouchStart={(e) => {  // Touch support for canvas
+              if (!e.touches || e.touches.length === 0) return;
               e.preventDefault();
+              e.stopPropagation();
               handleCanvasClick();
             }}
             className="pdf-canvas"
