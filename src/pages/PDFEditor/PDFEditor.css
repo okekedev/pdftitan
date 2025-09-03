@@ -167,6 +167,15 @@
   /* TOUCH SUPPORT: Allow scrolling but prevent other gestures */
   touch-action: pan-x pan-y;
   -webkit-overflow-scrolling: touch;
+  /* SCROLLING FIX: Ensure contained scrolling only within this area */
+  min-height: 0; /* Critical for flex child to respect parent bounds */
+  /* DRAG SCROLLING: Enable drag scrolling cursor */
+  cursor: grab;
+}
+
+.pdf-canvas-container.dragging {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .pdf-canvas-wrapper {
@@ -580,23 +589,56 @@
 @media (max-width: 768px) {
   .pdf-editor-toolbar {
     flex-direction: column;
-    gap: 8px;
-    padding: 10px;
+    gap: 12px;
+    padding: 15px;
+    align-items: center;
   }
   
-  .toolbar-content,
+  .toolbar-content {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 600px;
+  }
+  
   .toolbar-controls {
     flex-wrap: wrap;
     justify-content: center;
     margin-left: 0;
+    gap: 8px;
+    width: 100%;
+    max-width: 600px;
   }
   
   .pdf-btn {
-    padding: 8px 12px;
-    font-size: 14px;
+    padding: 10px 12px;
+    font-size: 13px;
     /* TOUCH: Ensure minimum touch targets on mobile */
     min-height: 48px;
-    min-width: 48px;
+    min-width: 80px;
+    flex: 0 0 auto;
+    text-align: center;
+    justify-content: center;
+  }
+  
+  .page-info {
+    order: 1;
+    margin: 0 8px;
+    font-weight: 600;
+  }
+  
+  /* Navigation buttons */
+  .pdf-btn:nth-child(1), /* Prev button */
+  .pdf-btn:nth-child(3) { /* Next button */
+    flex: 0 0 auto;
+    min-width: 70px;
+  }
+  
+  .scale-select {
+    order: 2;
+    min-width: 80px;
+    text-align: center;
   }
   
   .pdf-canvas-container {
@@ -621,23 +663,41 @@
 }
 
 @media (max-width: 480px) {
+  .pdf-editor-toolbar {
+    padding: 10px;
+    gap: 10px;
+  }
+  
+  .toolbar-content,
+  .toolbar-controls {
+    max-width: 100%;
+    gap: 6px;
+  }
+  
   .pdf-btn {
     padding: 8px 10px;
-    font-size: 13px;
+    font-size: 12px;
     /* TOUCH: Even larger minimum targets on small screens */
     min-height: 52px;
-    min-width: 52px;
+    min-width: 70px;
+    flex: 1 1 auto;
+    max-width: 120px;
   }
   
   .page-info {
     font-size: 12px;
+    order: 1;
+    flex: 0 0 auto;
+    margin: 0 4px;
   }
   
   .scale-select {
     padding: 8px 10px;
-    font-size: 14px;
+    font-size: 12px;
     /* TOUCH: Larger select on mobile */
     min-height: 52px;
+    min-width: 70px;
+    order: 2;
   }
   
   .editable-field {
