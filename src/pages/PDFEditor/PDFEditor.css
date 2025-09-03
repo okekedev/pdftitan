@@ -229,6 +229,33 @@
   user-select: none;
 }
 
+/* ===== SCROLL HINT ===== */
+.scroll-hint {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.pdf-canvas-container:hover .scroll-hint {
+  opacity: 1;
+}
+
+.pdf-canvas-container.dragging .scroll-hint {
+  opacity: 0.5;
+}
+
 .pdf-canvas-wrapper {
   position: relative;
   display: inline-block;
@@ -263,9 +290,9 @@
   transition: var(--pdf-transition-fast);
   user-select: none;
   font-family: Arial, sans-serif;
-  line-height: 1.2;
+  line-height: 1;
   border-radius: var(--pdf-radius-sm);
-  padding: 4px;
+  padding: 2px;
   box-sizing: border-box;
   background: transparent;
   z-index: 100;
@@ -281,6 +308,9 @@
   /* TOUCH TARGET SIZE: Ensure minimum touch targets */
   min-width: 44px;
   min-height: 44px;
+  /* VERTICAL CENTERING: Center content within field */
+  display: flex;
+  align-items: center;
 }
 
 .editable-field:hover {
@@ -308,7 +338,16 @@
 /* ===== FIELD TYPES ===== */
 .field-text,
 .field-date,
-.field-timestamp,
+.field-timestamp {
+  color: var(--pdf-editor-primary);
+  font-weight: 500;
+  /* Force single-line height */
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
 .field-signature {
   color: var(--pdf-editor-primary);
   font-weight: 500;
@@ -371,8 +410,8 @@
   outline: none;
   color: inherit;
   font-family: Arial, sans-serif;
-  line-height: 1.2;
-  padding: 0;
+  line-height: 1;
+  padding: 2px 0;
   margin: 0;
   resize: none;
   /* TOUCH SUPPORT: Allow normal text input */
@@ -381,6 +420,9 @@
   -moz-user-select: text;
   -ms-user-select: text;
   user-select: text;
+  /* Force single line appearance */
+  box-sizing: border-box;
+  vertical-align: top;
 }
 
 .field-textarea {

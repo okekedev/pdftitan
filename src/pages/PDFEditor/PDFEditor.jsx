@@ -197,10 +197,10 @@ function usePDFEditor(pdf, job) {
     
     // Simple default sizes
     const fieldConfigs = {
-      text: { width: 200, height: 20, fontSize: 11 }, // Reduced height from 30 to 20
+      text: { width: 200, height: 16, fontSize: 11 }, // Reduced height to 16 for true single line
       signature: { width: 180, height: 35, fontSize: 12 }, // Reduced width from 250 to 180
-      date: { width: 120, height: 20, fontSize: 11 }, // Reduced height from 30 to 20
-      timestamp: { width: 150, height: 20, fontSize: 11 }, // Reduced height from 30 to 20
+      date: { width: 120, height: 16, fontSize: 11 }, // Reduced height to 16 for true single line
+      timestamp: { width: 150, height: 16, fontSize: 11 }, // Reduced height to 16 for true single line
       checkbox: { width: 30, height: 30, fontSize: 18 }
     };
     
@@ -526,7 +526,11 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             color: 'inherit',
             fontFamily: 'Arial, sans-serif',
             padding: '0',
-            margin: '0'
+            margin: '0',
+            lineHeight: '1',
+            boxSizing: 'border-box',
+            textAlign: 'left',
+            verticalAlign: 'middle'
           }}
         />
       ) : (
@@ -546,7 +550,11 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
             color: 'inherit',
             fontFamily: 'Arial, sans-serif',
             padding: '0',
-            margin: '0'
+            margin: '0',
+            lineHeight: '1',
+            boxSizing: 'border-box',
+            textAlign: 'left',
+            verticalAlign: 'middle'
           }}
         />
       );
@@ -558,13 +566,14 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
         height: '100%', 
         overflow: 'hidden',
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center', // Changed from flex-start to center for vertical centering
         fontSize: `${object.fontSize}px`,
         fontFamily: 'Arial, sans-serif',
-        lineHeight: '1.2',
+        lineHeight: '1', // Changed from 1.2 to 1 for tighter spacing
         wordWrap: 'break-word',
-        whiteSpace: 'pre-wrap',
-        padding: '0'
+        whiteSpace: 'nowrap', // Changed from pre-wrap to nowrap for single line
+        padding: '0',
+        boxSizing: 'border-box'
       }}>
         {object.type === 'signature' && !object.content ? (
           <span style={{ color: '#999', fontSize: '0.8em' }}>Click to sign</span>
@@ -1337,6 +1346,10 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         onMouseDown={handleContainerMouseDown}
         onTouchStart={handleContainerTouchStart}
       >
+        {/* Scroll Hint Label */}
+        <div className="scroll-hint">
+          📄 Drag to scroll
+        </div>
         <div className="pdf-canvas-wrapper">
           <canvas
             ref={canvasRef}
