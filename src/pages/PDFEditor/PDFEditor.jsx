@@ -866,20 +866,16 @@ function SignatureDialog({ isOpen, onClose, onSave, signatureType }) {
           ref={canvasRef}
           width={400}
           height={150}
-          style={{ 
-            border: '1px solid #ccc', 
-            display: 'block', 
-            margin: '10px 0',
-            background: 'transparent'
-          }}
+          className="signature-canvas"
           onMouseDown={startDrawing}
           onMouseMove={draw}
           onMouseUp={stopDrawing}
           onMouseLeave={stopDrawing}
-          // Touch events for signature canvas - improved handling
+          // Touch events for signature canvas - fixed scrolling interference
           onTouchStart={(e) => {
             if (!e.touches || e.touches.length === 0) return;
             e.preventDefault();
+            e.stopPropagation(); // Prevent container drag-scroll
             const touch = e.touches[0];
             const rect = canvasRef.current.getBoundingClientRect();
             const mouseEvent = {
@@ -894,6 +890,7 @@ function SignatureDialog({ isOpen, onClose, onSave, signatureType }) {
           onTouchMove={(e) => {
             if (!e.touches || e.touches.length === 0) return;
             e.preventDefault();
+            e.stopPropagation(); // Prevent container drag-scroll
             const touch = e.touches[0];
             const mouseEvent = {
               clientX: touch.clientX,
@@ -906,6 +903,7 @@ function SignatureDialog({ isOpen, onClose, onSave, signatureType }) {
           }}
           onTouchEnd={(e) => {
             e.preventDefault();
+            e.stopPropagation(); // Prevent container drag-scroll
             stopDrawing();
           }}
         />
@@ -977,6 +975,10 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     // Don't interfere with form field interactions
     const isFormField = e.target.closest('.editable-field');
     if (isFormField) return;
+
+    // Don't interfere with signature canvas interactions
+    const isSignatureCanvas = e.target.tagName === 'CANVAS' || e.target.closest('canvas');
+    if (isSignatureCanvas) return;
 
     // Start drag scrolling
     e.preventDefault();
@@ -1058,6 +1060,10 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     // Don't interfere with form field interactions
     const isFormField = e.target.closest('.editable-field');
     if (isFormField) return;
+    
+    // Don't interfere with signature canvas interactions
+    const isSignatureCanvas = e.target.tagName === 'CANVAS' || e.target.closest('canvas');
+    if (isSignatureCanvas) return;
     
     // Convert touch event to mouse-like event and handle it
     const touchEvent = {
@@ -1328,8 +1334,16 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
               <option value={1.5}>150%</option>
             </select>
             
+            <button 
+              className="pdf-btn action" 
+              onClick={() => deleteObject(selectedId)} 
+              disabled={!selectedId}
+              title="Delete selected element"
+            >
+              🗑️ Delete
+            </button>
             <button className="pdf-btn action" onClick={clearAllObjects} disabled={objects.length === 0}>
-              🗑️ Clear
+              🗑️ Clear All
             </button>
             <button className="pdf-btn save" onClick={handleSave} disabled={isSaving}>
               {isSaving ? 'Saving Draft...' : '💾 Save as Draft'}

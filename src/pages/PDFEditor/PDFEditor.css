@@ -607,6 +607,11 @@
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+  /* Ensure touch events are isolated from parent containers */
+  isolation: isolate;
+  /* Additional touch properties for better control */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-drag: none;
 }
 
 .signature-actions {
