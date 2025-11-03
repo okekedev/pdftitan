@@ -335,13 +335,16 @@ router.post('/:fileId/complete', async (req, res) => {
 
     // Step 3: Upload to ServiceTitan
     console.log('📤 Step 3: Uploading to ServiceTitan...');
-    
+
     // Get file metadata from Google Drive
     const fileMetadata = await googleDriveService.getFileMetadata(fileId);
-    const fileName = fileMetadata?.name || 'Completed Form.pdf';
-    
-    // Ensure filename has .pdf extension and "Completed" prefix
-    const completedFileName = fileName.startsWith('Completed') ? fileName : `Completed - ${fileName}`;
+    let fileName = fileMetadata?.name || 'Completed Form.pdf';
+
+    // Remove "Completed - " prefix if it already exists (to avoid duplication)
+    fileName = fileName.replace(/^Completed\s*-\s*/i, '');
+
+    // Add "Completed - " prefix to the filename
+    const completedFileName = `Completed - ${fileName}`;
     const finalFileName = completedFileName.endsWith('.pdf') ? completedFileName : `${completedFileName}.pdf`;
     
     const serviceTitanUpload = await uploadToServiceTitan(jobId, pdfBuffer, finalFileName);
