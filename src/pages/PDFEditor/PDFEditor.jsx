@@ -194,18 +194,10 @@ function usePDFEditor(pdf, job) {
   const createField = (type) => {
     const center = getCanvasCenter();
     const id = `${type}_${Date.now()}`;
-    
-    // Simple default sizes
-    const fieldConfigs = {
-      text: { width: 200, height: 16, fontSize: 11 }, // Reduced height to 16 for true single line
-      signature: { width: 180, height: 35, fontSize: 12 }, // Reduced width from 250 to 180
-      date: { width: 120, height: 16, fontSize: 11 }, // Reduced height to 16 for true single line
-      timestamp: { width: 150, height: 16, fontSize: 11 }, // Reduced height to 16 for true single line
-      checkbox: { width: 30, height: 30, fontSize: 18 }
-    };
-    
-    const config = fieldConfigs[type] || fieldConfigs.text;
-    
+
+    // Font sizes - 11px universally
+    const fontSize = 11;
+
     // Default content
     let content = '';
     if (type === 'date') {
@@ -217,24 +209,60 @@ function usePDFEditor(pdf, job) {
         hour12: true
       });
     } else if (type === 'checkbox') {
-      content = true; // Default to checked (true) instead of unchecked (false)
+      content = true;
+    } else if (type === 'text') {
+      content = ''; // Empty content, placeholder will show
     }
-    
+
+    // Calculate size based on content + right padding for resize handle
+    const rightPadding = 20;
+    let width, height;
+
+    if (type === 'checkbox') {
+      // Checkbox: 11px X + right padding
+      width = 11 + rightPadding;
+      height = 11;
+    } else if (type === 'signature') {
+      // Signature: Measure placeholder text
+      const placeholderText = 'Click to sign';
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      context.font = `${fontSize}px Arial, sans-serif`;
+      const metrics = context.measureText(placeholderText);
+      const textWidth = metrics.width;
+
+      // Signature needs more height for drawing
+      width = textWidth + rightPadding;
+      height = fontSize * 2; // Double height for signature space
+    } else {
+      // Measure text to get proper width (use placeholder if content is empty)
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      context.font = `${fontSize}px Arial, sans-serif`;
+      const textToMeasure = content || 'Text'; // Use placeholder for sizing
+      const metrics = context.measureText(textToMeasure);
+      const textWidth = metrics.width;
+
+      // Use actual text width + right padding
+      width = textWidth + rightPadding;
+      height = fontSize;
+    }
+
     const newField = {
       id,
       type,
-      x: center.x - config.width / 2 / scale, // Center horizontally
-      y: center.y - config.height / 2 / scale, // Center vertically
-      width: config.width / scale,
-      height: config.height / scale,
+      x: center.x - width / 2,
+      y: center.y - height / 2,
+      width,
+      height,
       content,
-      fontSize: config.fontSize,
-      color: '#1e3a8a', // Royal blue color
+      fontSize,
+      color: '#1e3a8a',
       page: currentPage
     };
-    
+
     console.log(`✨ Created ${type} field at center:`, { x: newField.x, y: newField.y });
-    
+
     setObjects(prev => [...prev, newField]);
     setSelectedId(id);
   };
@@ -330,31 +358,35 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     top: `${object.y * scale}px`,
     width: `${object.width * scale}px`,
     height: `${object.height * scale}px`,
-    fontSize: `${object.fontSize}px`, // Fixed font size, not scaled
+    fontSize: `${object.fontSize * scale}px`,
     color: object.color,
-    border: editing ? '2px solid #1e3a8a' : 'none',
-    background: 'transparent',
-    cursor: isDragging ? 'grabbing' : editing ? 'text' : 'grab',
-    zIndex: selected ? 1000 : 100,
-    borderRadius: '4px',
-    padding: '4px',
-    boxSizing: 'border-box',
-    userSelect: editing ? 'text' : 'none',
-    fontFamily: 'Arial, sans-serif',
-    lineHeight: '1.2',
-    // Smooth transitions when not dragging
-    transition: isDragging ? 'none' : 'left 0.1s ease-out, top 0.1s ease-out',
-    // Force hardware acceleration for smoother performance
-    transform: 'translateZ(0)',
-    willChange: isDragging ? 'transform' : 'auto'
+    transition: isDragging ? 'none' : 'left 0.1s ease-out, top 0.1s ease-out'
   };
 
   const handleMouseDown = (e) => {
+    // Don't interfere with text editing - allow normal text interaction
+    if (editing || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+      onSelect(object.id);
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
-    
+
     onSelect(object.id);
-    
+
+    // 🔍 TEMP DEBUG: Log field position when selected
+    if (object.type === 'text' || object.type === 'date' || object.type === 'checkbox') {
+      console.log(`🔍 SELECTED ${object.type.toUpperCase()}:`, {
+        id: object.id,
+        position: { x: object.x, y: object.y },
+        dimensions: { width: object.width, height: object.height },
+        content: object.content,
+        fontSize: object.fontSize,
+        page: object.page
+      });
+    }
+
     // Check for double click to edit
     const now = Date.now();
     if (window.lastClickTime && now - window.lastClickTime < 300) {
@@ -396,20 +428,31 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     
     const handleMouseUp = (e) => {
       setIsDragging(false);
-      
+
       // Final position update if we moved
       if (hasMoved) {
         const deltaX = (e.clientX - startX) / scale;
         const deltaY = (e.clientY - startY) / scale;
         const finalX = Math.max(0, startObjX + deltaX);
         const finalY = Math.max(0, startObjY + deltaY);
-        
+
         onUpdate(object.id, {
           x: finalX,
           y: finalY
         });
+
+        // 🔍 TEMP DEBUG: Log final position after drag
+        if (object.type === 'text' || object.type === 'date' || object.type === 'checkbox') {
+          console.log(`🔍 MOVED ${object.type.toUpperCase()}:`, {
+            id: object.id,
+            from: { x: startObjX, y: startObjY },
+            to: { x: finalX, y: finalY },
+            delta: { dx: deltaX, dy: deltaY },
+            scale: scale
+          });
+        }
       }
-      
+
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('touchmove', handleTouchMove, { passive: false });
@@ -447,7 +490,13 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
   // Touch event handler - improved simulation
   const handleTouchStart = (e) => {
     if (!e.touches || e.touches.length === 0) return;
-    
+
+    // Don't interfere with text editing - allow normal text interaction
+    if (editing || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+      onSelect(object.id);
+      return;
+    }
+
     e.preventDefault(); // Critical - prevents scrolling and default touch behaviors
     e.stopPropagation();
     
@@ -474,23 +523,49 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     } else {
       const newValue = e.target.value;
       setValue(newValue);
-      onUpdate(object.id, { content: newValue });
+
+      // Auto-resize to fit content + right padding
+      const rightPadding = 20;
+      const lines = newValue.split('\n');
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      context.font = `${object.fontSize}px Arial, sans-serif`;
+
+      // Find the widest line
+      let maxWidth = 0;
+      lines.forEach(line => {
+        const metrics = context.measureText(line || 'M');
+        maxWidth = Math.max(maxWidth, metrics.width);
+      });
+
+      // Calculate height based on number of lines
+      const lineCount = lines.length;
+      const newWidth = maxWidth + rightPadding;
+      const newHeight = object.fontSize * lineCount;
+
+      // Always auto-resize to fit content
+      onUpdate(object.id, {
+        content: newValue,
+        width: newWidth,
+        height: newHeight
+      });
     }
   };
 
   const renderContent = () => {
     if (object.type === 'checkbox') {
       return (
-        <div 
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'flex-start',
             width: '100%',
             height: '100%',
-            fontWeight: 'bold',
-            fontSize: `${Math.max(16, object.fontSize)}px`,
-            color: '#1e3a8a' // Always blue since always checked
+            fontWeight: 'normal',
+            fontSize: '11px', // 11px universally
+            color: '#1e3a8a', // Blue
+            fontFamily: 'Arial, sans-serif'
           }}
         >
           X
@@ -509,77 +584,100 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
     }
     
     if (editing) {
-      return object.type === 'text' ? (
-        <input
-          type="text"
+      // Date field uses input type="date"
+      if (object.type === 'date') {
+        return (
+          <input
+            type="date"
+            value={value}
+            onChange={handleContentChange}
+            onBlur={onFinishEdit}
+            autoFocus
+            className="field-input"
+            style={{ fontSize: `${object.fontSize * scale}px`, lineHeight: 1 }}
+          />
+        );
+      }
+
+      // Timestamp field uses input type="time"
+      if (object.type === 'timestamp') {
+        return (
+          <input
+            type="time"
+            value={value}
+            onChange={handleContentChange}
+            onBlur={onFinishEdit}
+            autoFocus
+            className="field-input"
+            style={{ fontSize: `${object.fontSize * scale}px`, lineHeight: 1 }}
+          />
+        );
+      }
+
+      // Text fields use textarea for multi-line support
+      return (
+        <textarea
           value={value}
           onChange={handleContentChange}
           onBlur={onFinishEdit}
           autoFocus
-          style={{
-            width: '100%',
-            height: '100%',
-            border: 'none',
-            background: 'transparent',
-            outline: 'none',
-            fontSize: `${object.fontSize}px`,
-            color: 'inherit',
-            fontFamily: 'Arial, sans-serif',
-            padding: '0',
-            margin: '0',
-            lineHeight: '1',
-            boxSizing: 'border-box',
-            textAlign: 'left',
-            verticalAlign: 'middle'
-          }}
-        />
-      ) : (
-        <input
-          type={object.type === 'date' ? 'date' : 'text'}
-          value={value}
-          onChange={handleContentChange}
-          onBlur={onFinishEdit}
-          autoFocus
-          style={{
-            width: '100%',
-            height: '100%',
-            border: 'none',
-            background: 'transparent',
-            outline: 'none',
-            fontSize: `${object.fontSize}px`,
-            color: 'inherit',
-            fontFamily: 'Arial, sans-serif',
-            padding: '0',
-            margin: '0',
-            lineHeight: '1',
-            boxSizing: 'border-box',
-            textAlign: 'left',
-            verticalAlign: 'middle'
-          }}
+          placeholder="Text"
+          className="field-textarea"
+          style={{ fontSize: `${object.fontSize * scale}px`, lineHeight: 1 }}
+          rows={1}
         />
       );
     }
-    
+
+    // Determine display content and color
+    // Only show placeholder when NOT editing AND field is empty
+    let displayContent = value;
+    let displayColor = object.color || '#1e3a8a';
+
+    // Debug logging for color
+    if (object.type === 'text' || object.type === 'date' || object.type === 'timestamp') {
+      console.log(`🎨 Field ${object.id} (${object.type}):`, {
+        value: value,
+        isEmpty: (!value || value === ''),
+        objectColor: object.color,
+        displayColor: displayColor
+      });
+    }
+
+    if (!editing && (!value || value === '')) {
+      displayColor = '#60a5fa'; // Light blue for placeholders
+      if (object.type === 'text') {
+        displayContent = 'Text';
+      } else if (object.type === 'signature') {
+        displayContent = 'Click to sign';
+        displayColor = '#999';
+      } else if (object.type === 'date') {
+        displayContent = 'Date';
+      } else if (object.type === 'timestamp') {
+        displayContent = 'Time';
+      } else {
+        displayContent = `[${object.type}]`;
+      }
+
+      console.log(`🎨 Using placeholder color for ${object.type}:`, displayColor);
+    }
+
     return (
-      <div style={{ 
-        width: '100%', 
-        height: '100%', 
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center', // Changed from flex-start to center for vertical centering
-        fontSize: `${object.fontSize}px`,
-        fontFamily: 'Arial, sans-serif',
-        lineHeight: '1', // Changed from 1.2 to 1 for tighter spacing
-        wordWrap: 'break-word',
-        whiteSpace: 'nowrap', // Changed from pre-wrap to nowrap for single line
-        padding: '0',
-        boxSizing: 'border-box'
-      }}>
-        {object.type === 'signature' && !object.content ? (
-          <span style={{ color: '#999', fontSize: '0.8em' }}>Click to sign</span>
-        ) : (
-          value || `[${object.type}]`
-        )}
+      <div
+        style={{
+          fontSize: `${object.fontSize * scale}px`,
+          lineHeight: 1,
+          width: '100%',
+          height: 'auto',
+          textAlign: 'left',
+          margin: 0,
+          padding: 0,
+          whiteSpace: 'pre-wrap', // Preserve newlines in display mode
+          wordWrap: 'break-word',
+          color: displayColor
+        }}
+      >
+        {displayContent}
       </div>
     );
   };
@@ -592,103 +690,63 @@ function EditableField({ object, scale, selected, editing, onUpdate, onSelect, o
       className={`editable-field field-${object.type} ${selected ? 'selected' : ''}`}
     >
       {renderContent()}
-      
-      {selected && !editing && (
+
+      {/* Resize handle - bottom right corner */}
+      {selected && !editing && object.type !== 'checkbox' && (
         <div
           style={{
             position: 'absolute',
-            bottom: '-6px',
-            right: '-6px',
-            width: '12px',
-            height: '12px',
-            background: '#1e3a8a',
-            border: '2px solid white',
+            bottom: '-4px',
+            right: '-4px',
+            width: '20px',
+            height: '20px',
+            cursor: 'se-resize',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#60a5fa',
             borderRadius: '50%',
-            cursor: 'se-resize'
+            border: '2px solid white',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
           }}
           onMouseDown={(e) => {
             e.stopPropagation();
             e.preventDefault();
-            
+
             const startX = e.clientX;
             const startY = e.clientY;
             const startWidth = object.width;
             const startHeight = object.height;
-            
+
             const handleMouseMove = (e) => {
               const deltaX = (e.clientX - startX) / scale;
               const deltaY = (e.clientY - startY) / scale;
-              
+
               const newWidth = Math.max(30, startWidth + deltaX);
-              const newHeight = Math.max(20, startHeight + deltaY);
-              
+              const newHeight = Math.max(15, startHeight + deltaY);
+
               onUpdate(object.id, {
                 width: newWidth,
                 height: newHeight
               });
             };
-            
+
             const handleMouseUp = () => {
               document.removeEventListener('mousemove', handleMouseMove);
               document.removeEventListener('mouseup', handleMouseUp);
-              document.removeEventListener('touchmove', handleTouchMove, { passive: false });
-              document.removeEventListener('touchend', handleTouchEnd);
             };
 
-            const handleTouchMove = (e) => {
-              e.preventDefault();
-              if (e.touches && e.touches.length > 0) {
-                const touch = e.touches[0];
-                const touchEvent = { clientX: touch.clientX, clientY: touch.clientY };
-                handleMouseMove(touchEvent);
-              }
-            };
-
-            const handleTouchEnd = (e) => {
-              e.preventDefault();
-              handleMouseUp();
-            };
-            
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
-            document.addEventListener('touchmove', handleTouchMove, { passive: false });
-            document.addEventListener('touchend', handleTouchEnd);
           }}
-          onTouchStart={(e) => {  // NEW: Touch support for resize handle
-            e.stopPropagation();
-            e.preventDefault();
-            
-            const startX = e.touches[0].clientX;
-            const startY = e.touches[0].clientY;
-            const startWidth = object.width;
-            const startHeight = object.height;
-            
-            const handleTouchMove = (e) => {
-              e.preventDefault();
-              if (e.touches && e.touches.length > 0) {
-                const deltaX = (e.touches[0].clientX - startX) / scale;
-                const deltaY = (e.touches[0].clientY - startY) / scale;
-                
-                const newWidth = Math.max(30, startWidth + deltaX);
-                const newHeight = Math.max(20, startHeight + deltaY);
-                
-                onUpdate(object.id, {
-                  width: newWidth,
-                  height: newHeight
-                });
-              }
-            };
-            
-            const handleTouchEnd = (e) => {
-              e.preventDefault();
-              document.removeEventListener('touchmove', handleTouchMove);
-              document.removeEventListener('touchend', handleTouchEnd);
-            };
-            
-            document.addEventListener('touchmove', handleTouchMove, { passive: false });
-            document.addEventListener('touchend', handleTouchEnd);
-          }}
-        />
+        >
+          {/* Resize icon - three diagonal dots */}
+          <svg width="10" height="10" viewBox="0 0 10 10" style={{ pointerEvents: 'none' }}>
+            <circle cx="2" cy="8" r="1" fill="white" />
+            <circle cx="5" cy="5" r="1" fill="white" />
+            <circle cx="8" cy="2" r="1" fill="white" />
+          </svg>
+        </div>
       )}
     </div>
   );
@@ -1130,26 +1188,37 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
 
   const handleAddMyName = () => {
     if (myName) {
-      // Use saved name
+      // Measure the name text + right padding
+      const fontSize = 11;
+      const rightPadding = 20;
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      context.font = `${fontSize}px Arial, sans-serif`;
+      const metrics = context.measureText(myName);
+      const textWidth = metrics.width;
+
+      const width = textWidth + rightPadding;
+      const height = fontSize;
+
       const center = canvasRef.current ? {
-        x: canvasRef.current.width / 2 / scale - 100,
-        y: canvasRef.current.height / 2 / scale - 15
+        x: canvasRef.current.width / 2 / scale - width / 2,
+        y: canvasRef.current.height / 2 / scale - height / 2
       } : { x: 200, y: 150 };
-      
+
       const id = `text_${Date.now()}`;
       const nameField = {
         id,
         type: 'text',
         x: center.x,
         y: center.y,
-        width: 200 / scale,
-        height: 30 / scale,
+        width,
+        height,
         content: myName,
         fontSize: 11,
         color: '#1e3a8a',
         page: currentPage
       };
-      
+
       setObjects(prev => [...prev, nameField]);
       setSelectedId(id);
     } else {
@@ -1158,27 +1227,38 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
       if (name) {
         setMyName(name);
         localStorage.setItem('myName', name);
-        
-        // Add the name field
+
+        // Measure the name text + right padding
+        const fontSize = 11;
+        const rightPadding = 20;
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        context.font = `${fontSize}px Arial, sans-serif`;
+        const metrics = context.measureText(name);
+        const textWidth = metrics.width;
+
+        const width = textWidth + rightPadding;
+        const height = fontSize;
+
         const center = canvasRef.current ? {
-          x: canvasRef.current.width / 2 / scale - 100,
-          y: canvasRef.current.height / 2 / scale - 15
+          x: canvasRef.current.width / 2 / scale - width / 2,
+          y: canvasRef.current.height / 2 / scale - height / 2
         } : { x: 200, y: 150 };
-        
+
         const id = `text_${Date.now()}`;
         const nameField = {
           id,
           type: 'text',
           x: center.x,
           y: center.y,
-          width: 200 / scale,
-          height: 30 / scale,
+          width,
+          height,
           content: name,
           fontSize: 11,
           color: '#1e3a8a',
           page: currentPage
         };
-        
+
         setObjects(prev => [...prev, nameField]);
         setSelectedId(id);
       }
@@ -1206,26 +1286,43 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
       alert('Please add some fields to the form first.');
       return;
     }
-    
+
     setIsSaving(true);
-    
+
     try {
-      // Debug: Log checkbox objects before saving
-      const checkboxes = objects.filter(obj => obj.type === 'checkbox');
-      console.log('📊 Checkbox objects before save:', checkboxes);
-      checkboxes.forEach(cb => {
-        console.log(`Checkbox ${cb.id}: content=${cb.content} (${typeof cb.content})`);
+      // 🔍 TEMP DEBUG: Log all objects before saving
+      console.log('🔍 ===== SAVE OPERATION STARTED =====');
+      console.log('🔍 Total objects to save:', objects.length);
+
+      objects.forEach(obj => {
+        console.log(`🔍 FRONTEND SENDING ${obj.type.toUpperCase()}:`, {
+          id: obj.id,
+          position: { x: obj.x, y: obj.y },
+          dimensions: { width: obj.width, height: obj.height },
+          content: obj.content,
+          fontSize: obj.fontSize,
+          color: obj.color,
+          page: obj.page,
+          type: obj.type
+        });
       });
-      
+
       const saveData = {
         objects: objects,
         fileName: `${pdf.name || 'document'}_filled.pdf`,
         attachmentId: pdf.serviceTitanId || pdf.id,
         jobId: job.id
       };
-      
+
+      console.log('🔍 Save data prepared:', {
+        objectCount: saveData.objects.length,
+        fileName: saveData.fileName,
+        attachmentId: saveData.attachmentId,
+        jobId: saveData.jobId
+      });
+
       const result = await onSave(saveData);
-      
+
       if (result?.success) {
         alert('PDF saved as draft successfully!');
         onClose();
@@ -1235,6 +1332,45 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
     } catch (error) {
       console.error('Save failed:', error);
       alert(`Draft save failed: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 🔍 DEBUG: Test coordinate conversion by saving directly to ServiceTitan
+  const handleDebugSave = async () => {
+    if (objects.length === 0) {
+      alert('Please add some fields to the form first.');
+      return;
+    }
+
+    if (!window.confirm('🔍 DEBUG MODE: This will generate a filled PDF and upload it directly to ServiceTitan.\n\nThis will trigger the coordinate conversion code.\n\nCheck the TERMINAL/SERVER LOGS for coordinate conversion details.\n\nContinue?')) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const saveData = {
+        objects: objects,
+        fileName: pdf.name || 'document.pdf',
+        attachmentId: pdf.serviceTitanId || pdf.id,
+        jobId: job.id
+      };
+
+      // Import apiClient (it's already a singleton instance, not a class)
+      const { default: apiClient } = await import('../../services/apiClient');
+
+      const result = await apiClient.saveDirectToServiceTitan(saveData);
+
+      if (result?.success) {
+        alert('🔍 DEBUG: PDF generated and uploaded to ServiceTitan!\n\n✅ Check the TERMINAL/SERVER window for coordinate conversion logs.\n\nLook for lines starting with:\n🔍 BACKEND RECEIVED\n🔍 CONVERTED TO PDF');
+        onClose();
+      } else {
+        alert('DEBUG save completed but there may have been issues.\n\nCheck the server terminal for details.');
+      }
+    } catch (error) {
+      alert(`🔍 DEBUG save failed: ${error.message}\n\nCheck the server terminal for error details.`);
     } finally {
       setIsSaving(false);
     }
@@ -1347,6 +1483,15 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             </button>
             <button className="pdf-btn save" onClick={handleSave} disabled={isSaving}>
               {isSaving ? 'Saving Draft...' : '💾 Save as Draft'}
+            </button>
+            <button
+              className="pdf-btn"
+              onClick={handleDebugSave}
+              disabled={isSaving}
+              style={{ backgroundColor: '#ff6b6b', color: 'white', borderColor: '#ff6b6b' }}
+              title="DEBUG: Test coordinate conversion - uploads filled PDF to ServiceTitan"
+            >
+              🔍 DEBUG Save
             </button>
             <button className="pdf-btn navigation" onClick={onClose}>← Back</button>
           </div>

@@ -3,7 +3,7 @@ import sessionManager from './sessionManager';
 
 class ApiClient {
   constructor() {
-    this.baseUrl = process.env.NODE_ENV === 'development' 
+    this.baseUrl = process.env.NODE_ENV === 'development'
       ? 'http://localhost:3004'
       : '';
   }
@@ -308,11 +308,38 @@ class ApiClient {
     }
   }
 
+  // 🔍 [DEBUG] Save PDF directly to ServiceTitan with coordinate conversion
+  async saveDirectToServiceTitan(pdfData) {
+    try {
+      console.log('🔍 [DEBUG] Saving PDF directly to ServiceTitan with coordinate conversion');
+      console.log('🔍 [DEBUG] Data:', pdfData);
+
+      const { jobId, attachmentId, objects, fileName } = pdfData;
+
+      const response = await this.apiCall(`/api/job/${jobId}/attachment/${attachmentId}/save`, {
+        method: 'POST',
+        body: {
+          editableElements: objects,
+          originalFileName: fileName,
+          jobInfo: { id: jobId },
+          metadata: { testMode: true }
+        }
+      });
+
+      console.log('✅ PDF saved directly to ServiceTitan:', response);
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error saving PDF to ServiceTitan:', error);
+      throw error;
+    }
+  }
+
   // 🔄 Update existing draft
   async updateDraft(fileId, jobId, objects, fileName) {
     try {
       console.log(`🔄 Updating existing draft: ${fileId}`);
-      
+
       const response = await this.apiCall(`/api/drafts/update/${fileId}`, {
         method: 'PUT',
         body: {

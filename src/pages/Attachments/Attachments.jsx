@@ -572,14 +572,18 @@ export default function Attachments({
             <div className="pdf-forms-grid-container">
               <div className="pdf-forms-grid">
                 {attachments.length > 0 ? (
-                  attachments.map((attachment) => (
+                  attachments.map((attachment) => {
+                    // Remove "Attaches/" prefix from display name
+                    const displayName = attachment.name.replace(/^Attaches\//, '');
+
+                    return (
                     <div
                       key={attachment.id}
                       className="pdf-form-card"
                       onClick={() => handleOpenPDF(attachment)}
                     >
                       <div className="form-icon">📄</div>
-                      <div className="form-name">{attachment.name}</div>
+                      <div className="form-name">{displayName}</div>
                       <div className="form-meta"></div>
                       <button
                         className="form-action"
@@ -591,7 +595,8 @@ export default function Attachments({
                         Edit Form
                       </button>
                     </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <>
                     <div className="pdf-form-card empty-card">
@@ -629,10 +634,14 @@ export default function Attachments({
                 <div className="loading">Loading saved forms...</div>
               ) : drafts.length > 0 ? (
                 <div className="saved-forms-list">
-                  {drafts.map((draft) => (
+                  {drafts.map((draft) => {
+                    // Remove "Attaches/" prefix from display name
+                    const displayName = draft.name.replace(/^Attaches\//, '');
+
+                    return (
                     <div key={draft.id} className="saved-form-item">
                       <div className="form-info">
-                        <div className="form-name">📄 {draft.name}</div>
+                        <div className="form-name">📄 {displayName}</div>
                         <div className="form-meta">
                           Saved:{" "}
                           {new Date(draft.modifiedTime).toLocaleDateString()}
@@ -659,7 +668,8 @@ export default function Attachments({
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="empty-state">
@@ -684,10 +694,14 @@ export default function Attachments({
                 <div className="loading">Loading uploaded forms...</div>
               ) : completedFiles.length > 0 ? (
                 <div className="uploaded-forms-list">
-                  {completedFiles.map((completed) => (
+                  {completedFiles.map((completed) => {
+                    // Remove "Attaches/" prefix from display name
+                    const displayName = completed.name.replace(/^Attaches\//, '');
+
+                    return (
                     <div key={completed.id} className="uploaded-form-item">
                       <div className="form-info">
-                        <div className="form-name">✅ {completed.name}</div>
+                        <div className="form-name">✅ {displayName}</div>
                         <div className="form-meta">
                           Uploaded:{" "}
                           {new Date(
@@ -699,7 +713,8 @@ export default function Attachments({
                       </div>
                       <div className="status-badge completed">✅ Completed</div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="empty-state">
