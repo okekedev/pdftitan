@@ -17,6 +17,24 @@ router.post('/save', async (req, res) => {
     console.log('📝 Saving PDF as draft...');
     const { jobId, attachmentId, fileName, objects } = req.body;
 
+    // 🔍 Log all received objects with their colors
+    console.log('🔍 ===== BACKEND RECEIVED OBJECTS =====');
+    console.log('🔍 Total objects received:', objects?.length || 0);
+    if (objects && Array.isArray(objects)) {
+      objects.forEach((obj, index) => {
+        console.log(`🔍 BACKEND RECEIVED ${obj.type?.toUpperCase()} #${index + 1}:`, {
+          id: obj.id,
+          type: obj.type,
+          position: { x: obj.x, y: obj.y },
+          dimensions: { width: obj.width, height: obj.height },
+          content: obj.content,
+          fontSize: obj.fontSize,
+          color: obj.color,
+          page: obj.page
+        });
+      });
+    }
+
     if (!jobId || !attachmentId || !objects) {
       return res.status(400).json({
         success: false,
@@ -339,13 +357,19 @@ router.post('/:fileId/complete', async (req, res) => {
     // Get file metadata from Google Drive
     const fileMetadata = await googleDriveService.getFileMetadata(fileId);
     let fileName = fileMetadata?.name || 'Completed Form.pdf';
+    console.log('Original filename from Google Drive:', fileName);
+
+    // Remove "Attaches/" prefix if present
+    fileName = fileName.replace(/^Attaches\//, '');
 
     // Remove "Completed - " prefix if it already exists (to avoid duplication)
     fileName = fileName.replace(/^Completed\s*-\s*/i, '');
+    console.log('Filename after removing prefixes:', fileName);
 
     // Add "Completed - " prefix to the filename
     const completedFileName = `Completed - ${fileName}`;
     const finalFileName = completedFileName.endsWith('.pdf') ? completedFileName : `${completedFileName}.pdf`;
+    console.log('Final filename for upload:', finalFileName);
     
     const serviceTitanUpload = await uploadToServiceTitan(jobId, pdfBuffer, finalFileName);
     

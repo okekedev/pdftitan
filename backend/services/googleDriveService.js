@@ -474,25 +474,64 @@ class GoogleDriveService {
       for (const field of formFields) {
         const pageIndex = (field.page || 1) - 1; // Convert to 0-based index
         const page = pages[pageIndex];
-        
+
         if (!page) {
           console.warn(`⚠️ Page ${field.page} not found, skipping field ${field.id}`);
           continue;
         }
 
         const { height: pageHeight } = page.getSize();
-        const adjustedY = pageHeight - field.y - field.height; // Convert coordinate system
+
+        // Use coordinates directly from frontend (already in correct position)
+        const x = parseFloat(field.x) || 0;
+        const y = parseFloat(field.y) || 0;
+        const width = parseFloat(field.width) || 100;
+        const height = parseFloat(field.height) || 20;
+
+        // Convert Y coordinate from top-left origin to bottom-left origin
+        // Add 1px adjustment to move elements up slightly
+        const adjustedY = pageHeight - y - height + 1;
 
         switch (field.type) {
           case 'text':
             if (field.content && field.content.toString().trim()) {
-              page.drawText(field.content.toString(), {
-                x: field.x,
-                y: adjustedY + (field.height / 2) - 5, // Center vertically
-                size: field.fontSize || 12,
-                font: font,
-                color: rgb(0, 0, 0)
+              const fontSize = parseFloat(field.fontSize) || 11;
+
+              // Use the actual color from the element (convert hex to RGB)
+              let hexColor = field.color || '#1e3a8a';
+              console.log(`   📝 Text color received: "${hexColor}" (type: ${typeof hexColor})`);
+
+              // Ensure hex color has # prefix
+              if (!hexColor.startsWith('#')) {
+                hexColor = '#' + hexColor;
+              }
+
+              const r = parseInt(hexColor.slice(1, 3), 16) / 255;
+              const g = parseInt(hexColor.slice(3, 5), 16) / 255;
+              const b = parseInt(hexColor.slice(5, 7), 16) / 255;
+              const textColor = rgb(r, g, b);
+              console.log(`   📝 RGB values: r=${r.toFixed(3)}, g=${g.toFixed(3)}, b=${b.toFixed(3)}`);
+
+              const contentStr = field.content.toString();
+
+              // Handle multi-line text - render exactly as it appears
+              const lines = contentStr.split('\n');
+              const lineHeight = fontSize; // Use fontSize as line height (same as frontend)
+
+              lines.forEach((line, lineIndex) => {
+                if (line.trim()) {
+                  const lineY = adjustedY - (lineIndex * lineHeight);
+
+                  page.drawText(line.trim(), {
+                    x: x,
+                    y: lineY,
+                    size: fontSize,
+                    font: font,
+                    color: textColor
+                  });
+                }
               });
+              console.log(`   ✅ Text field rendered: "${contentStr.substring(0, 30)}${contentStr.length > 30 ? '...' : ''}"`);
             }
             break;
 
@@ -501,12 +540,12 @@ class GoogleDriveService {
               try {
                 const base64Data = field.content.replace(/^data:image\/[a-z]+;base64,/, '');
                 const signatureImage = await existingPdfDoc.embedPng(Buffer.from(base64Data, 'base64'));
-                
+
                 page.drawImage(signatureImage, {
-                  x: field.x,
+                  x: x,
                   y: adjustedY,
-                  width: field.width,
-                  height: field.height
+                  width: width,
+                  height: height
                 });
               } catch (imgError) {
                 console.warn('⚠️ Failed to embed signature image:', imgError.message);
@@ -517,32 +556,66 @@ class GoogleDriveService {
           case 'date':
           case 'timestamp':
             if (field.content && field.content.toString().trim()) {
-              const dateText = field.content.toString();
-              page.drawText(dateText, {
-                x: field.x,
-                y: adjustedY + (field.height / 2) - 5,
-                size: field.fontSize || 10,
+              const fontSize = parseFloat(field.fontSize) || 11;
+              const contentStr = field.content.toString();
+
+              // Use the actual color from the element
+              let hexColor = field.color || '#1e3a8a';
+              console.log(`   📝 ${field.type} color received: "${hexColor}" (type: ${typeof hexColor})`);
+
+              // Ensure hex color has # prefix
+              if (!hexColor.startsWith('#')) {
+                hexColor = '#' + hexColor;
+              }
+
+              const r = parseInt(hexColor.slice(1, 3), 16) / 255;
+              const g = parseInt(hexColor.slice(3, 5), 16) / 255;
+              const b = parseInt(hexColor.slice(5, 7), 16) / 255;
+              const textColor = rgb(r, g, b);
+              console.log(`   📝 RGB: r=${r.toFixed(3)}, g=${g.toFixed(3)}, b=${b.toFixed(3)}`);
+
+              page.drawText(contentStr, {
+                x: x,
+                y: adjustedY,
+                size: fontSize,
                 font: font,
-                color: rgb(0, 0, 0)
+                color: textColor
               });
+              console.log(`   ✅ ${field.type} field rendered: "${contentStr}" at (${x.toFixed(1)}, ${adjustedY.toFixed(1)})`);
             }
             break;
 
           case 'checkbox':
             // Check if checkbox is checked (content should be true for checked boxes)
             const isChecked = field.content === true || field.content === 'true' || field.content === 1;
-            
+
             if (isChecked) {
-              // Render X mark for checked boxes (matching frontend style)
-              const fontSize = 10;
-              
+              const fontSize = parseFloat(field.fontSize) || 11;
+
+              // Use the actual color from the element
+              let hexColor = field.color || '#1e3a8a';
+
+              // Ensure hex color has # prefix
+              if (!hexColor.startsWith('#')) {
+                hexColor = '#' + hexColor;
+              }
+
+              const r = parseInt(hexColor.slice(1, 3), 16) / 255;
+              const g = parseInt(hexColor.slice(3, 5), 16) / 255;
+              const b = parseInt(hexColor.slice(5, 7), 16) / 255;
+              const checkColor = rgb(r, g, b);
+
               page.drawText('X', {
-                x: field.x + 2,
-                y: adjustedY + 2,
+                x: x,
+                y: adjustedY,
                 size: fontSize,
                 font: font,
-                color: rgb(0, 0, 1) // Blue color
+                color: checkColor
               });
+
+              console.log(`   ✅ Checkbox marked as CHECKED (X)`);
+            } else {
+              console.log(`   ☐ Checkbox marked as UNCHECKED (no output)`);
             }
             break;
         }
