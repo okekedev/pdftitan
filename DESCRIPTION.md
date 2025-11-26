@@ -1,0 +1,1 @@
+Professional PDF form editor for web applications. Enables interactive editing of form fields, drag-and-drop, signature capture, and supports both tablets and desktops. Robust integration for local/remote PDFs and backend APIs.
