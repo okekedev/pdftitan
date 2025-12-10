@@ -89,7 +89,8 @@ export default function App() {
           <Jobs
             technician={technician}
             onSelectJob={handleSelectJob}
-            onLogout={handleLogout} // ADD THIS LINE
+            onStartBackflowTesting={handleStartBackflowTesting}
+            onLogout={handleLogout}
           />
         )}
 
