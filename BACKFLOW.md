@@ -225,7 +225,7 @@ See `backend/forms/City information.xlsx` for the complete list.
 
 ## Implementation Progress
 
-### ✅ Completed (Phase 1 & 2)
+### ✅ Completed (All Phases)
 
 **Core Backflow Testing Module**
 - [x] BackflowTesting page structure
@@ -233,7 +233,7 @@ See `backend/forms/City information.xlsx` for the complete list.
 - [x] Test form with conditional fields
 - [x] Photo capture component
 - [x] PDF generator component
-- [x] API endpoints (15+ endpoints)
+- [x] API endpoints (18+ endpoints)
 - [x] In-memory data storage
 - [x] Integration with App.jsx routing
 - [x] "Start Backflow Testing" button in Attachments
@@ -256,12 +256,13 @@ See `backend/forms/City information.xlsx` for the complete list.
 - [x] Google Drive "v2 demo" folder export
 - [x] Job notes compilation
 - [x] Failed device tracking with "Quote Needed" flag
+- [x] **Photo naming with actual serial numbers** - Photos saved as SN-{serial}.jpg or Failed-SN-{serial}.jpg
+- [x] **Fill actual TCEQ PDF template** - Loads and fills existing TCEQ.pdf with form data, flattened output
+- [x] **Online forms reference export** - Easy-to-read reference sheet for manual city portal entry
 
-### 🚧 Remaining Items (Phase 3)
+### 🎉 All 10 Requirements Complete
 
-1. **Photo naming with serial numbers** - Currently uses generated IDs, need to use actual device.serialMain
-2. **Fill actual TCEQ PDF template** - Currently generates new PDF, need to fill existing TCEQ.pdf using pdf-lib
-3. **Online forms reference export** - Create simple report for manual entry into city portals
+All features from `App Next Steps.docx` have been successfully implemented!
 
 ---
 
@@ -270,17 +271,15 @@ See `backend/forms/City information.xlsx` for the complete list.
 1. **Data Persistence**: Uses in-memory storage - data lost on server restart
    - To fix: Implement database (PostgreSQL/MongoDB)
 
-2. **PDF Generation**: Creates new PDF instead of filling template
-   - To fix: Use pdf-lib to fill actual TCEQ.pdf
-
-3. **Photo Naming**: Uses generated IDs instead of serial numbers
-   - To fix: Update PhotoCapture to use device.serialMain
-
-4. **Custom Fields**: Falls back to placeholders if not configured
+2. **Custom Fields**: Falls back to placeholders if not configured
    - To fix: Add custom fields in ServiceTitan settings
 
-5. **City Forms**: Only TCEQ template implemented
-   - To fix: Add city-specific PDF templates
+3. **City Forms**: Only TCEQ template implemented
+   - To fix: Add city-specific PDF templates (beyond TCEQ-20700)
+
+4. **PDF Field Mapping**: Generic field names in TCEQ.pdf may need adjustment
+   - The mapping assumes field order based on visual inspection
+   - Test with actual TCEQ submissions to verify accuracy
 
 ---
 
@@ -366,10 +365,12 @@ From `App Next Steps.docx`:
 4. ✅ Link bypass information to main DCDA device
 5. ✅ Compile notes into job summary
 6. ✅ Allow filling any city's paper form
-7. 🚧 Link photos to devices with serial number naming
+7. ✅ Link photos to devices with serial number naming
 8. ✅ Upload photos to ServiceTitan with device serial as name
-9. 🚧 Create easy-access report for online forms reference
+9. ✅ Create easy-access report for online forms reference
 10. ✅ Add geolocation (GPS coordinates/map pin)
+
+**Status: 10/10 Complete** 🎉
 
 ### Branch Strategy
 
