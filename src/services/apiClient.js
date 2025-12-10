@@ -667,6 +667,57 @@ class ApiClient {
     }
   }
 
+  // Get all cities
+  async getCities() {
+    try {
+      console.log('🌆 Fetching cities');
+
+      const response = await this.apiCall('/api/cities');
+
+      console.log(`✅ Cities fetched: ${response.data?.length || 0} cities`);
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error fetching cities:', error);
+      throw new Error(`Failed to fetch cities: ${error.message}`);
+    }
+  }
+
+  // Get city information with PWS data
+  async getCityInfo(cityName) {
+    try {
+      console.log(`🌆 Fetching city info for: ${cityName}`);
+
+      const response = await this.apiCall(`/api/cities/${encodeURIComponent(cityName)}`);
+
+      console.log('✅ City info fetched');
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error fetching city info:', error);
+      throw new Error(`Failed to fetch city info: ${error.message}`);
+    }
+  }
+
+  // Get form field definitions
+  async getFormFields() {
+    try {
+      console.log('📋 Fetching form field definitions');
+
+      const response = await this.apiCall('/api/form-fields');
+
+      console.log('✅ Form fields fetched');
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error fetching form fields:', error);
+      throw new Error(`Failed to fetch form fields: ${error.message}`);
+    }
+  }
+
   // ================== UTILITIES ==================
 
   // Test connection to backend
