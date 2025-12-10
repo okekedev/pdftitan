@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+const excelParser = require('../services/excelParser');
 
 // Configure multer for photo uploads
 const storage = multer.diskStorage({
@@ -419,6 +420,45 @@ router.post('/job/:jobId/notes', async (req, res) => {
     res.json({ success: true, message: 'Job note added' });
   } catch (error) {
     console.error('Error adding job note:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get all cities with form types
+router.get('/cities', async (req, res) => {
+  try {
+    const cities = excelParser.getAllCities();
+    res.json({ success: true, data: cities });
+  } catch (error) {
+    console.error('Error getting cities:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get city information including PWS data
+router.get('/cities/:cityName', async (req, res) => {
+  try {
+    const cityName = req.params.cityName;
+    const cityInfo = excelParser.getCityInfo(cityName);
+
+    if (!cityInfo) {
+      return res.status(404).json({ success: false, error: 'City not found' });
+    }
+
+    res.json({ success: true, data: cityInfo });
+  } catch (error) {
+    console.error('Error getting city info:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get form field definitions
+router.get('/form-fields', async (req, res) => {
+  try {
+    const fields = excelParser.parseFormFields();
+    res.json({ success: true, data: fields });
+  } catch (error) {
+    console.error('Error getting form fields:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
