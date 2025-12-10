@@ -63,6 +63,51 @@ export default function PDFGenerator({ devices, testRecords, job, technician, on
     }
   };
 
+  const handleGenerateOnlineReference = async () => {
+    if (!selectedCity) {
+      alert('Please select a city/jurisdiction');
+      return;
+    }
+
+    setGenerating(true);
+    setError(null);
+
+    try {
+      // Generate online reference reports for each device
+      const referencePromises = completedDevices.map(device => {
+        return apiClient.generateOnlineReference({
+          deviceId: device.id,
+          testRecordId: testRecords[device.id].id,
+          jobId: job.id,
+          cityCode: selectedCity
+        });
+      });
+
+      const results = await Promise.all(referencePromises);
+      const references = results.map(r => r.data);
+
+      // Add reference reports to the generated PDFs list
+      setGeneratedPDFs([...generatedPDFs, ...references]);
+
+      // Save reference reports to Google Drive "v2 demo" folder
+      for (const ref of references) {
+        await apiClient.savePDFAsDraft({
+          jobId: job.id,
+          fileName: ref.fileName,
+          pdfData: ref.pdfBytes,
+          folder: 'v2 demo'
+        });
+      }
+
+      alert('Online reference reports generated and saved to v2 demo folder!');
+    } catch (err) {
+      console.error('Error generating online reference reports:', err);
+      setError('Failed to generate online reference reports. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const generateJobNoteSummary = () => {
     const totalTested = completedDevices.length;
     const totalFailed = failedDevices.length;
@@ -188,6 +233,19 @@ export default function PDFGenerator({ devices, testRecords, job, technician, on
         >
           {generating ? 'Generating PDFs...' : 'Generate Forms & Update Job Notes'}
         </button>
+
+        <button
+          onClick={handleGenerateOnlineReference}
+          disabled={!selectedCity || generating || completedDevices.length === 0}
+          className="btn btn-primary btn-large"
+          style={{ marginTop: '10px' }}
+        >
+          {generating ? 'Generating...' : 'Generate Online Reference Report'}
+        </button>
+
+        <p className="helper-text" style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+          The online reference report creates an easy-to-read PDF for manual entry into city portals.
+        </p>
       </div>
 
       {jobNoteSummary && (

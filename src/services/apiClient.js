@@ -647,6 +647,26 @@ class ApiClient {
     }
   }
 
+  // Generate online reference report for manual city portal entry
+  async generateOnlineReference(pdfData) {
+    try {
+      console.log('📄 Generating online reference report:', pdfData);
+
+      const response = await this.apiCall('/api/backflow-pdfs/generate-online-reference', {
+        method: 'POST',
+        body: pdfData
+      });
+
+      console.log('✅ Online reference report generated:', response);
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error generating online reference:', error);
+      throw new Error(`Failed to generate online reference: ${error.message}`);
+    }
+  }
+
   // Add job note
   async addJobNote(jobId, note) {
     try {
