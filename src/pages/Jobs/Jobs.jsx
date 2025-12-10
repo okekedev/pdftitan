@@ -343,9 +343,18 @@ export default function Jobs({ technician, onSelectJob, onLogout }) {
 
                       {/* Card Footer */}
                       <div className="card-footer">
-                        <div className="job-metadata">
-                          <small>Job ID: {job.id}</small>
-                        </div>
+                        <button
+                          className="btn-backflow-testing-small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // This will trigger backflow testing for this job
+                            // For now, it follows the same flow as clicking the card
+                            handleJobSelection(job);
+                          }}
+                          title="Start Backflow Testing"
+                        >
+                          Start Backflow Testing
+                        </button>
                         <div className="view-forms-btn">
                           <span className="btn btn-sm btn-primary">
                             View Forms →
