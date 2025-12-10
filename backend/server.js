@@ -360,6 +360,14 @@ try {
   console.log('⚠️ Drafts API not found, skipping...');
 }
 
+try {
+  const backflowAPI = require('./api/backflow');
+  app.use('/api', backflowAPI);
+  console.log('✅ Backflow API loaded');
+} catch (error) {
+  console.log('⚠️ Backflow API not found, skipping...');
+}
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({

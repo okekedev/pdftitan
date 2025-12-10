@@ -466,6 +466,207 @@ class ApiClient {
     }
   }
 
+  // ================== BACKFLOW TESTING ==================
+
+  // Get all backflow devices for a job
+  async getJobBackflowDevices(jobId) {
+    try {
+      console.log(`🔧 Fetching backflow devices for job: ${jobId}`);
+
+      const response = await this.apiCall(`/api/job/${jobId}/backflow-devices`);
+
+      console.log(`✅ Backflow devices fetched: ${response.data?.length || 0} devices`);
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error fetching backflow devices:', error);
+      throw new Error(`Failed to fetch backflow devices: ${error.message}`);
+    }
+  }
+
+  // Create a new backflow device
+  async createBackflowDevice(jobId, deviceData) {
+    try {
+      console.log(`🔧 Creating backflow device for job: ${jobId}`);
+
+      const response = await this.apiCall(`/api/job/${jobId}/backflow-devices`, {
+        method: 'POST',
+        body: deviceData
+      });
+
+      console.log('✅ Backflow device created:', response);
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error creating backflow device:', error);
+      throw new Error(`Failed to create backflow device: ${error.message}`);
+    }
+  }
+
+  // Update a backflow device
+  async updateBackflowDevice(deviceId, deviceData) {
+    try {
+      console.log(`🔧 Updating backflow device: ${deviceId}`);
+
+      const response = await this.apiCall(`/api/backflow-devices/${deviceId}`, {
+        method: 'PUT',
+        body: deviceData
+      });
+
+      console.log('✅ Backflow device updated:', response);
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error updating backflow device:', error);
+      throw new Error(`Failed to update backflow device: ${error.message}`);
+    }
+  }
+
+  // Get all test records for a job
+  async getJobBackflowTests(jobId) {
+    try {
+      console.log(`📋 Fetching backflow tests for job: ${jobId}`);
+
+      const response = await this.apiCall(`/api/job/${jobId}/backflow-tests`);
+
+      console.log(`✅ Backflow tests fetched: ${response.data?.length || 0} tests`);
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error fetching backflow tests:', error);
+      throw new Error(`Failed to fetch backflow tests: ${error.message}`);
+    }
+  }
+
+  // Save a backflow test record
+  async saveBackflowTest(testData) {
+    try {
+      console.log('💾 Saving backflow test:', testData);
+
+      const response = await this.apiCall('/api/backflow-tests/save', {
+        method: 'POST',
+        body: testData
+      });
+
+      console.log('✅ Backflow test saved:', response);
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error saving backflow test:', error);
+      throw new Error(`Failed to save backflow test: ${error.message}`);
+    }
+  }
+
+  // Get photos for a test record
+  async getBackflowTestPhotos(testId) {
+    try {
+      console.log(`📷 Fetching photos for test: ${testId}`);
+
+      const response = await this.apiCall(`/api/backflow-tests/${testId}/photos`);
+
+      console.log(`✅ Photos fetched: ${response.data?.length || 0} photos`);
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error fetching photos:', error);
+      throw new Error(`Failed to fetch photos: ${error.message}`);
+    }
+  }
+
+  // Upload a backflow photo
+  async uploadBackflowPhoto(formData) {
+    try {
+      console.log('📷 Uploading backflow photo');
+
+      const url = `${this.baseUrl}/api/backflow-photos/upload`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to upload photo: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Photo uploaded:', result);
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ Error uploading photo:', error);
+      throw new Error(`Failed to upload photo: ${error.message}`);
+    }
+  }
+
+  // Delete a backflow photo
+  async deleteBackflowPhoto(photoId) {
+    try {
+      console.log(`🗑️ Deleting photo: ${photoId}`);
+
+      const response = await this.apiCall(`/api/backflow-photos/${photoId}`, {
+        method: 'DELETE'
+      });
+
+      console.log('✅ Photo deleted');
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error deleting photo:', error);
+      throw new Error(`Failed to delete photo: ${error.message}`);
+    }
+  }
+
+  // Generate backflow PDF
+  async generateBackflowPDF(pdfData) {
+    try {
+      console.log('📄 Generating backflow PDF:', pdfData);
+
+      const response = await this.apiCall('/api/backflow-pdfs/generate', {
+        method: 'POST',
+        body: pdfData
+      });
+
+      console.log('✅ Backflow PDF generated:', response);
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error generating PDF:', error);
+      throw new Error(`Failed to generate PDF: ${error.message}`);
+    }
+  }
+
+  // Add job note
+  async addJobNote(jobId, note) {
+    try {
+      console.log(`📝 Adding job note to job: ${jobId}`);
+
+      const response = await this.apiCall(`/api/job/${jobId}/notes`, {
+        method: 'POST',
+        body: { note }
+      });
+
+      console.log('✅ Job note added');
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error adding job note:', error);
+      throw new Error(`Failed to add job note: ${error.message}`);
+    }
+  }
+
   // ================== UTILITIES ==================
 
   // Test connection to backend

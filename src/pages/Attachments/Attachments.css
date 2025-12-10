@@ -101,6 +101,30 @@
   gap: 0.5rem;
 }
 
+.btn-backflow-testing {
+  padding: 10px 20px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(25, 118, 210, 0.2);
+}
+
+.btn-backflow-testing:hover {
+  background: #1565c0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(25, 118, 210, 0.3);
+}
+
+.btn-backflow-testing:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(25, 118, 210, 0.2);
+}
+
 .attachments-page .customer-details {
   padding: 1.5rem;
   flex: 1;
