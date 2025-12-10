@@ -4,18 +4,29 @@
 
 ### 1. Start the Application
 
+**Option 1: Run Both Together (Recommended)**
+```bash
+# Install all dependencies (first time only)
+npm run install:all
+
+# Run both frontend and backend concurrently
+npm run dev
+```
+
+**Option 2: Run Separately**
 ```bash
 # Terminal 1 - Backend
 cd backend
 npm install
 npm start
 
-# Terminal 2 - Frontend
+# Terminal 2 - Frontend (in new terminal)
 npm install
 npm start
 ```
 
-The app will open at `http://localhost:3000`
+The app will open at `http://localhost:3003`
+Backend runs on `http://localhost:3004`
 
 ### 2. Login
 
