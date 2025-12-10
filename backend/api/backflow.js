@@ -171,14 +171,26 @@ router.post('/backflow-photos/upload', upload.single('photo'), async (req, res) 
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
+    // Rename the file on disk to use the serial number-based name
+    const generatedFileName = req.body.generatedFileName;
+    const uploadDir = path.dirname(req.file.path);
+    const newFilePath = path.join(uploadDir, generatedFileName);
+
+    try {
+      await fs.rename(req.file.path, newFilePath);
+    } catch (renameErr) {
+      console.error('Error renaming file:', renameErr);
+      // Continue with original path if rename fails
+    }
+
     const photoData = {
       id: `photo-${photoIdCounter++}`,
       testRecordId: req.body.testRecordId,
       deviceId: req.body.deviceId,
       jobId: req.body.jobId,
-      filePath: req.file.path,
+      filePath: newFilePath,
       originalFileName: req.file.originalname,
-      generatedFileName: req.body.generatedFileName,
+      generatedFileName: generatedFileName,
       isFailedPhoto: req.body.isFailedPhoto === 'true',
       createdAt: new Date().toISOString()
     };
@@ -233,7 +245,7 @@ router.delete('/backflow-photos/:photoId', async (req, res) => {
   }
 });
 
-// Generate PDF for a test
+// Generate PDF for a test - Fill actual TCEQ PDF template
 router.post('/backflow-pdfs/generate', async (req, res) => {
   try {
     const { deviceId, testRecordId, jobId, technicianId, cityCode } = req.body;
@@ -246,124 +258,139 @@ router.post('/backflow-pdfs/generate', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Device or test not found' });
     }
 
-    // Generate PDF (simplified for now - in production, use proper PDF templates)
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([612, 792]); // Letter size
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    // Load the TCEQ PDF template
+    const templatePath = path.join(__dirname, '../forms/TCEQ.pdf');
+    const templateBytes = await fs.readFile(templatePath);
+    const pdfDoc = await PDFDocument.load(templateBytes);
+    const form = pdfDoc.getForm();
 
-    const { width, height } = page.getSize();
-    let yPosition = height - 50;
+    // Get city information for PWS fields
+    const cityInfo = excelParser.getCityInfo(cityCode);
 
-    // Title
-    page.drawText('Backflow Prevention Assembly Test Report', {
-      x: 50,
-      y: yPosition,
-      size: 16,
-      font: boldFont,
-      color: rgb(0, 0, 0),
-    });
+    // Fill form fields based on TCEQ-20700 form structure
+    // Note: Field names are generic ("Text Field", "Text Field_1", etc.)
+    // Mapping based on visual order in TCEQ Form Excel Match.pdf
 
-    yPosition -= 30;
+    try {
+      // PWS Information (Fields 0-3)
+      const pwsNameField = form.getTextField('Text Field');
+      pwsNameField.setText(cityInfo?.pwsName || cityCode);
 
-    // Form type
-    page.drawText(`Form Type: ${cityCode === 'TCEQ' ? 'TCEQ-20700' : cityCode + ' City Form'}`, {
-      x: 50,
-      y: yPosition,
-      size: 12,
-      font: font,
-    });
+      const pwsIdField = form.getTextField('Text Field_1');
+      pwsIdField.setText(cityInfo?.pwsId || '');
 
-    yPosition -= 30;
+      const pwsAddressField = form.getTextField('Text Field_2');
+      pwsAddressField.setText(cityInfo?.pwsAddress || '');
 
-    // Device information
-    const deviceInfo = [
-      `Device Type: ${device.typeMain}`,
-      `Manufacturer: ${device.manufacturerMain || 'N/A'}`,
-      `Model: ${device.modelMain || 'N/A'}`,
-      `Serial Number: ${device.serialMain}`,
-      `Size: ${device.sizeMain || 'N/A'}`,
-      `Location: ${device.bpaLocation || 'N/A'}`,
-      `Serves: ${device.bpaServes || 'N/A'}`,
-    ];
+      const pwsContactField = form.getTextField('Text Field_3');
+      pwsContactField.setText(cityInfo?.pwsContact || '');
 
-    deviceInfo.forEach(line => {
-      page.drawText(line, { x: 50, y: yPosition, size: 10, font: font });
-      yPosition -= 15;
-    });
+      // Service Address (Field 4)
+      const serviceAddressField = form.getTextField('Text Field_4');
+      serviceAddressField.setText(device.bpaLocation || '');
 
-    yPosition -= 10;
+      // Device Type Checkboxes (Fields 7-15) - Map device type to checkbox
+      const deviceTypeMap = {
+        'DC': 'Check Box',
+        'RPZ': 'Check Box_1',
+        'DCDA': 'Check Box_2',
+        'RPDA': 'Check Box_2_1',
+        'DCDA Type II': 'Check Box_2_2',
+        'RPDA Type II': 'Check Box_2_3',
+        'PVB': 'Check Box_2_4',
+        'SVB': 'Check Box_2_5'
+      };
 
-    // Test information
-    const testInfo = [
-      `Test Date: ${test.testDateInitial}`,
-      `Test Time: ${test.testTimeInitial}`,
-      `Reason for Test: ${test.reasonForTest}`,
-      `Installed Per Code: ${test.installedPerCode}`,
-      `Test Result: ${test.testResult}`,
-    ];
+      const deviceTypeCheckbox = deviceTypeMap[device.typeMain];
+      if (deviceTypeCheckbox) {
+        const checkbox = form.getCheckBox(deviceTypeCheckbox);
+        checkbox.check();
+      }
 
-    testInfo.forEach(line => {
-      page.drawText(line, { x: 50, y: yPosition, size: 10, font: font });
-      yPosition -= 15;
-    });
+      // Main Device Information (Fields 5, 6, etc.)
+      // Manufacturer
+      const manufacturerField = form.getTextField('Text Field_5');
+      manufacturerField.setText(device.manufacturerMain || '');
 
-    // Add test readings based on device type
-    if (test.firstCheckReadingInitial) {
-      yPosition -= 10;
-      page.drawText('Initial Test Readings:', { x: 50, y: yPosition, size: 11, font: boldFont });
-      yPosition -= 15;
+      // Model
+      const modelField = form.getTextField('Text Field_6');
+      modelField.setText(device.modelMain || '');
 
+      // Serial Number
+      const serialField = form.getTextField('Text Field_7');
+      serialField.setText(device.serialMain || '');
+
+      // Size
+      const sizeField = form.getTextField('Text Field_8');
+      sizeField.setText(device.sizeMain || '');
+
+      // Test Date
+      const testDateField = form.getTextField('Text Field_9');
+      testDateField.setText(test.testDateInitial || '');
+
+      // Test Time
+      const testTimeField = form.getTextField('Text Field_10');
+      testTimeField.setText(test.testTimeInitial || '');
+
+      // BPA Location/Serves
+      const bpaLocationField = form.getTextField('Text Field_11');
+      bpaLocationField.setText(device.bpaLocation || '');
+
+      const bpaServesField = form.getTextField('Text Field_12');
+      bpaServesField.setText(device.bpaServes || '');
+
+      // Test Readings - Map based on device type
       if (test.firstCheckReadingInitial) {
-        page.drawText(`First Check: ${test.firstCheckReadingInitial} PSI (${test.firstCheckClosedTightInitial})`, {
-          x: 50, y: yPosition, size: 10, font: font
-        });
-        yPosition -= 15;
+        const firstCheckField = form.getTextField('Text Field_13');
+        firstCheckField.setText(test.firstCheckReadingInitial.toString());
       }
 
       if (test.secondCheckReadingInitial) {
-        page.drawText(`Second Check: ${test.secondCheckReadingInitial} PSI (${test.secondCheckClosedTightInitial})`, {
-          x: 50, y: yPosition, size: 10, font: font
-        });
-        yPosition -= 15;
+        const secondCheckField = form.getTextField('Text Field_14');
+        secondCheckField.setText(test.secondCheckReadingInitial.toString());
       }
 
       if (test.reliefValveReadingInitial) {
-        page.drawText(`Relief Valve: ${test.reliefValveReadingInitial} PSI (${test.reliefValveDidNotOpenInitial})`, {
-          x: 50, y: yPosition, size: 10, font: font
-        });
-        yPosition -= 15;
+        const reliefValveField = form.getTextField('Text Field_15');
+        reliefValveField.setText(test.reliefValveReadingInitial.toString());
       }
-    }
 
-    // Repairs
-    if (test.repairsMain || test.repairsBypass) {
-      yPosition -= 10;
-      page.drawText('Repairs:', { x: 50, y: yPosition, size: 11, font: boldFont });
-      yPosition -= 15;
+      // Test Result - Pass/Fail checkboxes
+      if (test.testResult === 'Passed') {
+        const passCheckbox = form.getCheckBox('Check Box_2_6');
+        passCheckbox.check();
+      } else if (test.testResult === 'Failed') {
+        const failCheckbox = form.getCheckBox('Check Box_2_7');
+        failCheckbox.check();
+      }
 
+      // Repairs if any
       if (test.repairsMain) {
-        page.drawText(`Main: ${test.repairsMain}`, { x: 50, y: yPosition, size: 10, font: font });
-        yPosition -= 15;
+        const repairsField = form.getTextField('Text Field_16');
+        repairsField.setText(test.repairsMain);
       }
 
-      if (test.repairsBypass) {
-        page.drawText(`Bypass: ${test.repairsBypass}`, { x: 50, y: yPosition, size: 10, font: font });
-        yPosition -= 15;
+      // Remarks
+      if (test.remarks) {
+        const remarksField = form.getTextField('Text Field_17');
+        remarksField.setText(test.remarks);
       }
+
+      // Technician information (from technician record)
+      // These would come from the authenticated technician
+      // Placeholder for now - would need to pass technician data
+
+    } catch (fieldError) {
+      console.warn('Error filling some PDF fields:', fieldError.message);
+      // Continue even if some fields fail
     }
 
-    // Remarks
-    if (test.remarks) {
-      yPosition -= 10;
-      page.drawText('Remarks:', { x: 50, y: yPosition, size: 11, font: boldFont });
-      yPosition -= 15;
-      page.drawText(test.remarks, { x: 50, y: yPosition, size: 10, font: font });
-    }
+    // Flatten the form to make it non-editable
+    form.flatten();
 
-    // Save PDF
+    // Save filled PDF
     const pdfBytes = await pdfDoc.save();
-    const fileName = `Backflow_${device.serialMain}_${test.testDateInitial}.pdf`;
+    const fileName = `TCEQ-20700_${device.serialMain}_${test.testDateInitial}.pdf`;
     const pdfPath = path.join(__dirname, '../uploads/backflow-pdfs', fileName);
 
     // Ensure directory exists
@@ -377,6 +404,7 @@ router.post('/backflow-pdfs/generate', async (req, res) => {
       jobId,
       fileName,
       filePath: pdfPath,
+      pdfBytes: Array.from(pdfBytes), // For Google Drive upload
       cityCode,
       createdAt: new Date().toISOString()
     };
@@ -459,6 +487,278 @@ router.get('/form-fields', async (req, res) => {
     res.json({ success: true, data: fields });
   } catch (error) {
     console.error('Error getting form fields:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Generate online forms reference report
+router.post('/backflow-pdfs/generate-online-reference', async (req, res) => {
+  try {
+    const { deviceId, testRecordId, jobId, cityCode } = req.body;
+
+    // Get device and test data
+    const device = devices.find(d => d.id === deviceId);
+    const test = testRecords.find(t => t.id === testRecordId);
+
+    if (!device || !test) {
+      return res.status(404).json({ success: false, error: 'Device or test not found' });
+    }
+
+    // Get city information
+    const cityInfo = excelParser.getCityInfo(cityCode);
+
+    // Create a simple, easy-to-read PDF for manual data entry
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([612, 792]); // Letter size
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    const { width, height } = page.getSize();
+    let y = height - 50;
+
+    // Helper function to draw a field
+    const drawField = (label, value) => {
+      page.drawText(label, { x: 50, y, size: 10, font: boldFont });
+      page.drawText(value || 'N/A', { x: 250, y, size: 10, font: font });
+      y -= 20;
+      if (y < 50) {
+        // Add new page if needed
+        const newPage = pdfDoc.addPage([612, 792]);
+        y = height - 50;
+        return newPage;
+      }
+      return page;
+    };
+
+    // Title
+    page.drawText('Online Form Reference Sheet', {
+      x: 50, y, size: 16, font: boldFont, color: rgb(0, 0, 0.6)
+    });
+    y -= 25;
+
+    page.drawText(`City: ${cityCode} | Device: ${device.serialMain}`, {
+      x: 50, y, size: 11, font: font
+    });
+    y -= 30;
+
+    // Instructions
+    page.drawText('Use this sheet to manually enter data into the online city portal:', {
+      x: 50, y, size: 9, font: font, color: rgb(0.3, 0.3, 0.3)
+    });
+    y -= 25;
+
+    // Draw divider line
+    page.drawLine({
+      start: { x: 50, y: y },
+      end: { x: width - 50, y: y },
+      thickness: 1,
+      color: rgb(0.7, 0.7, 0.7)
+    });
+    y -= 25;
+
+    // Section 1: PWS Information
+    page.drawText('PUBLIC WATER SUPPLIER INFORMATION', {
+      x: 50, y, size: 12, font: boldFont, color: rgb(0, 0, 0.6)
+    });
+    y -= 25;
+
+    drawField('Public Water Supplier:', cityInfo?.pwsName || cityCode);
+    drawField('PWS ID#:', cityInfo?.pwsId || '');
+    drawField('PWS Mailing Address:', cityInfo?.pwsAddress || '');
+    drawField('PWS Contact Person:', cityInfo?.pwsContact || '');
+    y -= 10;
+
+    // Section 2: Service Location
+    page.drawText('SERVICE LOCATION', {
+      x: 50, y, size: 12, font: boldFont, color: rgb(0, 0, 0.6)
+    });
+    y -= 25;
+
+    drawField('Address of Service:', device.bpaLocation || '');
+    drawField('BPA Serves:', device.bpaServes || '');
+    y -= 10;
+
+    // Section 3: Device Information
+    page.drawText('BACKFLOW DEVICE INFORMATION', {
+      x: 50, y, size: 12, font: boldFont, color: rgb(0, 0, 0.6)
+    });
+    y -= 25;
+
+    drawField('Type of Backflow:', device.typeMain);
+    drawField('Manufacturer:', device.manufacturerMain || '');
+    drawField('Model Number:', device.modelMain || '');
+    drawField('Serial Number:', device.serialMain);
+    drawField('Size:', device.sizeMain || '');
+
+    // Bypass info if applicable
+    if (device.typeBypass) {
+      y -= 10;
+      page.drawText('BYPASS DEVICE (if applicable)', {
+        x: 50, y, size: 11, font: boldFont
+      });
+      y -= 20;
+      drawField('Bypass Type:', device.typeBypass);
+      drawField('Bypass Manufacturer:', device.manufacturerBypass || '');
+      drawField('Bypass Model:', device.modelBypass || '');
+      drawField('Bypass Serial:', device.serialBypass || '');
+    }
+    y -= 10;
+
+    // Section 4: Test Information
+    page.drawText('TEST INFORMATION', {
+      x: 50, y, size: 12, font: boldFont, color: rgb(0, 0, 0.6)
+    });
+    y -= 25;
+
+    drawField('Test Date:', test.testDateInitial || '');
+    drawField('Test Time:', test.testTimeInitial || '');
+    drawField('Reason for Test:', test.reasonForTest || '');
+    drawField('Installed Per Code:', test.installedPerCode || '');
+    y -= 10;
+
+    // Section 5: Test Readings
+    page.drawText('INITIAL TEST READINGS', {
+      x: 50, y, size: 12, font: boldFont, color: rgb(0, 0, 0.6)
+    });
+    y -= 25;
+
+    // Show readings based on device type
+    if (test.firstCheckReadingInitial) {
+      drawField('1st Check Reading:', `${test.firstCheckReadingInitial} PSI (${test.firstCheckClosedTightInitial || ''})`);
+    }
+    if (test.secondCheckReadingInitial) {
+      drawField('2nd Check Reading:', `${test.secondCheckReadingInitial} PSI (${test.secondCheckClosedTightInitial || ''})`);
+    }
+    if (test.reliefValveReadingInitial) {
+      drawField('Relief Valve Reading:', `${test.reliefValveReadingInitial} PSI (${test.reliefValveDidNotOpenInitial || ''})`);
+    }
+    if (test.airInletReadingInitial) {
+      drawField('Air Inlet Reading:', `${test.airInletReadingInitial} PSI (${test.airInletOpenedInitial || ''})`);
+    }
+    if (test.checkValveReadingInitial) {
+      drawField('Check Valve Reading:', `${test.checkValveReadingInitial} PSI (${test.checkValveHeldInitial || ''})`);
+    }
+    y -= 10;
+
+    // Section 6: Repairs (if any)
+    if (test.repairsMain || test.repairsBypass) {
+      page.drawText('REPAIRS PERFORMED', {
+        x: 50, y, size: 12, font: boldFont, color: rgb(0.8, 0, 0)
+      });
+      y -= 25;
+
+      if (test.repairsMain) {
+        drawField('Main Device Repairs:', test.repairsMain);
+      }
+      if (test.repairsBypass) {
+        drawField('Bypass Device Repairs:', test.repairsBypass);
+      }
+      y -= 10;
+
+      // Post-repair readings if available
+      if (test.firstCheckReadingFinal) {
+        page.drawText('POST-REPAIR TEST READINGS', {
+          x: 50, y, size: 12, font: boldFont, color: rgb(0, 0, 0.6)
+        });
+        y -= 25;
+
+        if (test.firstCheckReadingFinal) {
+          drawField('1st Check Reading (Final):', `${test.firstCheckReadingFinal} PSI`);
+        }
+        if (test.secondCheckReadingFinal) {
+          drawField('2nd Check Reading (Final):', `${test.secondCheckReadingFinal} PSI`);
+        }
+        if (test.reliefValveReadingFinal) {
+          drawField('Relief Valve Reading (Final):', `${test.reliefValveReadingFinal} PSI`);
+        }
+        y -= 10;
+      }
+    }
+
+    // Section 7: Test Result
+    page.drawText('TEST RESULT', {
+      x: 50, y, size: 12, font: boldFont,
+      color: test.testResult === 'Passed' ? rgb(0, 0.6, 0) : rgb(0.8, 0, 0)
+    });
+    y -= 25;
+
+    drawField('Result:', test.testResult || 'Not Tested');
+    if (test.quoteNeeded) {
+      drawField('Quote Needed:', 'YES');
+    }
+    y -= 10;
+
+    // Section 8: Remarks
+    if (test.remarks) {
+      page.drawText('REMARKS', {
+        x: 50, y, size: 12, font: boldFont, color: rgb(0, 0, 0.6)
+      });
+      y -= 25;
+
+      // Word wrap remarks
+      const maxWidth = width - 100;
+      const words = test.remarks.split(' ');
+      let line = '';
+
+      for (const word of words) {
+        const testLine = line + word + ' ';
+        const textWidth = font.widthOfTextAtSize(testLine, 10);
+
+        if (textWidth > maxWidth && line.length > 0) {
+          page.drawText(line.trim(), { x: 50, y, size: 10, font: font });
+          y -= 15;
+          line = word + ' ';
+        } else {
+          line = testLine;
+        }
+      }
+
+      if (line.length > 0) {
+        page.drawText(line.trim(), { x: 50, y, size: 10, font: font });
+        y -= 20;
+      }
+    }
+
+    // Footer
+    y = 50;
+    page.drawLine({
+      start: { x: 50, y: y + 15 },
+      end: { x: width - 50, y: y + 15 },
+      thickness: 1,
+      color: rgb(0.7, 0.7, 0.7)
+    });
+
+    page.drawText('This reference sheet is for manual online form entry only.', {
+      x: 50, y, size: 8, font: font, color: rgb(0.4, 0.4, 0.4)
+    });
+
+    // Save PDF
+    const pdfBytes = await pdfDoc.save();
+    const fileName = `Online_Reference_${device.serialMain}_${test.testDateInitial}.pdf`;
+    const pdfPath = path.join(__dirname, '../uploads/backflow-pdfs', fileName);
+
+    // Ensure directory exists
+    await fs.mkdir(path.dirname(pdfPath), { recursive: true });
+    await fs.writeFile(pdfPath, pdfBytes);
+
+    const pdfRecord = {
+      id: `pdf-${pdfIdCounter++}`,
+      deviceId,
+      testRecordId,
+      jobId,
+      fileName,
+      filePath: pdfPath,
+      pdfBytes: Array.from(pdfBytes), // For Google Drive upload
+      cityCode,
+      isOnlineReference: true,
+      createdAt: new Date().toISOString()
+    };
+
+    generatedPDFs.push(pdfRecord);
+
+    res.json({ success: true, data: pdfRecord });
+  } catch (error) {
+    console.error('Error generating online reference:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
