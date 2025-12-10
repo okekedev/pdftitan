@@ -72,6 +72,16 @@ router.post('/technician/validate', async (req, res) => {
     
     console.log(`✅ Phone number verified for technician: ${technician.name}`);
     
+    // Check for custom fields (license, gauge info)
+    const customFields = technician.customFields || {};
+    const hasCustomFields = Object.keys(customFields).length > 0;
+
+    if (hasCustomFields) {
+      console.log('📋 Custom fields found:', Object.keys(customFields));
+    } else {
+      console.log('⚠️  No custom fields found on technician record');
+    }
+
     // Return successful authentication
     res.json({
       success: true,
@@ -91,10 +101,28 @@ router.post('/technician/validate', async (req, res) => {
         isManagedTech: technician.isManagedTech,
         dailyGoal: technician.dailyGoal,
         burdenRate: technician.burdenRate,
-        accountLocked: technician.accountLocked
+        accountLocked: technician.accountLocked,
+
+        // Backflow-specific fields (from custom fields or placeholders)
+        bpatLicenseNumber: customFields.bpatLicenseNumber || customFields.licenseNumber || 'BPAT-PLACEHOLDER',
+        licenseExpirationDate: customFields.licenseExpirationDate || '2025-12-31',
+        gauges: customFields.gauges || [
+          {
+            id: 'gauge-1',
+            type: 'Potable',
+            makeModel: 'Placeholder Gauge',
+            serialNumber: '000000',
+            dateTestedForAccuracy: '2024-01-01'
+          }
+        ],
+
+        // Include raw custom fields for debugging
+        customFields: hasCustomFields ? customFields : null
       },
       company: {
         name: process.env.COMPANY_NAME || 'MrBackflow TX',
+        address: process.env.COMPANY_ADDRESS || '126 Country Rd 4577, Boyd, TX 76023',
+        phone: process.env.COMPANY_PHONE || '(817) 232-5577',
         tenantId: global.serviceTitan.tenantId,
         appKey: global.serviceTitan.appKey
       },
