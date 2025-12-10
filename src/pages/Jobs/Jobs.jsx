@@ -4,7 +4,7 @@ import apiClient from "../../services/apiClient";
 import Header from "../../components/Header/Header";
 import "./Jobs.css";
 
-export default function Jobs({ technician, onSelectJob, onLogout }) {
+export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, onLogout }) {
   const [groupedJobs, setGroupedJobs] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -347,9 +347,19 @@ export default function Jobs({ technician, onSelectJob, onLogout }) {
                           className="btn-backflow-testing-small"
                           onClick={(e) => {
                             e.stopPropagation();
-                            // This will trigger backflow testing for this job
-                            // For now, it follows the same flow as clicking the card
-                            handleJobSelection(job);
+                            // Go directly to backflow testing workflow
+                            if (onStartBackflowTesting) {
+                              const jobData = {
+                                id: job.id,
+                                number: job.number,
+                                title: job.title,
+                                status: job.status,
+                                priority: job.priority,
+                                customer: job.customer,
+                                nextAppointment: job.nextAppointment,
+                              };
+                              onStartBackflowTesting(jobData);
+                            }
                           }}
                           title="Start Testing"
                         >
