@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './BackflowTesting.css';
 import Header from '../../components/Header/Header';
-import Footer from '../../components/Footer/Footer';
 import DeviceList from './components/DeviceList';
 import TestForm from './components/TestForm';
 import PhotoCapture from './components/PhotoCapture';
@@ -247,8 +246,6 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }) {
           </>
         )}
       </div>
-
-      <Footer />
     </div>
   );
 }
