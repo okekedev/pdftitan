@@ -38,12 +38,23 @@ export default function PDFGenerator({ devices, testRecords, job, technician, on
       });
 
       const results = await Promise.all(pdfPromises);
-      setGeneratedPDFs(results.map(r => r.data));
+      const pdfs = results.map(r => r.data);
+      setGeneratedPDFs(pdfs);
+
+      // Save to Google Drive "v2 demo" folder
+      for (const pdf of pdfs) {
+        await apiClient.savePDFAsDraft({
+          jobId: job.id,
+          fileName: pdf.fileName,
+          pdfData: pdf.pdfBytes,
+          folder: 'v2 demo'
+        });
+      }
 
       // Push job note summary to ServiceTitan
       await apiClient.addJobNote(job.id, summary);
 
-      alert('PDFs generated successfully and job notes updated!');
+      alert('PDFs generated, saved to v2 demo folder, and job notes updated!');
     } catch (err) {
       console.error('Error generating PDFs:', err);
       setError('Failed to generate PDFs. Please try again.');
