@@ -155,13 +155,20 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }) {
     return devices.filter(d => testRecords[d.id]?.testResult === 'Failed');
   };
 
+  // Create breadcrumbs for header
+  const breadcrumbs = [
+    { id: 'jobs', label: 'Jobs', active: false },
+    { id: 'backflow-testing', label: `Backflow Testing - Job #${job?.number || 'Unknown'}`, active: true }
+  ];
+
   return (
     <div className="backflow-testing-page">
       <Header
-        currentPage="Backflow Testing"
-        technicianName={technician?.name}
-        onBack={onBack}
+        user={technician}
         onLogout={onLogout}
+        currentPage="backflow-testing"
+        onNavigate={onBack}
+        breadcrumbs={breadcrumbs}
       />
 
       <div className="page-container">
