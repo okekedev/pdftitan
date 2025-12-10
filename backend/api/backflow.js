@@ -6,24 +6,8 @@ const fs = require('fs').promises;
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const excelParser = require('../services/excelParser');
 
-// Configure multer for photo uploads
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads/backflow-photos');
-    try {
-      await fs.mkdir(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    } catch (err) {
-      cb(err);
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'photo-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ storage });
+// Configure multer for photo uploads (memory storage - upload directly to ServiceTitan)
+const upload = multer({ storage: multer.memoryStorage() });
 
 // In-memory storage for demo (replace with database in production)
 let devices = [];
@@ -164,38 +148,85 @@ router.get('/backflow-tests/:testId/photos', async (req, res) => {
   }
 });
 
-// Upload photo
+// Upload photo directly to ServiceTitan
 router.post('/backflow-photos/upload', upload.single('photo'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
-    // Rename the file on disk to use the serial number-based name
     const generatedFileName = req.body.generatedFileName;
-    const uploadDir = path.dirname(req.file.path);
-    const newFilePath = path.join(uploadDir, generatedFileName);
-
-    try {
-      await fs.rename(req.file.path, newFilePath);
-    } catch (renameErr) {
-      console.error('Error renaming file:', renameErr);
-      // Continue with original path if rename fails
-    }
+    const jobId = req.body.jobId;
 
     const photoData = {
       id: `photo-${photoIdCounter++}`,
       testRecordId: req.body.testRecordId,
       deviceId: req.body.deviceId,
-      jobId: req.body.jobId,
-      filePath: newFilePath,
+      jobId: jobId,
       originalFileName: req.file.originalname,
       generatedFileName: generatedFileName,
       isFailedPhoto: req.body.isFailedPhoto === 'true',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      uploadedToServiceTitan: false
     };
 
+    // Upload photo to ServiceTitan as job attachment
+    try {
+      const tokenResult = await global.serviceTitan.getAccessToken();
+
+      if (!tokenResult) {
+        throw new Error('ServiceTitan authentication failed');
+      }
+
+      const fetch = (await import('node-fetch')).default;
+      const FormData = require('form-data');
+      const tenantId = global.serviceTitan.tenantId;
+      const appKey = global.serviceTitan.appKey;
+
+      // Create form data with file buffer from memory
+      const formData = new FormData();
+      formData.append('file', req.file.buffer, {
+        filename: generatedFileName,
+        contentType: req.file.mimetype
+      });
+
+      // Upload to ServiceTitan
+      const uploadUrl = `${global.serviceTitan.apiBaseUrl}/forms/v2/tenant/${tenantId}/jobs/${jobId}/attachments`;
+
+      console.log(`📤 Uploading photo to ServiceTitan: ${generatedFileName}`);
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenResult}`,
+          'ST-App-Key': appKey,
+          ...formData.getHeaders()
+        },
+        body: formData
+      });
+
+      if (uploadResponse.ok) {
+        const result = await uploadResponse.json();
+        console.log(`✅ Photo uploaded to ServiceTitan: ${generatedFileName}`);
+        photoData.uploadedToServiceTitan = true;
+        photoData.serviceTitanAttachmentId = result.id;
+      } else {
+        const errorText = await uploadResponse.text();
+        console.error(`❌ Failed to upload photo to ServiceTitan: ${uploadResponse.status} - ${errorText}`);
+        throw new Error(`ServiceTitan upload failed: ${uploadResponse.statusText}`);
+      }
+    } catch (uploadErr) {
+      console.error('Error uploading to ServiceTitan:', uploadErr);
+      // Return error instead of continuing - photo upload is required
+      return res.status(500).json({
+        success: false,
+        error: `Failed to upload photo to ServiceTitan: ${uploadErr.message}`
+      });
+    }
+
+    // Store photo metadata in memory (no local file storage)
     photos.push(photoData);
+
     res.json({ success: true, data: photoData });
   } catch (error) {
     console.error('Error uploading photo:', error);
@@ -203,7 +234,7 @@ router.post('/backflow-photos/upload', upload.single('photo'), async (req, res) 
   }
 });
 
-// Get photo by ID
+// Get photo by ID - photos are in ServiceTitan, return metadata only
 router.get('/backflow-photos/:photoId', async (req, res) => {
   try {
     const photoId = req.params.photoId;
@@ -213,14 +244,14 @@ router.get('/backflow-photos/:photoId', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Photo not found' });
     }
 
-    res.sendFile(photo.filePath);
+    res.json({ success: true, data: photo });
   } catch (error) {
     console.error('Error getting photo:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Delete photo
+// Delete photo - remove from ServiceTitan
 router.delete('/backflow-photos/:photoId', async (req, res) => {
   try {
     const photoId = req.params.photoId;
@@ -230,11 +261,32 @@ router.delete('/backflow-photos/:photoId', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Photo not found' });
     }
 
-    // Delete file from disk
-    try {
-      await fs.unlink(photos[photoIndex].filePath);
-    } catch (err) {
-      console.error('Error deleting file:', err);
+    const photo = photos[photoIndex];
+
+    // Delete from ServiceTitan if uploaded
+    if (photo.serviceTitanAttachmentId) {
+      try {
+        const tokenResult = await global.serviceTitan.getAccessToken();
+        if (tokenResult) {
+          const fetch = (await import('node-fetch')).default;
+          const tenantId = global.serviceTitan.tenantId;
+          const appKey = global.serviceTitan.appKey;
+
+          const deleteUrl = `${global.serviceTitan.apiBaseUrl}/forms/v2/tenant/${tenantId}/jobs/${photo.jobId}/attachments/${photo.serviceTitanAttachmentId}`;
+
+          await fetch(deleteUrl, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${tokenResult}`,
+              'ST-App-Key': appKey
+            }
+          });
+
+          console.log(`✅ Photo deleted from ServiceTitan: ${photo.generatedFileName}`);
+        }
+      } catch (err) {
+        console.error('Error deleting from ServiceTitan:', err);
+      }
     }
 
     photos.splice(photoIndex, 1);
@@ -388,14 +440,9 @@ router.post('/backflow-pdfs/generate', async (req, res) => {
     // Flatten the form to make it non-editable
     form.flatten();
 
-    // Save filled PDF
+    // Generate PDF bytes (no local file storage - goes directly to Google Drive)
     const pdfBytes = await pdfDoc.save();
     const fileName = `TCEQ-20700_${device.serialMain}_${test.testDateInitial}.pdf`;
-    const pdfPath = path.join(__dirname, '../uploads/backflow-pdfs', fileName);
-
-    // Ensure directory exists
-    await fs.mkdir(path.dirname(pdfPath), { recursive: true });
-    await fs.writeFile(pdfPath, pdfBytes);
 
     const pdfRecord = {
       id: `pdf-${pdfIdCounter++}`,
@@ -403,7 +450,6 @@ router.post('/backflow-pdfs/generate', async (req, res) => {
       testRecordId,
       jobId,
       fileName,
-      filePath: pdfPath,
       pdfBytes: Array.from(pdfBytes), // For Google Drive upload
       cityCode,
       createdAt: new Date().toISOString()
@@ -418,8 +464,8 @@ router.post('/backflow-pdfs/generate', async (req, res) => {
   }
 });
 
-// Download PDF
-router.get('/backflow-pdfs/:pdfId/download', async (req, res) => {
+// Get PDF data (for download from Google Drive)
+router.get('/backflow-pdfs/:pdfId', async (req, res) => {
   try {
     const pdfId = req.params.pdfId;
     const pdf = generatedPDFs.find(p => p.id === pdfId);
@@ -428,9 +474,13 @@ router.get('/backflow-pdfs/:pdfId/download', async (req, res) => {
       return res.status(404).json({ success: false, error: 'PDF not found' });
     }
 
-    res.download(pdf.filePath, pdf.fileName);
+    // Return PDF bytes for client to download
+    const pdfBuffer = Buffer.from(pdf.pdfBytes);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${pdf.fileName}"`);
+    res.send(pdfBuffer);
   } catch (error) {
-    console.error('Error downloading PDF:', error);
+    console.error('Error getting PDF:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -732,14 +782,9 @@ router.post('/backflow-pdfs/generate-online-reference', async (req, res) => {
       x: 50, y, size: 8, font: font, color: rgb(0.4, 0.4, 0.4)
     });
 
-    // Save PDF
+    // Generate PDF bytes (no local file storage - goes directly to Google Drive)
     const pdfBytes = await pdfDoc.save();
     const fileName = `Online_Reference_${device.serialMain}_${test.testDateInitial}.pdf`;
-    const pdfPath = path.join(__dirname, '../uploads/backflow-pdfs', fileName);
-
-    // Ensure directory exists
-    await fs.mkdir(path.dirname(pdfPath), { recursive: true });
-    await fs.writeFile(pdfPath, pdfBytes);
 
     const pdfRecord = {
       id: `pdf-${pdfIdCounter++}`,
@@ -747,7 +792,6 @@ router.post('/backflow-pdfs/generate-online-reference', async (req, res) => {
       testRecordId,
       jobId,
       fileName,
-      filePath: pdfPath,
       pdfBytes: Array.from(pdfBytes), // For Google Drive upload
       cityCode,
       isOnlineReference: true,

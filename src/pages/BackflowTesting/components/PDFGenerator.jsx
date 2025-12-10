@@ -142,7 +142,7 @@ export default function PDFGenerator({ devices, testRecords, job, technician, on
 
   const handleDownloadPDF = async (pdfId) => {
     try {
-      window.open(`/api/backflow-pdfs/${pdfId}/download`, '_blank');
+      window.open(`/api/backflow-pdfs/${pdfId}`, '_blank');
     } catch (err) {
       console.error('Error downloading PDF:', err);
       setError('Failed to download PDF');

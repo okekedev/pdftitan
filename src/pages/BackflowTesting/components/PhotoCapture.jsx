@@ -128,18 +128,11 @@ export default function PhotoCapture({ device, testRecord, job, onComplete, onBa
           photos.map((photo, index) => (
             <div key={photo.id || index} className="photo-card">
               <div className="photo-preview">
-                {photo.filePath && (
-                  <img
-                    src={`/api/backflow-photos/${photo.id}`}
-                    alt={photo.generatedFileName}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                )}
-                <div className="photo-placeholder" style={{ display: 'none' }}>
+                <div className="photo-placeholder">
                   <span>📷</span>
+                  {photo.uploadedToServiceTitan && (
+                    <span className="uploaded-badge">✓ Uploaded</span>
+                  )}
                 </div>
               </div>
               <div className="photo-info">
