@@ -351,9 +351,9 @@ export default function Jobs({ technician, onSelectJob, onLogout }) {
                             // For now, it follows the same flow as clicking the card
                             handleJobSelection(job);
                           }}
-                          title="Start Backflow Testing"
+                          title="Start Testing"
                         >
-                          Start Backflow Testing
+                          Start Testing
                         </button>
                         <div className="view-forms-btn">
                           <span className="btn btn-sm btn-primary">
