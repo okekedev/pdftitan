@@ -44,6 +44,25 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }) {
     }
   }, [job]);
 
+  // Auto-capture GPS coordinates
+  const captureGPSLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          return {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          };
+        },
+        (error) => {
+          console.warn('GPS not available:', error);
+          return null;
+        }
+      );
+    }
+    return null;
+  };
+
   const handleAddDevice = () => {
     setSelectedDevice({ isNew: true });
     setCurrentStep('test');
@@ -56,22 +75,41 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }) {
 
   const handleSaveDevice = async (deviceData) => {
     try {
-      let savedDevice;
-      if (deviceData.isNew) {
-        const response = await apiClient.createBackflowDevice(job.id, deviceData);
-        savedDevice = response.data;
-        setDevices([...devices, savedDevice]);
+      // Auto-capture GPS if available
+      if (navigator.geolocation && !deviceData.geoLatitude) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            deviceData.geoLatitude = position.coords.latitude;
+            deviceData.geoLongitude = position.coords.longitude;
+            await saveDevice(deviceData);
+          },
+          async (error) => {
+            console.warn('GPS not available:', error);
+            await saveDevice(deviceData);
+          }
+        );
       } else {
-        const response = await apiClient.updateBackflowDevice(deviceData.id, deviceData);
-        savedDevice = response.data;
-        setDevices(devices.map(d => d.id === savedDevice.id ? savedDevice : d));
+        await saveDevice(deviceData);
       }
-      setSelectedDevice(savedDevice);
-      setCurrentStep('test');
     } catch (err) {
       console.error('Error saving device:', err);
       setError('Failed to save device');
     }
+  };
+
+  const saveDevice = async (deviceData) => {
+    let savedDevice;
+    if (deviceData.isNew) {
+      const response = await apiClient.createBackflowDevice(job.id, deviceData);
+      savedDevice = response.data;
+      setDevices([...devices, savedDevice]);
+    } else {
+      const response = await apiClient.updateBackflowDevice(deviceData.id, deviceData);
+      savedDevice = response.data;
+      setDevices(devices.map(d => d.id === savedDevice.id ? savedDevice : d));
+    }
+    setSelectedDevice(savedDevice);
+    setCurrentStep('test');
   };
 
   const handleSaveTest = async (testData) => {
