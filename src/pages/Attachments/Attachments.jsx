@@ -12,6 +12,7 @@ export default function Attachments({
   onPdfEditorStateChange,
   technician,
   onLogout,
+  onStartBackflowTesting,
 }) {
   const [selectedPDF, setSelectedPDF] = useState(null);
   const [attachments, setAttachments] = useState([]);
@@ -568,6 +569,15 @@ export default function Attachments({
           <div className="pdf-forms-section">
             <div className="section-header">
               <h3>Available PDF Forms</h3>
+              {onStartBackflowTesting && (
+                <button
+                  className="btn-backflow-testing"
+                  onClick={() => onStartBackflowTesting(job)}
+                  title="Start Backflow Testing Module"
+                >
+                  Start Backflow Testing
+                </button>
+              )}
             </div>
             <div className="pdf-forms-grid-container">
               <div className="pdf-forms-grid">

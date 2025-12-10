@@ -1,0 +1,184 @@
+.device-list-container {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.device-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.device-list-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.empty-state p {
+  margin: 8px 0;
+}
+
+.empty-state-hint {
+  font-size: 14px;
+  color: #999;
+}
+
+.devices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.device-card {
+  background: #fafafa;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.device-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.device-card.device-passed {
+  border-color: #4caf50;
+  background: #f1f8f4;
+}
+
+.device-card.device-failed {
+  border-color: #f44336;
+  background: #fff3f3;
+}
+
+.device-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.status-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.status-icon.status-not-tested {
+  background: #e0e0e0;
+  color: #757575;
+}
+
+.status-icon.status-passed {
+  background: #4caf50;
+  color: white;
+}
+
+.status-icon.status-failed {
+  background: #f44336;
+  color: white;
+}
+
+.device-type {
+  font-weight: 600;
+  font-size: 16px;
+  color: #333;
+}
+
+.device-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.device-field {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.field-label {
+  color: #666;
+  font-weight: 500;
+}
+
+.field-value {
+  color: #333;
+  text-align: right;
+}
+
+.device-footer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.status-badge,
+.quote-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.status-not-tested {
+  background: #e0e0e0;
+  color: #757575;
+}
+
+.status-badge.status-passed {
+  background: #4caf50;
+  color: white;
+}
+
+.status-badge.status-failed {
+  background: #f44336;
+  color: white;
+}
+
+.quote-badge {
+  background: #ff9800;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .devices-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .device-list-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions {
+    flex-direction: column;
+  }
+}

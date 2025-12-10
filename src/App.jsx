@@ -4,6 +4,7 @@ import Login from "./pages/Login/Login";
 import Jobs from "./pages/Jobs/Jobs";
 import Attachments from "./pages/Attachments/Attachments";
 import Documentation from "./pages/Documentation/Documentation";
+import BackflowTesting from "./pages/BackflowTesting/BackflowTesting";
 import "./App.css";
 
 export default function App() {
@@ -46,6 +47,11 @@ export default function App() {
   const handleBackToJobs = () => {
     setSelectedJob(null);
     setCurrentPage("jobs");
+  };
+
+  const handleStartBackflowTesting = (job) => {
+    setSelectedJob(job);
+    setCurrentPage("backflow-testing");
   };
 
   const handleNavigate = (page) => {
@@ -91,15 +97,25 @@ export default function App() {
           <Attachments
             job={selectedJob}
             onBack={handleBackToJobs}
-            technician={technician} // ADD THIS LINE
-            onLogout={handleLogout} // ADD THIS LINE
+            technician={technician}
+            onLogout={handleLogout}
+            onStartBackflowTesting={handleStartBackflowTesting}
+          />
+        )}
+
+        {currentPage === "backflow-testing" && (
+          <BackflowTesting
+            job={selectedJob}
+            technician={technician}
+            onBack={handleBackToJobs}
+            onLogout={handleLogout}
           />
         )}
 
         {currentPage === "documentation" && (
           <Documentation
             onBack={() => handleNavigate("jobs")}
-            onLogout={handleLogout} // ADD THIS LINE (if Documentation has a header)
+            onLogout={handleLogout}
           />
         )}
       </main>
