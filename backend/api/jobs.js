@@ -446,70 +446,86 @@ function formatAddress(address) {
 }
 
 // ✅ HELPER FUNCTION: Group jobs by date (with sort order option)
+// Uses Central Time for date grouping to match user's timezone
 function groupJobsByDate(jobs, mostRecentFirst = true) {
   const grouped = {};
-  
+
   jobs.forEach(job => {
     // Use next appointment date for grouping, fallback to job creation date
-    const groupingDate = job.nextAppointment?.start 
+    const groupingDate = job.nextAppointment?.start
       ? new Date(job.nextAppointment.start)
       : new Date(job.createdOn);
-    
-    const dateKey = groupingDate.toDateString();
-    const displayDate = groupingDate.toLocaleDateString('en-US', {
+
+    // Convert to Central Time for date grouping
+    const centralDate = toCentralTime(groupingDate);
+    const dateKey = centralDate.toDateString();
+    const displayDate = centralDate.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'America/Chicago'
     });
-    
+
     if (!grouped[dateKey]) {
       grouped[dateKey] = {
         date: dateKey,
         displayDate: displayDate,
-        dayOfWeek: groupingDate.toLocaleDateString('en-US', { weekday: 'long' }),
-        shortDate: groupingDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        isToday: isToday(groupingDate),
-        isYesterday: isYesterday(groupingDate),
-        isTomorrow: isTomorrow(groupingDate),
+        dayOfWeek: centralDate.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Chicago' }),
+        shortDate: centralDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Chicago' }),
+        isToday: isTodayCentral(groupingDate),
+        isYesterday: isYesterdayCentral(groupingDate),
+        isTomorrow: isTomorrowCentral(groupingDate),
         appointments: [] // Keep this name for backward compatibility with frontend
       };
     }
-    
+
     grouped[dateKey].appointments.push(job); // Actually jobs, but named appointments for compatibility
   });
-  
+
   // ✅ Sort dates chronologically (most recent first or oldest first)
   const sortedDates = Object.keys(grouped).sort((a, b) => {
     const dateA = new Date(a);
     const dateB = new Date(b);
     return mostRecentFirst ? dateB - dateA : dateA - dateB;
   });
-  
+
   const sortedGrouped = {};
   sortedDates.forEach(dateKey => {
     sortedGrouped[dateKey] = grouped[dateKey];
   });
-  
+
   return sortedGrouped;
 }
 
-// Helper functions for date comparison
-function isToday(date) {
-  const today = new Date();
-  return date.toDateString() === today.toDateString();
+// Helper function to convert to Central Time
+function toCentralTime(date) {
+  // Convert to Central Time (America/Chicago)
+  const centralString = date.toLocaleString('en-US', { timeZone: 'America/Chicago' });
+  return new Date(centralString);
 }
 
-function isYesterday(date) {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  return date.toDateString() === yesterday.toDateString();
+// Helper functions for date comparison (using Central Time)
+function isTodayCentral(date) {
+  const todayCentral = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  const dateCentral = new Date(date.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  return dateCentral.toDateString() === todayCentral.toDateString();
 }
 
-function isTomorrow(date) {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return date.toDateString() === tomorrow.toDateString();
+function isYesterdayCentral(date) {
+  const todayCentral = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  const yesterdayCentral = new Date(todayCentral);
+  yesterdayCentral.setDate(yesterdayCentral.getDate() - 1);
+  const dateCentral = new Date(date.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  return dateCentral.toDateString() === yesterdayCentral.toDateString();
+}
+
+function isTomorrowCentral(date) {
+  const todayCentral = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  const tomorrowCentral = new Date(todayCentral);
+  tomorrowCentral.setDate(tomorrowCentral.getDate() + 1);
+  const dateCentral = new Date(date.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  return dateCentral.toDateString() === tomorrowCentral.toDateString();
 }
 
 module.exports = router;

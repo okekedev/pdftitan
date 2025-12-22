@@ -33,12 +33,16 @@ function getGoogleCredentials() {
     // Method 2: Individual environment variables (fallback)
     else if (process.env.GOOGLE_DRIVE_PRIVATE_KEY) {
       console.log('🔍 Using individual Google Drive environment variables');
-      
+
+      // Fix private key: replace literal \n strings with actual newlines
+      // This is needed when the key comes from GitHub Secrets or Azure env vars
+      const privateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY.replace(/\\n/g, '\n');
+
       const credentials = {
         "type": "service_account",
         "project_id": process.env.GOOGLE_DRIVE_PROJECT_ID,
         "private_key_id": process.env.GOOGLE_DRIVE_PRIVATE_KEY_ID,
-        "private_key": process.env.GOOGLE_DRIVE_PRIVATE_KEY, // No processing at all
+        "private_key": privateKey,
         "client_email": process.env.GOOGLE_DRIVE_CLIENT_EMAIL,
         "client_id": process.env.GOOGLE_DRIVE_CLIENT_ID,
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -47,10 +51,11 @@ function getGoogleCredentials() {
         "client_x509_cert_url": `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.GOOGLE_DRIVE_CLIENT_EMAIL)}`,
         "universe_domain": "googleapis.com"
       };
-      
-      console.log('✅ Successfully built credentials from individual env vars (no modifications)');
+
+      console.log('✅ Successfully built credentials from individual env vars');
       console.log(`📧 Service Account: ${credentials.client_email}`);
-      
+      console.log(`🔑 Private key format: ${privateKey.includes('\n') ? 'Contains newlines ✓' : 'No newlines found ✗'}`);
+
       return credentials;
     }
     
