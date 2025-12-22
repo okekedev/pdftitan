@@ -54,10 +54,7 @@ function usePDFEditor(pdf, job) {
       console.log('📖 Loading PDF:', pdf.name);
       
       const pdfjs = await import('pdfjs-dist');
-      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-        'pdfjs-dist/build/pdf.worker.mjs',
-        import.meta.url
-      ).toString();
+      pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
       
       let pdfSource;
       
