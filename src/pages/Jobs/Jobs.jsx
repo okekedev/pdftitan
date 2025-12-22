@@ -8,6 +8,10 @@ export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, 
   const [groupedJobs, setGroupedJobs] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [pendingJob, setPendingJob] = useState(null);
 
   useEffect(() => {
     const loadJobs = async () => {
@@ -38,6 +42,27 @@ export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, 
       loadJobs();
     }
   }, [technician]);
+
+  const handlePasswordSubmit = () => {
+    if (passwordInput === '4533') {
+      setShowPasswordDialog(false);
+      setPasswordInput('');
+      setPasswordError('');
+      if (onStartBackflowTesting && pendingJob) {
+        onStartBackflowTesting(pendingJob);
+      }
+      setPendingJob(null);
+    } else {
+      setPasswordError('Incorrect password. To edit PDF forms, use the "View Forms" button.');
+    }
+  };
+
+  const handlePasswordCancel = () => {
+    setShowPasswordDialog(false);
+    setPasswordInput('');
+    setPasswordError('');
+    setPendingJob(null);
+  };
 
   const getStatusIcon = (status) => {
     const statusName = status?.toLowerCase?.() || status;
@@ -343,28 +368,39 @@ export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, 
 
                       {/* Card Footer */}
                       <div className="card-footer">
-                        <button
-                          className="btn-backflow-testing-small"
+                        <div
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Go directly to backflow testing workflow
-                            if (onStartBackflowTesting) {
-                              const jobData = {
-                                id: job.id,
-                                number: job.number,
-                                title: job.title,
-                                status: job.status,
-                                priority: job.priority,
-                                customer: job.customer,
-                                nextAppointment: job.nextAppointment,
-                              };
-                              onStartBackflowTesting(jobData);
+
+                            const jobData = {
+                              id: job.id,
+                              number: job.number,
+                              title: job.title,
+                              status: job.status,
+                              priority: job.priority,
+                              customer: job.customer,
+                              nextAppointment: job.nextAppointment,
+                            };
+
+                            // Password prompt for dev environment
+                            if (process.env.NODE_ENV === 'development') {
+                              setPendingJob(jobData);
+                              setShowPasswordDialog(true);
+                              setPasswordInput('');
+                              setPasswordError('');
+                            } else {
+                              // In production, go directly to backflow testing
+                              if (onStartBackflowTesting) {
+                                onStartBackflowTesting(jobData);
+                              }
                             }
                           }}
                           title="Start Testing"
                         >
-                          Start Testing
-                        </button>
+                          <span className="btn btn-sm btn-success">
+                            Start
+                          </span>
+                        </div>
                         <div className="view-forms-btn">
                           <span className="btn btn-sm btn-primary">
                             View Forms →
@@ -379,6 +415,101 @@ export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, 
           })}
         </div>
       </div>
+
+      {/* Password Dialog */}
+      {showPasswordDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '12px',
+            maxWidth: '400px',
+            width: '90%',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
+          }}>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: '#333' }}>
+              🔐 Dev Access Required
+            </h3>
+            <p style={{ margin: '0 0 1.5rem 0', color: '#666', fontSize: '0.9rem' }}>
+              What's the password to start backflow testing?
+            </p>
+            <p style={{ margin: '0 0 1rem 0', color: '#0052cc', fontSize: '0.85rem', fontStyle: 'italic' }}>
+              💡 Note: To edit PDF forms, use the "View Forms" button.
+            </p>
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handlePasswordSubmit();
+                }
+              }}
+              placeholder="Enter password"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                fontSize: '1rem',
+                border: passwordError ? '2px solid #ef4444' : '2px solid #e0e0e0',
+                borderRadius: '8px',
+                marginBottom: '0.5rem',
+                boxSizing: 'border-box',
+              }}
+            />
+            {passwordError && (
+              <p style={{ margin: '0 0 1rem 0', color: '#ef4444', fontSize: '0.85rem' }}>
+                ❌ {passwordError}
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+              <button
+                onClick={handlePasswordCancel}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  fontSize: '1rem',
+                  backgroundColor: '#f3f4f6',
+                  color: '#333',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePasswordSubmit}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  fontSize: '1rem',
+                  backgroundColor: '#0052cc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                }}
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

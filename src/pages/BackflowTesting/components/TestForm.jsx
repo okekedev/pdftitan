@@ -4,8 +4,8 @@ import './TestForm.css';
 const DEVICE_TYPES = ['DC', 'RPZ', 'DCDA', 'RPDA', 'DCDA Type II', 'RPDA Type II', 'PVB', 'SVB'];
 const SIZES = ['1/2"', '3/4"', '1"', '1-1/4"', '1-1/2"', '2"', '2-1/2"', '3"', '4"', '6"', '8"', '10"'];
 
-export default function TestForm({ device, job, technician, existingTest, onSave, onCancel }) {
-  const [isDeviceStep, setIsDeviceStep] = useState(device?.isNew || false);
+export default function TestForm({ device, job, technician, existingTest, onSave, onCancel, isDeviceOnly }) {
+  const [isDeviceStep, setIsDeviceStep] = useState(isDeviceOnly !== undefined ? isDeviceOnly : (device?.isNew || false));
   const [deviceData, setDeviceData] = useState({
     typeMain: device?.typeMain || '',
     manufacturerMain: device?.manufacturerMain || '',
@@ -84,6 +84,22 @@ export default function TestForm({ device, job, technician, existingTest, onSave
       return;
     }
     setIsDeviceStep(false);
+  };
+
+  const handleDeviceSave = () => {
+    // Validate required device fields
+    if (!deviceData.typeMain || !deviceData.serialMain) {
+      alert('Please fill in Device Type and Serial Number');
+      return;
+    }
+
+    // Save device only (for Add Device flow)
+    const deviceToSave = {
+      ...deviceData,
+      isNew: device?.isNew
+    };
+
+    onSave(deviceToSave);
   };
 
   const handleSubmit = (e) => {
@@ -276,11 +292,15 @@ export default function TestForm({ device, job, technician, existingTest, onSave
           </div>
 
           <div className="form-actions">
-            <button type="button" onClick={onCancel} className="btn btn-secondary">
+            <button type="button" onClick={onCancel} className="btn btn-primary">
               Cancel
             </button>
-            <button type="button" onClick={handleDeviceNext} className="btn btn-primary">
-              Next: Test Data
+            <button
+              type="button"
+              onClick={isDeviceOnly ? handleDeviceSave : handleDeviceNext}
+              className="btn btn-success"
+            >
+              {isDeviceOnly ? 'Save' : 'Next: Test Data'}
             </button>
           </div>
         </form>

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const FormData = require('form-data');
 const path = require('path');
 const fs = require('fs').promises;
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
@@ -24,13 +25,109 @@ let pdfIdCounter = 1;
 router.get('/job/:jobId/backflow-devices', async (req, res) => {
   try {
     const jobId = req.params.jobId;
-    const jobDevices = devices.filter(d => d.jobId === jobId);
-    res.json({ success: true, data: jobDevices });
+
+    // Try to load devices from ServiceTitan customer notes
+    try {
+      // Get the job to find the customer ID
+      const jobEndpoint = global.serviceTitan.buildTenantUrl('jpm') + `/jobs/${jobId}`;
+      const jobData = await global.serviceTitan.apiCall(jobEndpoint);
+      const customerId = jobData?.customerId;
+
+      if (customerId) {
+        // Get customer notes
+        const notesEndpoint = global.serviceTitan.buildTenantUrl('crm') + `/customers/${customerId}/notes?pageSize=100`;
+        const notesResponse = await global.serviceTitan.apiCall(notesEndpoint);
+
+        const notes = notesResponse?.data || [];
+        const loadedDevices = [];
+
+        // Parse backflow device notes
+        for (const note of notes) {
+          if (note.text && note.text.includes('[BACKFLOW_DEVICE_')) {
+            const device = parseDeviceNote(note.text);
+            if (device) {
+              device.jobId = jobId;
+              loadedDevices.push(device);
+
+              // Add to memory if not already there
+              if (!devices.find(d => d.id === device.id)) {
+                devices.push(device);
+              }
+            }
+          }
+        }
+
+        console.log(`✅ Loaded ${loadedDevices.length} devices from customer ${customerId} notes`);
+        res.json({ success: true, data: loadedDevices });
+      } else {
+        console.warn('⚠️ No customer ID found, returning empty device list');
+        res.json({ success: true, data: [] });
+      }
+    } catch (noteError) {
+      console.error('❌ Error loading devices from customer notes:', noteError.message);
+      // Fallback to memory-only devices
+      const jobDevices = devices.filter(d => d.jobId === jobId);
+      res.json({ success: true, data: jobDevices });
+    }
   } catch (error) {
     console.error('Error getting devices:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// Helper function to parse device data from note
+function parseDeviceNote(noteText) {
+  try {
+    const idMatch = noteText.match(/\[BACKFLOW_DEVICE_(.*?)\]/);
+    if (!idMatch) return null;
+
+    const id = idMatch[1];
+    const lines = noteText.split('\n');
+    const device = { id };
+
+    for (const line of lines) {
+      const [key, value] = line.split(':').map(s => s.trim());
+      if (!key || !value || value === 'N/A') continue;
+
+      switch (key) {
+        case 'Device Type':
+          device.typeMain = value;
+          break;
+        case 'Manufacturer':
+          device.manufacturerMain = value;
+          break;
+        case 'Model':
+          device.modelMain = value;
+          break;
+        case 'Serial':
+          device.serialMain = value;
+          break;
+        case 'Size':
+          device.sizeMain = value;
+          break;
+        case 'Location':
+          device.bpaLocation = value;
+          break;
+        case 'Serves':
+          device.bpaServes = value;
+          break;
+        case 'GPS':
+          const [lat, lon] = value.split(',').map(s => s.trim());
+          device.geoLatitude = parseFloat(lat);
+          device.geoLongitude = parseFloat(lon);
+          break;
+        case 'Created':
+          device.createdAt = value;
+          break;
+      }
+    }
+
+    return device;
+  } catch (error) {
+    console.error('Error parsing device note:', error);
+    return null;
+  }
+}
 
 // Create a new device
 router.post('/job/:jobId/backflow-devices', async (req, res) => {
@@ -46,12 +143,62 @@ router.post('/job/:jobId/backflow-devices', async (req, res) => {
     };
 
     devices.push(newDevice);
+
+    // Save device info to ServiceTitan customer notes
+    try {
+      console.log(`💾 Attempting to save device ${newDevice.id} to customer notes...`);
+
+      // First, get the job to find the customer ID
+      console.log(`📋 Fetching job ${jobId} to get customer ID...`);
+      const jobEndpoint = global.serviceTitan.buildTenantUrl('jpm') + `/jobs/${jobId}`;
+      const jobData = await global.serviceTitan.apiCall(jobEndpoint);
+      const customerId = jobData?.customerId;
+      console.log(`👤 Customer ID: ${customerId}`);
+
+      if (customerId) {
+        const deviceNote = formatDeviceNote(newDevice);
+        console.log(`📝 Formatted device note (length: ${deviceNote.length} chars)`);
+
+        const notesEndpoint = global.serviceTitan.buildTenantUrl('crm') + `/customers/${customerId}/notes`;
+        await global.serviceTitan.apiCall(notesEndpoint, {
+          method: 'POST',
+          body: JSON.stringify({
+            text: deviceNote,
+            pinToTop: false
+          })
+        });
+
+        console.log(`✅ Device info saved to customer ${customerId} notes`);
+      } else {
+        console.warn('⚠️ No customer ID found for job, device not saved to notes');
+      }
+    } catch (noteError) {
+      console.error('❌ Error saving device to customer notes:', noteError.message);
+      console.error('   Stack:', noteError.stack);
+      // Continue even if note fails - device is still in memory
+    }
+
     res.json({ success: true, data: newDevice });
   } catch (error) {
     console.error('Error creating device:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// Helper function to format device data as a note
+function formatDeviceNote(device) {
+  return `[BACKFLOW_DEVICE_${device.id}]
+Device Type: ${device.typeMain || 'N/A'}
+Manufacturer: ${device.manufacturerMain || 'N/A'}
+Model: ${device.modelMain || 'N/A'}
+Serial: ${device.serialMain || 'N/A'}
+Size: ${device.sizeMain || 'N/A'}
+Location: ${device.bpaLocation || 'N/A'}
+Serves: ${device.bpaServes || 'N/A'}
+GPS: ${device.geoLatitude ? `${device.geoLatitude}, ${device.geoLongitude}` : 'N/A'}
+Created: ${device.createdAt}
+[/BACKFLOW_DEVICE]`;
+}
 
 // Update a device
 router.put('/backflow-devices/:deviceId', async (req, res) => {
@@ -456,6 +603,36 @@ router.post('/backflow-pdfs/generate', async (req, res) => {
     };
 
     generatedPDFs.push(pdfRecord);
+
+    // Upload PDF to ServiceTitan as a new attachment
+    try {
+      const serviceTitan = req.app.get('serviceTitan');
+      const formData = new FormData();
+      const pdfBuffer = Buffer.from(pdfBytes);
+
+      // Append the PDF buffer as a file to the form
+      formData.append('file', pdfBuffer, {
+        filename: fileName,
+        contentType: 'application/pdf',
+      });
+
+      const uploadResponse = await serviceTitan.request(
+        `/jpm/v2/jobs/${jobId}/attachments`,
+        {
+          method: 'POST',
+          body: formData,
+          headers: {
+            ...formData.getHeaders(),
+          }
+        }
+      );
+
+      console.log('✅ PDF uploaded to ServiceTitan as attachment:', uploadResponse.data);
+      pdfRecord.serviceTitanAttachmentId = uploadResponse.data?.id;
+    } catch (uploadError) {
+      console.error('❌ Error uploading PDF to ServiceTitan:', uploadError.message);
+      // Continue even if ServiceTitan upload fails - we still have the PDF in memory
+    }
 
     res.json({ success: true, data: pdfRecord });
   } catch (error) {

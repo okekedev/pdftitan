@@ -493,6 +493,15 @@
   font-size: 0.85rem;
 }
 
+.jobs-page .btn-success {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.jobs-page .btn-success:hover {
+  background: #059669;
+}
+
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 768px) {
   .jobs-page .page-container {
