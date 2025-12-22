@@ -34,9 +34,23 @@ function getGoogleCredentials() {
     else if (process.env.GOOGLE_DRIVE_PRIVATE_KEY) {
       console.log('🔍 Using individual Google Drive environment variables');
 
-      // Fix private key: replace literal \n strings with actual newlines
-      // This is needed when the key comes from GitHub Secrets or Azure env vars
-      const privateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY.replace(/\\n/g, '\n');
+      // Fix private key: Handle both literal \n strings and already-formatted keys
+      // GitHub Secrets sometimes store literal \n, sometimes actual newlines
+      let privateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY;
+
+      // Check if we have literal \n that need to be replaced
+      if (privateKey.includes('\\n')) {
+        console.log('🔑 Detected literal \\n in private key, converting to actual newlines');
+        privateKey = privateKey.replace(/\\n/g, '\n');
+      }
+
+      // Ensure the key starts with -----BEGIN and ends with -----END
+      if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+        console.error('❌ Private key does not contain BEGIN PRIVATE KEY header');
+      }
+      if (!privateKey.includes('-----END PRIVATE KEY-----')) {
+        console.error('❌ Private key does not contain END PRIVATE KEY footer');
+      }
 
       const credentials = {
         "type": "service_account",
@@ -55,6 +69,7 @@ function getGoogleCredentials() {
       console.log('✅ Successfully built credentials from individual env vars');
       console.log(`📧 Service Account: ${credentials.client_email}`);
       console.log(`🔑 Private key format: ${privateKey.includes('\n') ? 'Contains newlines ✓' : 'No newlines found ✗'}`);
+      console.log(`🔑 Private key length: ${privateKey.length} characters`);
 
       return credentials;
     }
