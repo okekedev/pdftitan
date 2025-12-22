@@ -10,10 +10,11 @@ import apiClient from '../../services/apiClient';
 export default function BackflowTesting({ job, technician, onBack, onLogout }) {
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState(null);
-  const [currentStep, setCurrentStep] = useState('devices'); // 'devices', 'test', 'photos', 'generate'
+  const [currentStep, setCurrentStep] = useState('devices'); // 'devices', 'addDevice', 'test', 'photos', 'generate'
   const [testRecords, setTestRecords] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' | 'info' }
 
   // Load devices for this job
   useEffect(() => {
@@ -62,37 +63,33 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }) {
     return null;
   };
 
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   const handleAddDevice = () => {
     setSelectedDevice({ isNew: true });
-    setCurrentStep('test');
+    setCurrentStep('addDevice');
   };
 
   const handleEditDevice = (device) => {
+    setSelectedDevice(device);
+    setCurrentStep('addDevice');
+  };
+
+  const handleSelectDeviceForTest = (device) => {
     setSelectedDevice(device);
     setCurrentStep('test');
   };
 
   const handleSaveDevice = async (deviceData) => {
     try {
-      // Auto-capture GPS if available
-      if (navigator.geolocation && !deviceData.geoLatitude) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            deviceData.geoLatitude = position.coords.latitude;
-            deviceData.geoLongitude = position.coords.longitude;
-            await saveDevice(deviceData);
-          },
-          async (error) => {
-            console.warn('GPS not available:', error);
-            await saveDevice(deviceData);
-          }
-        );
-      } else {
-        await saveDevice(deviceData);
-      }
+      await saveDevice(deviceData);
     } catch (err) {
       console.error('Error saving device:', err);
       setError('Failed to save device');
+      showToast('Failed to save device', 'error');
     }
   };
 
@@ -102,13 +99,15 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }) {
       const response = await apiClient.createBackflowDevice(job.id, deviceData);
       savedDevice = response.data;
       setDevices([...devices, savedDevice]);
+      showToast('Device added successfully!', 'success');
     } else {
       const response = await apiClient.updateBackflowDevice(deviceData.id, deviceData);
       savedDevice = response.data;
       setDevices(devices.map(d => d.id === savedDevice.id ? savedDevice : d));
+      showToast('Device updated successfully!', 'success');
     }
-    setSelectedDevice(savedDevice);
-    setCurrentStep('test');
+    setSelectedDevice(null);
+    setCurrentStep('devices'); // Return to device list
   };
 
   const handleSaveTest = async (testData) => {
@@ -125,14 +124,17 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }) {
         [selectedDevice.id]: response.data
       });
 
+      showToast('Test recorded successfully!', 'success');
       setCurrentStep('photos');
     } catch (err) {
       console.error('Error saving test:', err);
       setError('Failed to save test data');
+      showToast('Failed to save test data', 'error');
     }
   };
 
   const handlePhotosComplete = () => {
+    showToast('Photos uploaded successfully!', 'success');
     setCurrentStep('devices');
     setSelectedDevice(null);
   };
@@ -207,8 +209,21 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }) {
                 testRecords={testRecords}
                 onAddDevice={handleAddDevice}
                 onEditDevice={handleEditDevice}
+                onSelectDeviceForTest={handleSelectDeviceForTest}
                 onGeneratePDFs={handleGeneratePDFs}
                 canGenerate={getCompletedDeviceCount() > 0}
+              />
+            )}
+
+            {currentStep === 'addDevice' && (
+              <TestForm
+                device={selectedDevice}
+                job={job}
+                technician={technician}
+                existingTest={null}
+                onSave={handleSaveDevice}
+                onCancel={handleBackToDevices}
+                isDeviceOnly={true}
               />
             )}
 
@@ -220,6 +235,7 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }) {
                 existingTest={testRecords[selectedDevice?.id]}
                 onSave={handleSaveTest}
                 onCancel={handleBackToDevices}
+                isDeviceOnly={false}
               />
             )}
 
@@ -246,6 +262,30 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }) {
           </>
         )}
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          backgroundColor: toast.type === 'success' ? '#10b981' : toast.type === 'error' ? '#ef4444' : '#3b82f6',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          zIndex: 10000,
+          animation: 'slideIn 0.3s ease-out',
+          minWidth: '250px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.25rem' }}>
+              {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✕' : 'ℹ'}
+            </span>
+            <span style={{ fontWeight: '500' }}>{toast.message}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

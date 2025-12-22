@@ -182,3 +182,21 @@
     flex-direction: column;
   }
 }
+
+.device-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.device-actions .btn {
+  flex: 1;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+.device-card {
+  cursor: default;
+}

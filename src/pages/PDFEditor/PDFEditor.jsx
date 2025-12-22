@@ -54,7 +54,10 @@ function usePDFEditor(pdf, job) {
       console.log('📖 Loading PDF:', pdf.name);
       
       const pdfjs = await import('pdfjs-dist');
-      pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.mjs',
+        import.meta.url
+      ).toString();
       
       let pdfSource;
       
@@ -1013,6 +1016,8 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
   const [showSignatureOptions, setShowSignatureOptions] = useState(false);
   const [signatureType, setSignatureType] = useState('customer'); // 'my' or 'customer'
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null); // 'saving', 'success', 'error'
+  const [saveMessage, setSaveMessage] = useState('');
   const [mySignature, setMySignature] = useState(() => {
     // Load saved signature from localStorage
     return localStorage.getItem('mySignature') || null;
@@ -1283,11 +1288,15 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
 
   const handleSave = async () => {
     if (objects.length === 0) {
-      alert('Please add some fields to the form first.');
+      setSaveStatus('error');
+      setSaveMessage('Please add some fields to the form first');
+      setTimeout(() => setSaveStatus(null), 2000);
       return;
     }
 
     setIsSaving(true);
+    setSaveStatus('saving');
+    setSaveMessage('Saving draft...');
 
     try {
       // 🔍 TEMP DEBUG: Log all objects before saving
@@ -1324,57 +1333,27 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
       const result = await onSave(saveData);
 
       if (result?.success) {
-        alert('PDF saved as draft successfully!');
-        onClose();
+        setSaveStatus('success');
+        setSaveMessage('Draft saved successfully!');
+        // Close after brief success message
+        setTimeout(() => {
+          onClose();
+        }, 1000);
       } else {
-        alert('Draft save completed but there may have been issues.');
+        setSaveStatus('error');
+        setSaveMessage('Save completed but there may have been issues');
+        setTimeout(() => setSaveStatus(null), 3000);
       }
     } catch (error) {
       console.error('Save failed:', error);
-      alert(`Draft save failed: ${error.message}`);
+      setSaveStatus('error');
+      setSaveMessage(`Save failed: ${error.message}`);
+      setTimeout(() => setSaveStatus(null), 3000);
     } finally {
       setIsSaving(false);
     }
   };
 
-  // 🔍 DEBUG: Test coordinate conversion by saving directly to ServiceTitan
-  const handleDebugSave = async () => {
-    if (objects.length === 0) {
-      alert('Please add some fields to the form first.');
-      return;
-    }
-
-    if (!window.confirm('🔍 DEBUG MODE: This will generate a filled PDF and upload it directly to ServiceTitan.\n\nThis will trigger the coordinate conversion code.\n\nCheck the TERMINAL/SERVER LOGS for coordinate conversion details.\n\nContinue?')) {
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      const saveData = {
-        objects: objects,
-        fileName: pdf.name || 'document.pdf',
-        attachmentId: pdf.serviceTitanId || pdf.id,
-        jobId: job.id
-      };
-
-      // Import apiClient (it's already a singleton instance, not a class)
-      const { default: apiClient } = await import('../../services/apiClient');
-
-      const result = await apiClient.saveDirectToServiceTitan(saveData);
-
-      if (result?.success) {
-        alert('🔍 DEBUG: PDF generated and uploaded to ServiceTitan!\n\n✅ Check the TERMINAL/SERVER window for coordinate conversion logs.\n\nLook for lines starting with:\n🔍 BACKEND RECEIVED\n🔍 CONVERTED TO PDF');
-        onClose();
-      } else {
-        alert('DEBUG save completed but there may have been issues.\n\nCheck the server terminal for details.');
-      }
-    } catch (error) {
-      alert(`🔍 DEBUG save failed: ${error.message}\n\nCheck the server terminal for error details.`);
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1484,15 +1463,6 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
             <button className="pdf-btn save" onClick={handleSave} disabled={isSaving}>
               {isSaving ? 'Saving Draft...' : '💾 Save as Draft'}
             </button>
-            <button
-              className="pdf-btn"
-              onClick={handleDebugSave}
-              disabled={isSaving}
-              style={{ backgroundColor: '#ff6b6b', color: 'white', borderColor: '#ff6b6b' }}
-              title="DEBUG: Test coordinate conversion - uploads filled PDF to ServiceTitan"
-            >
-              🔍 DEBUG Save
-            </button>
             <button className="pdf-btn navigation" onClick={onClose}>← Back</button>
           </div>
         </div>
@@ -1553,6 +1523,72 @@ export default function PDFEditor({ pdf, job, onClose, onSave }) {
         onSave={handleSignatureSave}
         signatureType={signatureType}
       />
+
+      {/* Save Status Overlay */}
+      {saveStatus && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem 3rem',
+            borderRadius: '12px',
+            textAlign: 'center',
+            minWidth: '300px',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
+          }}>
+            {saveStatus === 'saving' && (
+              <>
+                <div style={{
+                  width: '50px',
+                  height: '50px',
+                  border: '4px solid #f3f3f3',
+                  borderTop: '4px solid #0052cc',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 1rem',
+                }}></div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '600', color: '#333' }}>
+                  {saveMessage}
+                </div>
+              </>
+            )}
+            {saveStatus === 'success' && (
+              <>
+                <div style={{
+                  fontSize: '3rem',
+                  color: '#10b981',
+                  marginBottom: '0.5rem',
+                }}>✓</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '600', color: '#333' }}>
+                  {saveMessage}
+                </div>
+              </>
+            )}
+            {saveStatus === 'error' && (
+              <>
+                <div style={{
+                  fontSize: '3rem',
+                  color: '#ef4444',
+                  marginBottom: '0.5rem',
+                }}>✕</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '600', color: '#333' }}>
+                  {saveMessage}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

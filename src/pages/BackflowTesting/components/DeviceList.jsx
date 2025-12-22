@@ -6,6 +6,7 @@ export default function DeviceList({
   testRecords,
   onAddDevice,
   onEditDevice,
+  onSelectDeviceForTest,
   onGeneratePDFs,
   canGenerate
 }) {
@@ -46,13 +47,6 @@ export default function DeviceList({
           <button onClick={onAddDevice} className="btn btn-primary">
             + Add Device
           </button>
-          <button
-            onClick={onGeneratePDFs}
-            className="btn btn-success"
-            disabled={!canGenerate}
-          >
-            Generate Forms
-          </button>
         </div>
       </div>
 
@@ -71,7 +65,6 @@ export default function DeviceList({
               <div
                 key={device.id}
                 className={`device-card device-${status}`}
-                onClick={() => onEditDevice(device)}
               >
                 <div className="device-header">
                   <span className={`status-icon status-${status}`}>
@@ -104,12 +97,35 @@ export default function DeviceList({
                 </div>
 
                 <div className="device-footer">
-                  <span className={`status-badge status-${status}`}>
-                    {getStatusLabel(status)}
-                  </span>
+                  {status !== 'not-tested' && (
+                    <span className={`status-badge status-${status}`}>
+                      {getStatusLabel(status)}
+                    </span>
+                  )}
                   {testRecord?.quoteNeeded && (
                     <span className="quote-badge">Quote Needed</span>
                   )}
+                </div>
+
+                <div className="device-actions">
+                  <button
+                    className="btn btn-sm btn-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditDevice(device);
+                    }}
+                  >
+                    Edit Device
+                  </button>
+                  <button
+                    className="btn btn-sm btn-success"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectDeviceForTest(device);
+                    }}
+                  >
+                    Record Test
+                  </button>
                 </div>
               </div>
             );
