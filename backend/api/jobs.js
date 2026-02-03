@@ -57,6 +57,10 @@ router.get('/technician/:technicianId/jobs', async (req, res) => {
     // ✅ Get customer data for all unique customer IDs
     const uniqueCustomerIds = [...new Set(allJobs.map(job => job.customerId))];
     const customersData = await getCustomersData(uniqueCustomerIds);
+
+    // ✅ Get location data for all unique location IDs
+    const uniqueLocationIds = [...new Set(allJobs.map(job => job.locationId).filter(Boolean))];
+    const locationsData = await getLocationsData(uniqueLocationIds);
     
     // ✅ Transform jobs for frontend with customer info and next appointment
     const transformedJobs = await Promise.all(
@@ -83,21 +87,24 @@ router.get('/technician/:technicianId/jobs', async (req, res) => {
           
           // Get customer info from cache
           const customer = customersData.get(job.customerId);
-          
+
+          // Get location info from cache
+          const location = locationsData.get(job.locationId);
+
           // ✅ Shorten job title to max 60 characters
           const originalTitle = global.serviceTitan.cleanJobTitle(job.summary) || `Job #${job.jobNumber}`;
-          const shortTitle = originalTitle.length > 60 
-            ? originalTitle.substring(0, 57) + '...' 
+          const shortTitle = originalTitle.length > 60
+            ? originalTitle.substring(0, 57) + '...'
             : originalTitle;
-          
+
           return {
             id: job.id,
             number: job.jobNumber,
             title: shortTitle, // ✅ Shortened title
             status: job.jobStatus,
             priority: job.priority,
-            
-            // ✅ Enhanced customer info with address
+
+            // ✅ Enhanced customer info with billing address
             customer: {
               id: job.customerId,
               name: customer?.name || `Customer #${job.customerId}`,
@@ -107,10 +114,23 @@ router.get('/technician/:technicianId/jobs', async (req, res) => {
                 city: customer.address.city,
                 state: customer.address.state,
                 zip: customer.address.zip,
-                // Format address for display
                 fullAddress: formatAddress(customer.address)
               } : null
             },
+
+            // ✅ Service location info (where the work is done)
+            location: location ? {
+              id: location.id,
+              name: location.name,
+              address: location.address ? {
+                street: location.address.street,
+                unit: location.address.unit,
+                city: location.address.city,
+                state: location.address.state,
+                zip: location.address.zip,
+                fullAddress: formatAddress(location.address)
+              } : null
+            } : null,
             
             // Next appointment info (for scheduling context)
             nextAppointment: nextAppointment ? {
@@ -137,14 +157,15 @@ router.get('/technician/:technicianId/jobs', async (req, res) => {
           
         } catch (appointmentError) {
           console.warn(`⚠️ Could not fetch appointments for job ${job.id}:`, appointmentError.message);
-          
+
           // Return job without appointment info if appointment fetch fails
           const customer = customersData.get(job.customerId);
+          const location = locationsData.get(job.locationId);
           const originalTitle = global.serviceTitan.cleanJobTitle(job.summary) || `Job #${job.jobNumber}`;
-          const shortTitle = originalTitle.length > 60 
-            ? originalTitle.substring(0, 57) + '...' 
+          const shortTitle = originalTitle.length > 60
+            ? originalTitle.substring(0, 57) + '...'
             : originalTitle;
-          
+
           return {
             id: job.id,
             number: job.jobNumber,
@@ -163,6 +184,18 @@ router.get('/technician/:technicianId/jobs', async (req, res) => {
                 fullAddress: formatAddress(customer.address)
               } : null
             },
+            location: location ? {
+              id: location.id,
+              name: location.name,
+              address: location.address ? {
+                street: location.address.street,
+                unit: location.address.unit,
+                city: location.address.city,
+                state: location.address.state,
+                zip: location.address.zip,
+                fullAddress: formatAddress(location.address)
+              } : null
+            } : null,
             nextAppointment: null,
             businessUnitId: job.businessUnitId,
             jobTypeId: job.jobTypeId,
@@ -209,13 +242,140 @@ router.get('/technician/:technicianId/jobs', async (req, res) => {
   }
 });
 
+// ✅ SEARCH: Find technician by name
+router.get('/technician/search/:name', async (req, res) => {
+  try {
+    const { name } = req.params;
+    console.log(`🔍 Searching for technician: ${name}`);
+
+    const endpoint = global.serviceTitan.buildTenantUrl('settings') + `/technicians?active=True`;
+    const data = await global.serviceTitan.apiCall(endpoint);
+    const technicians = data.data || [];
+
+    const matches = technicians.filter(tech =>
+      tech.name && tech.name.toLowerCase().includes(name.toLowerCase())
+    );
+
+    res.json({
+      success: true,
+      matches: matches.map(t => ({
+        id: t.id,
+        name: t.name,
+        loginName: t.loginName,
+        phoneNumber: t.phoneNumber,
+        email: t.email
+      })),
+      count: matches.length
+    });
+  } catch (error) {
+    console.error('❌ Error searching technician:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ✅ DIAGNOSTIC: Check specific job by job NUMBER (not ID)
+router.get('/job/number/:jobNumber/diagnose', async (req, res) => {
+  try {
+    const { jobNumber } = req.params;
+
+    console.log(`🔍 DIAGNOSTIC: Searching for job number: ${jobNumber}`);
+
+    // Search for job by job number
+    const searchEndpoint = global.serviceTitan.buildTenantUrl('jpm') + `/jobs?jobNumber=${jobNumber}`;
+    const searchData = await global.serviceTitan.apiCall(searchEndpoint);
+
+    if (!searchData.data || searchData.data.length === 0) {
+      return res.json({
+        success: false,
+        found: false,
+        message: `Job #${jobNumber} not found in ServiceTitan`,
+        jobNumber: jobNumber
+      });
+    }
+
+    const job = searchData.data[0];
+    console.log(`✅ Found job: ${job.id} - ${job.jobNumber}`);
+
+    // Get all appointments for this job (no date filter, no technician filter)
+    let appointments = [];
+    try {
+      const appointmentEndpoint = global.serviceTitan.buildTenantUrl('jpm') + `/appointments?jobId=${job.id}`;
+      const appointmentData = await global.serviceTitan.apiCall(appointmentEndpoint);
+      appointments = appointmentData.data || [];
+      console.log(`📅 Found ${appointments.length} appointments for job ${jobNumber}`);
+    } catch (error) {
+      console.warn(`⚠️ Could not fetch appointments:`, error.message);
+    }
+
+    // Get customer data
+    let customer = null;
+    try {
+      const customersData = await getCustomersData([job.customerId]);
+      customer = customersData.get(job.customerId);
+    } catch (error) {
+      console.warn(`⚠️ Could not fetch customer:`, error.message);
+    }
+
+    res.json({
+      success: true,
+      found: true,
+      jobNumber: jobNumber,
+      job: {
+        id: job.id,
+        jobNumber: job.jobNumber,
+        title: global.serviceTitan.cleanJobTitle(job.summary),
+        status: job.jobStatus,
+        priority: job.priority,
+        customerId: job.customerId,
+        customerName: customer?.name || 'Unknown',
+        createdOn: job.createdOn,
+        modifiedOn: job.modifiedOn,
+        completedOn: job.completedOn
+      },
+      appointments: appointments.map(apt => ({
+        id: apt.id,
+        appointmentNumber: apt.appointmentNumber,
+        start: apt.start,
+        end: apt.end,
+        status: apt.status,
+        assignedTechnicianIds: apt.assignedTechnicianIds || [],
+        assignedTechnicianCount: apt.assignedTechnicianIds ? apt.assignedTechnicianIds.length : 0
+      })),
+      diagnosis: {
+        totalAppointments: appointments.length,
+        appointmentsToday: appointments.filter(apt => {
+          const aptDate = new Date(apt.start);
+          const today = new Date();
+          return aptDate.toDateString() === today.toDateString();
+        }).length,
+        technicianAssignments: appointments.map(apt => ({
+          appointmentId: apt.id,
+          start: apt.start,
+          technicianIds: apt.assignedTechnicianIds || [],
+          note: (apt.assignedTechnicianIds && apt.assignedTechnicianIds.length > 0)
+            ? `Assigned to ${apt.assignedTechnicianIds.length} technician(s)`
+            : 'No technicians assigned'
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error diagnosing job:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error diagnosing job',
+      details: error.message
+    });
+  }
+});
+
 // ✅ GET SPECIFIC JOB DETAILS (enhanced with customer data)
 router.get('/job/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
-    
+
     console.log(`📋 Fetching job details: ${jobId}`);
-    
+
     const endpoint = global.serviceTitan.buildTenantUrl('jpm') + `/jobs/${jobId}`;
     const jobData = await global.serviceTitan.apiCall(endpoint);
     
@@ -333,6 +493,42 @@ router.get('/job/:jobId', async (req, res) => {
   }
 });
 
+// ✅ GET APPOINTMENT DETAILS (for diagnostics)
+router.get('/appointment/:appointmentId', async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+
+    console.log(`📅 Fetching appointment details: ${appointmentId}`);
+
+    const endpoint = global.serviceTitan.buildTenantUrl('jpm') + `/appointments/${appointmentId}`;
+    const appointmentData = await global.serviceTitan.apiCall(endpoint);
+
+    console.log(`✅ Appointment details fetched: ${appointmentData.appointmentNumber}`);
+
+    res.json({
+      success: true,
+      data: appointmentData
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching appointment details:', error);
+
+    if (error.message.includes('404')) {
+      return res.status(404).json({
+        success: false,
+        error: 'Appointment not found',
+        appointmentId: req.params.appointmentId
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Server error fetching appointment details',
+      appointmentId: req.params.appointmentId
+    });
+  }
+});
+
 // ✅ GET CUSTOMER DETAILS endpoint
 router.get('/customer/:customerId', async (req, res) => {
   try {
@@ -417,6 +613,36 @@ async function getCustomersData(customerIds) {
   return customersMap;
 }
 
+// ✅ HELPER FUNCTION: Get locations data with caching
+async function getLocationsData(locationIds) {
+  const locationsMap = new Map();
+
+  if (locationIds.length === 0) {
+    return locationsMap;
+  }
+
+  console.log(`📍 Fetching location data for ${locationIds.length} locations`);
+
+  try {
+    // Fetch locations one by one (ServiceTitan doesn't have bulk location export)
+    for (const locationId of locationIds) {
+      try {
+        const endpoint = global.serviceTitan.buildTenantUrl('crm') + `/locations/${locationId}`;
+        const location = await global.serviceTitan.apiCall(endpoint);
+        locationsMap.set(locationId, location);
+      } catch (error) {
+        console.warn(`⚠️ Could not fetch location ${locationId}:`, error.message);
+      }
+    }
+
+    console.log(`✅ Fetched ${locationsMap.size} locations successfully`);
+  } catch (error) {
+    console.warn(`⚠️ Error fetching location data:`, error.message);
+  }
+
+  return locationsMap;
+}
+
 // ✅ HELPER FUNCTION: Format address for display
 function formatAddress(address) {
   if (!address) return null;
@@ -445,6 +671,32 @@ function formatAddress(address) {
   return parts.join(', ');
 }
 
+// ✅ HELPER FUNCTION: Get priority score for sorting (lower = higher priority)
+function getJobPriorityScore(job) {
+  const status = job.status?.toLowerCase() || '';
+  const appointmentStatus = job.nextAppointment?.status?.toLowerCase() || '';
+
+  // Highest priority: Arrived/Working
+  if (status.includes('arrived') || appointmentStatus.includes('arrived')) return 1;
+  if (status.includes('working') || status.includes('inprogress') || status.includes('in progress')) return 2;
+
+  // High priority: Dispatched
+  if (status.includes('dispatched') || appointmentStatus.includes('dispatched')) return 3;
+
+  // Medium priority: Scheduled but not yet dispatched
+  if (status.includes('scheduled') || appointmentStatus.includes('scheduled')) return 4;
+
+  // Lower priority: Completed/Done
+  if (status.includes('completed') || status.includes('done')) return 6;
+
+  // Lowest priority: Canceled/Hold
+  if (status.includes('canceled') || status.includes('cancelled')) return 8;
+  if (status.includes('hold')) return 7;
+
+  // Default
+  return 5;
+}
+
 // ✅ HELPER FUNCTION: Group jobs by date (with sort order option)
 // Uses Central Time for date grouping to match user's timezone
 function groupJobsByDate(jobs, mostRecentFirst = true) {
@@ -455,7 +707,6 @@ function groupJobsByDate(jobs, mostRecentFirst = true) {
     const groupingDate = job.nextAppointment?.start
       ? new Date(job.nextAppointment.start)
       : new Date(job.createdOn);
-
     // Convert to Central Time for date grouping
     const centralDate = toCentralTime(groupingDate);
     const dateKey = centralDate.toDateString();
@@ -483,6 +734,22 @@ function groupJobsByDate(jobs, mostRecentFirst = true) {
     grouped[dateKey].appointments.push(job); // Actually jobs, but named appointments for compatibility
   });
 
+  // ✅ Sort jobs within each date group by priority (Arrived/Dispatched first)
+  Object.keys(grouped).forEach(dateKey => {
+    grouped[dateKey].appointments.sort((a, b) => {
+      const scoreA = getJobPriorityScore(a);
+      const scoreB = getJobPriorityScore(b);
+
+      if (scoreA !== scoreB) {
+        return scoreA - scoreB; // Lower score = higher priority
+      }
+
+      // If same priority, sort by appointment start time
+      const timeA = a.nextAppointment?.start ? new Date(a.nextAppointment.start).getTime() : 0;
+      const timeB = b.nextAppointment?.start ? new Date(b.nextAppointment.start).getTime() : 0;
+      return timeA - timeB;
+    });
+  });
   // ✅ Sort dates chronologically (most recent first or oldest first)
   const sortedDates = Object.keys(grouped).sort((a, b) => {
     const dateA = new Date(a);

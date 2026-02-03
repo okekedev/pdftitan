@@ -317,6 +317,11 @@ export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, 
                           <h4 className="customer-name">
                             {job.customer?.name || "Unknown Customer"}
                           </h4>
+                          {job.location?.name && (
+                            <p className="location-name">
+                              📍 {job.location.name}
+                            </p>
+                          )}
                           <span className="job-number">#{job.number}</span>
                         </div>
                         <span
@@ -339,9 +344,10 @@ export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, 
                         <div className="job-info">
                           <h5 className="job-title">{job.title}</h5>
 
-                          {job.customer?.address?.fullAddress && (
+                          {/* Show service location address (where work is actually done) */}
+                          {job.location?.address?.fullAddress && (
                             <div className="customer-address">
-                              📍 {job.customer.address.fullAddress}
+                              📍 {job.location.address.fullAddress}
                             </div>
                           )}
 
