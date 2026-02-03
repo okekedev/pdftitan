@@ -301,6 +301,14 @@
   line-height: 1.2;
 }
 
+.jobs-page .location-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #4a5568;
+  margin: 0.25rem 0 0 0;
+  line-height: 1.3;
+}
+
 .jobs-page .job-number {
   font-size: 0.9rem;
   color: #718096;
