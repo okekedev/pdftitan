@@ -28,10 +28,13 @@ router.get('/job/:jobId/backflow-devices', async (req, res) => {
 
     // Try to load devices from ServiceTitan customer notes
     try {
-      // Get the job to find the customer ID
+      // Get the job to find the customer ID AND location ID
       const jobEndpoint = global.serviceTitan.buildTenantUrl('jpm') + `/jobs/${jobId}`;
       const jobData = await global.serviceTitan.apiCall(jobEndpoint);
       const customerId = jobData?.customerId;
+      const locationId = jobData?.locationId; // Get the specific location
+
+      console.log(`📋 Job ${jobId}: Customer ${customerId}, Location ${locationId}`);
 
       if (customerId) {
         // Get customer notes
@@ -41,23 +44,34 @@ router.get('/job/:jobId/backflow-devices', async (req, res) => {
         const notes = notesResponse?.data || [];
         const loadedDevices = [];
 
-        // Parse backflow device notes
+        // Parse backflow device notes and filter by location
         for (const note of notes) {
           if (note.text && note.text.includes('[BACKFLOW_DEVICE_')) {
             const device = parseDeviceNote(note.text);
             if (device) {
               device.jobId = jobId;
-              loadedDevices.push(device);
 
-              // Add to memory if not already there
-              if (!devices.find(d => d.id === device.id)) {
-                devices.push(device);
+              // ✅ FILTER: Only include devices for THIS location
+              if (device.locationId && locationId && device.locationId.toString() === locationId.toString()) {
+                loadedDevices.push(device);
+
+                // Add to memory if not already there
+                if (!devices.find(d => d.id === device.id)) {
+                  devices.push(device);
+                }
+              } else if (!device.locationId) {
+                // Legacy devices without locationId - include them but log a warning
+                console.warn(`⚠️ Device ${device.id} has no locationId, including it anyway (legacy data)`);
+                loadedDevices.push(device);
+                if (!devices.find(d => d.id === device.id)) {
+                  devices.push(device);
+                }
               }
             }
           }
         }
 
-        console.log(`✅ Loaded ${loadedDevices.length} devices from customer ${customerId} notes`);
+        console.log(`✅ Loaded ${loadedDevices.length} devices for location ${locationId} (filtered from ${notes.length} total notes)`);
         res.json({ success: true, data: loadedDevices });
       } else {
         console.warn('⚠️ No customer ID found, returning empty device list');
@@ -116,6 +130,9 @@ function parseDeviceNote(noteText) {
           device.geoLatitude = parseFloat(lat);
           device.geoLongitude = parseFloat(lon);
           break;
+        case 'LocationID':
+          device.locationId = value;
+          break;
         case 'Created':
           device.createdAt = value;
           break;
@@ -135,9 +152,18 @@ router.post('/job/:jobId/backflow-devices', async (req, res) => {
     const jobId = req.params.jobId;
     const deviceData = req.body;
 
+    // Get the job to find the location ID
+    const jobEndpoint = global.serviceTitan.buildTenantUrl('jpm') + `/jobs/${jobId}`;
+    const jobData = await global.serviceTitan.apiCall(jobEndpoint);
+    const locationId = jobData?.locationId;
+    const customerId = jobData?.customerId;
+
+    console.log(`📋 Creating device for Job ${jobId}, Location ${locationId}, Customer ${customerId}`);
+
     const newDevice = {
       id: `device-${deviceIdCounter++}`,
       jobId,
+      locationId, // ✅ Associate device with specific location
       ...deviceData,
       createdAt: new Date().toISOString()
     };
@@ -147,13 +173,6 @@ router.post('/job/:jobId/backflow-devices', async (req, res) => {
     // Save device info to ServiceTitan customer notes
     try {
       console.log(`💾 Attempting to save device ${newDevice.id} to customer notes...`);
-
-      // First, get the job to find the customer ID
-      console.log(`📋 Fetching job ${jobId} to get customer ID...`);
-      const jobEndpoint = global.serviceTitan.buildTenantUrl('jpm') + `/jobs/${jobId}`;
-      const jobData = await global.serviceTitan.apiCall(jobEndpoint);
-      const customerId = jobData?.customerId;
-      console.log(`👤 Customer ID: ${customerId}`);
 
       if (customerId) {
         const deviceNote = formatDeviceNote(newDevice);
@@ -168,7 +187,7 @@ router.post('/job/:jobId/backflow-devices', async (req, res) => {
           })
         });
 
-        console.log(`✅ Device info saved to customer ${customerId} notes`);
+        console.log(`✅ Device info saved to customer ${customerId} notes with locationId ${locationId}`);
       } else {
         console.warn('⚠️ No customer ID found for job, device not saved to notes');
       }
@@ -196,6 +215,7 @@ Size: ${device.sizeMain || 'N/A'}
 Location: ${device.bpaLocation || 'N/A'}
 Serves: ${device.bpaServes || 'N/A'}
 GPS: ${device.geoLatitude ? `${device.geoLatitude}, ${device.geoLongitude}` : 'N/A'}
+LocationID: ${device.locationId || 'N/A'}
 Created: ${device.createdAt}
 [/BACKFLOW_DEVICE]`;
 }
