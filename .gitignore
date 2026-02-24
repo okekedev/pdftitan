@@ -295,3 +295,6 @@ out/
 users.env
 
 .users.env
+
+# Google Service Account
+service-account.json
