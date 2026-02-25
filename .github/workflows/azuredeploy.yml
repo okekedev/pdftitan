@@ -1,8 +1,8 @@
-name: Build and Deploy to Azure Container Apps (Private Repo Support)
+name: Build and Deploy to Azure Container Apps
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -14,37 +14,37 @@ jobs:
       contents: read
       packages: write
       id-token: write  # Required for OIDC
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
-    # ✅ Standard approach: GITHUB_TOKEN for build/push (works with private repos)
+
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-        
+
     - name: Create short SHA
       id: short_sha
       run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-      
+
     - name: Extract metadata for Docker
       id: meta
       uses: docker/metadata-action@v5
       with:
-        # ✅ Dynamic repository reference for PDFTitan
         images: ghcr.io/${{ github.repository_owner }}/pdftitan
         tags: |
-          type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
-          type=raw,value=v${{ github.run_number }},enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
-          type=raw,value=${{ steps.short_sha.outputs.sha }},enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
-          
+          type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+          type=raw,value=v${{ github.run_number }},enable=${{ github.ref == 'refs/heads/main' }}
+          type=raw,value=${{ steps.short_sha.outputs.sha }},enable=${{ github.ref == 'refs/heads/main' }}
+          type=raw,value=dev-latest,enable=${{ github.ref == 'refs/heads/dev' }}
+          type=raw,value=dev-${{ steps.short_sha.outputs.sha }},enable=${{ github.ref == 'refs/heads/dev' }}
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
@@ -55,47 +55,35 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    # Deploy only on main branch
-    - name: Azure Login with OIDC
+    # ── PRODUCTION DEPLOY (main branch only) ─────────────────────────────────
+
+    - name: Azure Login (Production)
       if: github.ref == 'refs/heads/main'
       uses: azure/login@v2
       with:
         client-id: ${{ secrets.AZURE_CLIENT_ID }}
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        
-    # 🔑 Enhanced: Configure private registry access with PAT
-    - name: Configure private registry access with PAT
+
+    - name: Configure registry access (Production)
       if: github.ref == 'refs/heads/main'
       run: |
-        echo "🔐 Configuring private GitHub Container Registry access with PAT..."
-        
-        # Remove any existing registry configuration first
         az containerapp registry remove \
           --name pdftitan-app \
           --resource-group pdftitan-rg \
           --server ghcr.io || echo "No existing registry config to remove"
-        
-        # Configure registry credentials with PAT for persistent access
         az containerapp registry set \
           --name pdftitan-app \
           --resource-group pdftitan-rg \
           --server ghcr.io \
           --username ${{ github.actor }} \
           --password ${{ secrets.GHCR_TOKEN }}
-        
-        echo "✅ Registry access configured with PAT"
-        
-    - name: Deploy to Azure Container Apps - PDFTitan with ServiceTitan Environment Variables
+
+    - name: Deploy to Production
       if: github.ref == 'refs/heads/main'
       run: |
-        echo "🚀 Deploying PDFTitan to Azure Container Apps with ServiceTitan integration..."
-        
-        # Create unique revision suffix with date and short commit
+        echo "🚀 Deploying to Production..."
         REVISION_SUFFIX=$(date +%Y%m%d-%H%M%S)-${{ steps.short_sha.outputs.sha }}
-        echo "📋 Creating revision: $REVISION_SUFFIX"
-        
-        # ✅ Deploy with ServiceTitan environment variables
         az containerapp update \
           --name pdftitan-app \
           --resource-group pdftitan-rg \
@@ -119,35 +107,27 @@ jobs:
             "GOOGLE_DRIVE_PROJECT_ID=${{ secrets.GOOGLE_DRIVE_PROJECT_ID }}" \
             "GOOGLE_DRIVE_PRIVATE_KEY_ID=${{ secrets.GOOGLE_DRIVE_PRIVATE_KEY_ID }}" \
             "GOOGLE_DRIVE_PRIVATE_KEY=${{ secrets.GOOGLE_DRIVE_PRIVATE_KEY }}"
-            
-        echo "✅ Deployment completed successfully with ServiceTitan configuration!"
-        
-    - name: Verify deployment and check app health
+        echo "✅ Production deployment completed!"
+
+    - name: Verify Production deployment
       if: github.ref == 'refs/heads/main'
       run: |
-        echo "🔍 Verifying deployment status..."
+        echo "🔍 Verifying production deployment..."
         sleep 30
-      
         az containerapp revision list \
           --name pdftitan-app \
           --resource-group pdftitan-rg \
           --query '[0].{Name:name,Active:properties.active,CreatedTime:properties.createdTime,Image:properties.template.containers[0].image,TrafficWeight:properties.trafficWeight}' \
           --output table
-        
         APP_URL=$(az containerapp show \
           --name pdftitan-app \
           --resource-group pdftitan-rg \
           --query 'properties.configuration.ingress.fqdn' \
           --output tsv)
-        
         if [ ! -z "$APP_URL" ]; then
-          echo "🌐 Application available at: https://$APP_URL"
-          
-          # Test health endpoint
+          echo "🌐 Production available at: https://$APP_URL"
           if curl -f -s --max-time 30 "https://$APP_URL/health" > /dev/null; then
             echo "✅ Application is responding successfully!"
-            
-            # Test ServiceTitan configuration
             HEALTH_RESPONSE=$(curl -s "https://$APP_URL/health" | jq -r '.serviceIntegration.configured // false')
             if [ "$HEALTH_RESPONSE" = "true" ]; then
               echo "✅ ServiceTitan integration is properly configured!"
@@ -158,11 +138,89 @@ jobs:
             echo "⚠️ Application may still be starting up. Check logs in Azure portal."
           fi
         fi
-        
-        echo "📊 Deployment summary:"
+        echo "📊 Production deploy summary:"
         echo "- Image: ghcr.io/${{ github.repository_owner }}/pdftitan:latest"
         echo "- Build: v${{ github.run_number }}"
         echo "- Commit: ${{ steps.short_sha.outputs.sha }}"
-        echo "- Registry: Private GitHub Container Registry (ghcr.io) with PAT"
-        echo "- ServiceTitan: Environment variables configured"
-        echo "- Status: ✅ Deployed"
+
+    # ── DEV DEPLOY (dev branch only) ─────────────────────────────────────────
+
+    - name: Azure Login (Dev)
+      if: github.ref == 'refs/heads/dev'
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Configure registry access (Dev)
+      if: github.ref == 'refs/heads/dev'
+      run: |
+        az containerapp registry remove \
+          --name pdftitan-app-dev \
+          --resource-group pdftitan-rg \
+          --server ghcr.io || echo "No existing registry config to remove"
+        az containerapp registry set \
+          --name pdftitan-app-dev \
+          --resource-group pdftitan-rg \
+          --server ghcr.io \
+          --username ${{ github.actor }} \
+          --password ${{ secrets.GHCR_TOKEN }}
+
+    - name: Deploy to Dev
+      if: github.ref == 'refs/heads/dev'
+      run: |
+        echo "🚀 Deploying to Dev..."
+        REVISION_SUFFIX=$(date +%Y%m%d-%H%M%S)-${{ steps.short_sha.outputs.sha }}
+        az containerapp update \
+          --name pdftitan-app-dev \
+          --resource-group pdftitan-rg \
+          --image ghcr.io/${{ github.repository_owner }}/pdftitan:dev-latest \
+          --revision-suffix $REVISION_SUFFIX \
+          --set-env-vars \
+            "NODE_ENV=development" \
+            "PORT=3000" \
+            "NODE_OPTIONS=--openssl-legacy-provider" \
+            "GHCR_TOKEN=${{ secrets.GHCR_TOKEN }}" \
+            "REACT_APP_SERVICETITAN_CLIENT_ID=${{ secrets.DEV_REACT_APP_SERVICETITAN_CLIENT_ID }}" \
+            "REACT_APP_SERVICETITAN_CLIENT_SECRET=${{ secrets.DEV_REACT_APP_SERVICETITAN_CLIENT_SECRET }}" \
+            "REACT_APP_SERVICETITAN_APP_KEY=${{ secrets.DEV_REACT_APP_SERVICETITAN_APP_KEY }}" \
+            "REACT_APP_SERVICETITAN_TENANT_ID=${{ secrets.DEV_REACT_APP_SERVICETITAN_TENANT_ID }}" \
+            "REACT_APP_SERVICETITAN_AUTH_URL=${{ secrets.DEV_REACT_APP_SERVICETITAN_AUTH_URL }}" \
+            "REACT_APP_SERVICETITAN_API_BASE_URL=${{ secrets.DEV_REACT_APP_SERVICETITAN_API_BASE_URL }}" \
+            "GOOGLE_DRIVE_CLIENT_EMAIL=${{ secrets.DEV_GOOGLE_DRIVE_CLIENT_EMAIL }}" \
+            "GOOGLE_DRIVE_CLIENT_ID=${{ secrets.DEV_GOOGLE_DRIVE_CLIENT_ID }}" \
+            "GOOGLE_DRIVE_DRAFT_FOLDER_ID=${{ secrets.DEV_GOOGLE_DRIVE_DRAFT_FOLDER_ID }}" \
+            "GOOGLE_DRIVE_COMPLETED_FOLDER_ID=${{ secrets.DEV_GOOGLE_DRIVE_COMPLETED_FOLDER_ID }}" \
+            "GOOGLE_DRIVE_PROJECT_ID=${{ secrets.DEV_GOOGLE_DRIVE_PROJECT_ID }}" \
+            "GOOGLE_DRIVE_PRIVATE_KEY_ID=${{ secrets.DEV_GOOGLE_DRIVE_PRIVATE_KEY_ID }}" \
+            "GOOGLE_DRIVE_PRIVATE_KEY=${{ secrets.DEV_GOOGLE_DRIVE_PRIVATE_KEY }}"
+        echo "✅ Dev deployment completed!"
+
+    - name: Verify Dev deployment
+      if: github.ref == 'refs/heads/dev'
+      run: |
+        echo "🔍 Verifying dev deployment..."
+        sleep 30
+        az containerapp revision list \
+          --name pdftitan-app-dev \
+          --resource-group pdftitan-rg \
+          --query '[0].{Name:name,Active:properties.active,CreatedTime:properties.createdTime,Image:properties.template.containers[0].image,TrafficWeight:properties.trafficWeight}' \
+          --output table
+        APP_URL=$(az containerapp show \
+          --name pdftitan-app-dev \
+          --resource-group pdftitan-rg \
+          --query 'properties.configuration.ingress.fqdn' \
+          --output tsv)
+        if [ ! -z "$APP_URL" ]; then
+          echo "🌐 Dev available at: https://$APP_URL"
+          if curl -f -s --max-time 30 "https://$APP_URL/health" > /dev/null; then
+            echo "✅ Dev application is responding!"
+          else
+            echo "⚠️ Dev application may still be starting up. Check logs in Azure portal."
+          fi
+        fi
+        echo "📊 Dev deploy summary:"
+        echo "- Image: ghcr.io/${{ github.repository_owner }}/pdftitan:dev-latest"
+        echo "- Build: v${{ github.run_number }}"
+        echo "- Commit: ${{ steps.short_sha.outputs.sha }}"
