@@ -81,6 +81,14 @@ main  ────────────────────────�
 - All development work goes on `dev` (or feature branches merged to `dev`)
 - CI/CD triggers automatically on push to either branch
 
+### Staging URL
+
+```
+https://pdftitan-app-dev.wonderfulplant-46b617f2.centralus.azurecontainerapps.io
+```
+
+Health check: `https://pdftitan-app-dev.wonderfulplant-46b617f2.centralus.azurecontainerapps.io/health`
+
 ### Deploy to Staging
 
 ```bash
@@ -103,6 +111,7 @@ git push origin main
 ### Check Deployment Status
 
 ```bash
+gh run list --repo okekedev/pdftitan --branch dev --limit 5
 gh run list --repo okekedev/pdftitan --branch main --limit 5
 gh run watch <run-id>                    # Watch a specific run
 ```
@@ -110,9 +119,46 @@ gh run watch <run-id>                    # Watch a specific run
 ### Manual Deploy (emergency)
 
 ```bash
-# Trigger workflow manually
-gh workflow run azuredeploy.yml --ref main
+# Trigger workflow manually (dev)
+gh workflow run "Build and Deploy to Azure Container Apps" --repo okekedev/pdftitan --ref dev
+
+# Trigger workflow manually (main)
+gh workflow run "Build and Deploy to Azure Container Apps" --repo okekedev/pdftitan --ref main
 ```
+
+---
+
+## Azure OIDC / Federated Identity
+
+CI/CD uses OIDC (no stored Azure credentials) via a User-Assigned Managed Identity:
+- **Identity name:** `pdftitan-app-github-identity`
+- **Resource group:** `pdftitan-rg`
+- **Client ID (AZURE_CLIENT_ID):** `a419abdb-be9e-499c-80ca-2b08a6f51ba0`
+
+### List federated credentials
+
+```bash
+az identity federated-credential list \
+  --identity-name pdftitan-app-github-identity \
+  --resource-group pdftitan-rg \
+  --output table
+```
+
+### Add a credential for a new branch
+
+If CI/CD fails with `AADSTS700213: No matching federated identity record found`:
+
+```bash
+az identity federated-credential create \
+  --identity-name pdftitan-app-github-identity \
+  --resource-group pdftitan-rg \
+  --name github-actions-federated-credential-<branchname> \
+  --issuer https://token.actions.githubusercontent.com \
+  --subject "repo:okekedev/pdftitan:ref:refs/heads/<branchname>" \
+  --audiences api://AzureADTokenExchange
+```
+
+Current credentials: `main` branch and `dev` branch.
 
 ---
 
