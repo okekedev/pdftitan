@@ -298,3 +298,13 @@ users.env
 
 # Google Service Account
 service-account.json
+
+# Python virtualenv
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist-info/

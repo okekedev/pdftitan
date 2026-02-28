@@ -1,42 +1,29 @@
-# TitanPDF Dockerfile - Fixed to properly build React app
-FROM node:18-alpine AS builder
-
-# Build React frontend
+# ── Stage 1: Build Vite frontend ──────────────────────────────────────────────
+FROM node:24-alpine AS builder
 WORKDIR /app
 
-# Copy package files for frontend
-COPY package*.json ./
+COPY package*.json vite.config.ts tsconfig.json index.html ./
 RUN npm ci
 
-# Copy frontend source code
 COPY src/ ./src/
-COPY public/ ./public/
+# public/ is optional (may not exist)
+COPY public* ./public/
 
-# Build the React app (this creates the /build directory)
 RUN npm run build
 
-# Production stage
-FROM node:18-alpine
-
+# ── Stage 2: Python/FastAPI API server ────────────────────────────────────────
+FROM python:3.12-slim
 WORKDIR /app
 
-# ✅ ADD: Set NODE_OPTIONS for OpenSSL compatibility with Google service account keys
-ENV NODE_OPTIONS="--openssl-legacy-provider"
+# Install Python dependencies
+COPY backend-py/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend package files
-COPY backend/package*.json ./
+# Copy Python backend source
+COPY backend-py/ ./
 
-# Install backend dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy backend source code
-COPY backend/ ./
-
-# Copy built React app from builder stage to the expected location
+# Copy built frontend from Stage 1 (served as static files in production)
 COPY --from=builder /app/build ../build
 
-# Expose port 3000 (matching your Azure config)
 EXPOSE 3000
-
-# Start the server
-CMD ["node", "server.js"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3000"]

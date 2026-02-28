@@ -1,0 +1,16 @@
+{
+  "manufacturers": [
+    { "name": "Watts", "models": ["LF007", "LF007M2", "009", "LF009", "LPRK", "LF800M4", "LF909", "007M2"] },
+    { "name": "Febco", "models": ["765", "825Y", "860", "876V", "825YD"] },
+    { "name": "Wilkins", "models": ["375", "975", "475", "720A", "720DA", "375XL", "975XL"] },
+    { "name": "Ames", "models": ["2000B", "4000SS", "LF2000B", "LF4000SS"] },
+    { "name": "Apollo", "models": ["RP4A-200", "4A-200", "DC4A-200"] },
+    { "name": "Conbraco", "models": ["4A-200", "RP4A-200", "DC4A-200"] },
+    { "name": "Honeywell", "models": ["D06F", "D06FN", "LF7820CR", "LF7920A"] },
+    { "name": "Cash Acme", "models": ["BF-1", "BF-2"] },
+    { "name": "Flomatic", "models": ["Series 80", "Series 82"] },
+    { "name": "A-Y McDonald", "models": ["6108", "6110"] },
+    { "name": "Zurn", "models": ["375", "975", "475"] },
+    { "name": "Jay R. Smith", "models": ["6600", "6700"] }
+  ]
+}

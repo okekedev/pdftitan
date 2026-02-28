@@ -36,10 +36,13 @@ TitanPDF streamlines PDF form completion for ServiceTitan field technicians. The
 
 ## Tech Stack
 
-- **Frontend**: React.js
-- **PDF Processing**: PDF.js / React-PDF
-- **Authentication**: ServiceTitan API
-- **Deployment**: Docker
+- **Frontend**: React 18 + TypeScript (Vite)
+- **Backend**: Python 3.12 / FastAPI / uvicorn
+- **PDF Rendering**: pdfjs-dist
+- **PDF Generation**: reportlab + pypdf
+- **Authentication**: ServiceTitan OAuth2 (server-to-server)
+- **Storage**: Google Drive API v3
+- **Deployment**: Docker → Azure Container Apps
 
 ---
 

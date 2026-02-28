@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+google-api-python-client
+google-auth
+pypdf
+reportlab
+pillow
+python-multipart
+openpyxl
+pytest
+pytest-asyncio

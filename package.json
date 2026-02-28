@@ -3,37 +3,32 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@adobe/react-spectrum": "^3.42.2",
-    "@spectrum-icons/workflow": "^4.2.22",
-    "axios": "^1.10.0",
-    "googleapis": "^156.0.0",
-    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.449",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^7.6.2",
-    "react-scripts": "5.0.1"
+    "react-dom": "^18.2.0"
   },
   "scripts": {
-    "start": "set PORT=3003 && react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "backend": "cd backend && set PORT=3004 && npm run dev",
-    "backend:start": "cd backend && set PORT=3004 && npm start",
-    "dev": "concurrently \"npm run backend\" \"set PORT=3003 && react-scripts start\"",
-    "dev:backend-only": "cd backend && set PORT=3004 && npm run dev",
-    "build:full": "npm run build && cd backend && npm run build",
-    "install:all": "npm install && cd backend && npm install",
-    "test:auth": "cd backend && npm run test:auth"
+    "start": "vite --port 3003",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "echo \"No frontend tests\"",
+    "backend": "cd backend-py && .venv/bin/uvicorn main:app --reload --port 3004",
+    "backend:start": "cd backend-py && .venv/bin/uvicorn main:app --port 3004",
+    "dev": "concurrently \"npm run backend\" \"npm start\"",
+    "dev:backend-only": "cd backend-py && .venv/bin/uvicorn main:app --reload --port 3004",
+    "build:full": "npm run build",
+    "install:all": "npm install && cd backend-py && python3 -m venv .venv && .venv/bin/pip install -r requirements.in && .venv/bin/pip freeze > requirements.txt",
+    "test:auth": "cd backend-py && .venv/bin/pytest tests/test_env.py tests/test_servicetitan.py tests/test_google_drive.py -v",
+    "test:backend": "cd backend-py && .venv/bin/pytest -v"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app"
-    ]
+    "@types/node": "^25.3.1",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^8.2.2",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0"
   },
   "browserslist": {
     "production": [
@@ -46,6 +41,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "proxy": "http://localhost:3004"
+  }
 }

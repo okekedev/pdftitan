@@ -152,14 +152,14 @@
   margin-bottom: 1.5rem;
 }
 
-.logo-image {
+.logo-section .logo-image {
   height: 120px;
   width: auto;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
   transition: transform 0.3s ease;
 }
 
-.logo-image:hover {
+.logo-section .logo-image:hover {
   transform: scale(1.02);
 }
 

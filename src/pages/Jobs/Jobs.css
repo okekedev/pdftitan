@@ -143,9 +143,66 @@
 
 .jobs-page .date-header {
   display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0;
+  padding: 0.625rem 0.75rem;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.jobs-page .date-header--btn {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+}
+
+.jobs-page .date-header--btn:hover {
+  background: #f1f5f9;
+}
+
+.jobs-page .date-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.jobs-page .date-chevron {
+  font-size: 1.1rem;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+  display: inline-block;
+  line-height: 1;
+}
+
+.jobs-page .date-chevron.open {
+  transform: rotate(90deg);
+}
+
+.jobs-page .today-badge {
+  display: inline-block;
+  background: #0052cc;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.jobs-page .date-section--today > .date-header--btn .date-title {
+  color: #0052cc;
+  font-weight: 700;
+}
+
+.jobs-page .jobs-grid {
+  margin-top: 0.75rem;
 }
 
 .jobs-page .date-indicator {
@@ -206,9 +263,9 @@
 }
 
 .jobs-page .date-title {
-  font-size: 1.3rem;
+  font-size: 1rem;
   font-weight: 600;
-  margin: 0;
+  color: #2d3748;
 }
 
 .jobs-page .job-count {
@@ -274,6 +331,26 @@
 
 .jobs-page .job-card:active {
   transform: translateY(0);
+}
+
+.jobs-page .job-card--tested {
+  border-color: #10b981;
+}
+
+.jobs-page .job-card--tested::before {
+  background: linear-gradient(180deg, #10b981, #059669);
+  opacity: 1;
+}
+
+.jobs-page .tested-today-banner {
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  margin: -1.5rem -1.5rem 1rem -1.5rem;
+  text-align: center;
+  letter-spacing: 0.02em;
 }
 
 .jobs-page .card-header {
@@ -522,18 +599,7 @@
   }
 
   .jobs-page .date-header {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .jobs-page .date-info {
-    flex-direction: column;
-    gap: 0.5rem;
-    text-align: center;
-  }
-
-  .jobs-page .date-indicator {
-    display: none;
+    padding: 0.5rem;
   }
 
   .jobs-page .job-identifier {
