@@ -178,7 +178,7 @@ jobs:
           --image ghcr.io/${{ github.repository_owner }}/pdftitan:dev-latest \
           --revision-suffix $REVISION_SUFFIX \
           --set-env-vars \
-            "NODE_ENV=development" \
+            "NODE_ENV=production" \
             "PORT=3000" \
             "NODE_OPTIONS=--openssl-legacy-provider" \
             "GHCR_TOKEN=${{ secrets.GHCR_TOKEN }}" \
