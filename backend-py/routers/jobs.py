@@ -253,7 +253,7 @@ async def get_technician_jobs(
     technician_id: int, st: ServiceTitanClient = Depends(get_st_client)
 ):
     try:
-        start_dt, end_dt = st.get_date_range(3)
+        start_dt, end_dt = st.get_date_range(14)
         start_iso = start_dt.isoformat()
         end_iso = end_dt.isoformat()
 
