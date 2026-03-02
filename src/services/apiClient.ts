@@ -83,7 +83,8 @@ class ApiClient {
 
     console.log(`👷 Fetching jobs for technician ${session.technician.id}`);
     const response = await this.apiCall<{ data: unknown[]; groupedByDate: Record<string, unknown> }>(
-      `/api/technician/${session.technician.id}/jobs`
+      `/api/technician/${session.technician.id}/jobs`,
+      { timeout: 60000 }
     );
     console.log(`✅ Jobs fetched: ${response.data?.length ?? 0} jobs`);
     return response;

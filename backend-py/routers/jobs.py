@@ -1,6 +1,7 @@
 """
 Jobs router — mirrors backend/api/jobs.js
 """
+import asyncio
 import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -190,17 +191,17 @@ async def _get_customers_data(st: ServiceTitanClient, customer_ids: list) -> dic
 
 
 async def _get_locations_data(st: ServiceTitanClient, location_ids: list) -> dict:
-    locations_map = {}
-    for lid in location_ids:
-        if not lid:
-            continue
+    async def _fetch_one(lid):
         try:
             endpoint = st.build_tenant_url("crm") + f"/locations/{lid}"
             location = await st.api_call(endpoint)
-            locations_map[lid] = location
+            return lid, location
         except Exception as e:
             print(f"[jobs] Could not fetch location {lid}: {e}")
-    return locations_map
+            return lid, None
+
+    results = await asyncio.gather(*[_fetch_one(lid) for lid in location_ids if lid])
+    return {lid: loc for lid, loc in results if loc is not None}
 
 
 def _build_job_obj(job: dict, customer, location, next_appointment) -> dict:
@@ -298,15 +299,12 @@ async def get_technician_jobs(
         customers_map = await _get_customers_data(st, unique_customer_ids)
         locations_map = await _get_locations_data(st, unique_location_ids)
 
-        transformed_jobs: list = []
-        for job in all_jobs:
-            # Fetch appointments for this job in date range
-            next_appointment = None
+        async def _fetch_appointment(job_id: int):
             try:
                 apt_endpoint = (
                     st.build_tenant_url("jpm")
                     + f"/appointments"
-                    f"?jobId={job['id']}"
+                    f"?jobId={job_id}"
                     f"&startsOnOrAfter={start_iso}"
                     f"&startsOnOrBefore={end_iso}"
                     f"&pageSize=10"
@@ -315,10 +313,17 @@ async def get_technician_jobs(
                 apts = [a for a in apt_data.get("data", []) if a.get("start")]
                 if apts:
                     apts.sort(key=lambda a: a["start"])
-                    next_appointment = apts[0]
+                    return apts[0]
             except Exception as e:
-                print(f"[jobs] Could not fetch appointments for job {job['id']}: {e}")
+                print(f"[jobs] Could not fetch appointments for job {job_id}: {e}")
+            return None
 
+        appointments_list = await asyncio.gather(
+            *[_fetch_appointment(job["id"]) for job in all_jobs]
+        )
+
+        transformed_jobs: list = []
+        for job, next_appointment in zip(all_jobs, appointments_list):
             job["_cleanTitle"] = st.clean_job_title(job.get("summary"))
             customer = customers_map.get(job.get("customerId"))
             location = locations_map.get(job.get("locationId"))
