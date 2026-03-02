@@ -25,5 +25,6 @@ COPY backend-py/ ./
 # Copy built frontend from Stage 1 (served as static files in production)
 COPY --from=builder /app/build ../build
 
+ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3000"]
