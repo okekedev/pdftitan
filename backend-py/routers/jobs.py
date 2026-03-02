@@ -1,7 +1,6 @@
 """
 Jobs router — mirrors backend/api/jobs.js
 """
-import asyncio
 import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -190,19 +189,6 @@ async def _get_customers_data(st: ServiceTitanClient, customer_ids: list) -> dic
     return customers_map
 
 
-async def _get_locations_data(st: ServiceTitanClient, location_ids: list) -> dict:
-    async def _fetch_one(lid):
-        try:
-            endpoint = st.build_tenant_url("crm") + f"/locations/{lid}"
-            location = await st.api_call(endpoint)
-            return lid, location
-        except Exception as e:
-            print(f"[jobs] Could not fetch location {lid}: {e}")
-            return lid, None
-
-    results = await asyncio.gather(*[_fetch_one(lid) for lid in location_ids if lid])
-    return {lid: loc for lid, loc in results if loc is not None}
-
 
 def _build_job_obj(job: dict, customer, location, next_appointment) -> dict:
     original_title = (
@@ -292,41 +278,42 @@ async def get_technician_jobs(
             has_more = len(jobs) == page_size and data.get("hasMore") is not False
             page += 1
 
-        # Bulk-fetch customer and location data
+        # Fetch all appointments for this technician in ONE call (no per-job requests)
+        appointments_by_job: dict = {}
+        try:
+            apt_endpoint = (
+                st.build_tenant_url("jpm")
+                + f"/appointments"
+                f"?technicianId={technician_id}"
+                f"&startsOnOrAfter={start_iso}"
+                f"&startsOnOrBefore={end_iso}"
+                f"&pageSize=500"
+            )
+            apt_data = await st.api_call(apt_endpoint)
+            for apt in apt_data.get("data", []):
+                if apt.get("start") and apt.get("jobId"):
+                    jid = apt["jobId"]
+                    if jid not in appointments_by_job or apt["start"] < appointments_by_job[jid]["start"]:
+                        appointments_by_job[jid] = apt
+        except Exception as e:
+            print(f"[jobs] Could not batch-fetch appointments: {e}")
+
+        # Fetch customer data (already cached after first call)
         unique_customer_ids = list({j.get("customerId") for j in all_jobs if j.get("customerId")})
-        unique_location_ids = list({j.get("locationId") for j in all_jobs if j.get("locationId")})
-
         customers_map = await _get_customers_data(st, unique_customer_ids)
-        locations_map = await _get_locations_data(st, unique_location_ids)
-
-        async def _fetch_appointment(job_id: int):
-            try:
-                apt_endpoint = (
-                    st.build_tenant_url("jpm")
-                    + f"/appointments"
-                    f"?jobId={job_id}"
-                    f"&startsOnOrAfter={start_iso}"
-                    f"&startsOnOrBefore={end_iso}"
-                    f"&pageSize=10"
-                )
-                apt_data = await st.api_call(apt_endpoint)
-                apts = [a for a in apt_data.get("data", []) if a.get("start")]
-                if apts:
-                    apts.sort(key=lambda a: a["start"])
-                    return apts[0]
-            except Exception as e:
-                print(f"[jobs] Could not fetch appointments for job {job_id}: {e}")
-            return None
-
-        appointments_list = await asyncio.gather(
-            *[_fetch_appointment(job["id"]) for job in all_jobs]
-        )
 
         transformed_jobs: list = []
-        for job, next_appointment in zip(all_jobs, appointments_list):
+        for job in all_jobs:
+            next_appointment = appointments_by_job.get(job.get("id"))
             job["_cleanTitle"] = st.clean_job_title(job.get("summary"))
             customer = customers_map.get(job.get("customerId"))
-            location = locations_map.get(job.get("locationId"))
+            # Use embedded location from job response — no individual location API calls
+            raw_loc = job.get("location") or {}
+            location = {
+                "id": job.get("locationId"),
+                "name": raw_loc.get("name"),
+                "address": _build_address_obj(raw_loc.get("address")),
+            } if (job.get("locationId") or raw_loc) else None
             transformed_jobs.append(
                 _build_job_obj(job, customer, location, next_appointment)
             )
