@@ -200,7 +200,7 @@ export default function TestForm({ device, job, technician, existingTest, onSave
             </div>
           </div>
 
-          {(deviceData.typeMain === 'DCDA' || deviceData.typeMain === 'RPDA') && (
+          {(deviceData.typeMain === 'DCDA' || deviceData.typeMain === 'RPDA' || deviceData.typeMain === 'DCDA Type II' || deviceData.typeMain === 'RPDA Type II') && (
             <div className="form-section">
               <h4>Bypass Assembly (Optional)</h4>
               <div className="form-grid">
@@ -454,6 +454,54 @@ export default function TestForm({ device, job, technician, existingTest, onSave
                     </select>
                   </div>
                 </>
+              )}
+              {shouldShowField('secondCheck') && (
+                <>
+                  <div className="form-group">
+                    <label>Second Check Reading (PSI)</label>
+                    <input type="number" step="0.1" value={testData.secondCheckReadingAfterRepair} onChange={(e) => handleTestChange('secondCheckReadingAfterRepair', e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label>Second Check Status</label>
+                    <select value={testData.secondCheckClosedTightAfterRepair} onChange={(e) => handleTestChange('secondCheckClosedTightAfterRepair', e.target.value)}>
+                      <option value="Closed Tight">Closed Tight</option>
+                      <option value="Leaked">Leaked</option>
+                    </select>
+                  </div>
+                </>
+              )}
+              {shouldShowField('reliefValve') && (
+                <div className="form-group">
+                  <label>Relief Valve Reading (PSI)</label>
+                  <input type="number" step="0.1" value={testData.reliefValveReadingAfterRepair} onChange={(e) => handleTestChange('reliefValveReadingAfterRepair', e.target.value)} />
+                </div>
+              )}
+              {shouldShowField('typeIIBypass') && (
+                <>
+                  <div className="form-group">
+                    <label>Type II Bypass Reading (PSI)</label>
+                    <input type="number" step="0.1" value={testData.typeIIBypassCheckReadingAfterRepair} onChange={(e) => handleTestChange('typeIIBypassCheckReadingAfterRepair', e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label>Type II Bypass Status</label>
+                    <select value={testData.typeIIBypassClosedTightAfterRepair} onChange={(e) => handleTestChange('typeIIBypassClosedTightAfterRepair', e.target.value)}>
+                      <option value="Closed Tight">Closed Tight</option>
+                      <option value="Leaked">Leaked</option>
+                    </select>
+                  </div>
+                </>
+              )}
+              {shouldShowField('airInlet') && (
+                <div className="form-group">
+                  <label>Air Inlet Reading (PSI)</label>
+                  <input type="number" step="0.1" value={testData.airInletReadingAfterRepair} onChange={(e) => handleTestChange('airInletReadingAfterRepair', e.target.value)} />
+                </div>
+              )}
+              {shouldShowField('checkValve') && (
+                <div className="form-group">
+                  <label>Check Valve Reading (PSI)</label>
+                  <input type="number" step="0.1" value={testData.checkValveReadingAfterRepair} onChange={(e) => handleTestChange('checkValveReadingAfterRepair', e.target.value)} />
+                </div>
               )}
             </div>
           </div>

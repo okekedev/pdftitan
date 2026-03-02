@@ -395,26 +395,29 @@ def _fill_tceq_pdf(device: dict, test: dict, technician: dict, company: dict, ci
     gauge = next((g for g in (technician.get("gauges") or []) if g.get("type") == gauge_type), {})
 
     # Build text field values
+    gauge_make_model = f"{gauge.get('make', '')} {gauge.get('model', '')}".strip()
     text_values = {
         # PWS / header
+        # Text Field_1 and _2 are duplicate widgets for the same PWS ID# cell
         'Text Field':   city_info.get("pwsName", ""),
         'Text Field_1': city_info.get("pwsId", ""),
-        'Text Field_2': city_info.get("pwsAddress", ""),
-        'Text Field_3': city_info.get("pwsContact", ""),
-        'Text Field_4': service_address,
-        'Text Field_5': customer_name,
-        # Main assembly
-        'Text Field_6':         device.get("manufacturerMain", ""),
-        'Text Field_6_1_2':     device.get("modelMain", ""),
-        'Text Field_6_1_2_5':   device.get("sizeMain", ""),
-        'Text Field_6_1_2_5_1': device.get("serialMain", ""),
-        # Bypass assembly
-        'Text Field_6_1':       device.get("manufacturerBypass", ""),
-        'Text Field_6_1_2_1':   device.get("modelBypass", ""),
-        'Text Field_6_1_2_3':   device.get("serialBypass", ""),
-        'Text Field_6_1_1':     device.get("bpaLocation", ""),
-        'Text Field_6_1_2_2':   device.get("bpaServes", ""),
-        'Text Field_6_1_2_3_1': device.get("sizeBypass", ""),
+        'Text Field_2': city_info.get("pwsId", ""),
+        'Text Field_3': city_info.get("pwsAddress", ""),
+        'Text Field_4': city_info.get("pwsContact", ""),
+        'Text Field_5': service_address,
+        # Main assembly (left column: x≈143–144)
+        'Text Field_6':     device.get("manufacturerMain", ""),  # row 1
+        'Text Field_6_1':   device.get("modelMain", ""),         # row 2
+        'Text Field_6_1_1': device.get("serialMain", ""),        # row 3
+        'Text Field_6_1_2_5': device.get("sizeMain", ""),        # row 1 size col
+        # Bypass assembly (middle column: x≈249, size bypass: x≈535)
+        'Text Field_6_1_2':     device.get("manufacturerBypass", ""),  # row 1
+        'Text Field_6_1_2_1':   device.get("modelBypass", ""),         # row 2
+        'Text Field_6_1_2_2':   device.get("serialBypass", ""),        # row 3
+        'Text Field_6_1_2_5_1': device.get("sizeBypass", ""),          # row 1 size col
+        # BPA details (right column: x≈430)
+        'Text Field_6_1_2_3':   device.get("bpaLocation", ""),  # row 2
+        'Text Field_6_1_2_3_1': device.get("bpaServes", ""),    # row 3
         # Old serial (replacement)
         'Text Field_6_1_2_3_2': test.get("oldSerial", ""),
         # Initial test date/time
@@ -439,14 +442,16 @@ def _fill_tceq_pdf(device: dict, test: dict, technician: dict, company: dict, ci
         'Text Field_6_1_2_3_2_1_1_2_9': str(test.get("checkValveReadingAfterRepair", "") or ""),
         'Text Field_6_1_2_4_1_1':        test.get("testDateAfterRepair", ""),
         'Text Field_6_1_2_4_1_1_1':      test.get("testTimeAfterRepair", ""),
-        # Tester certification
-        'Text Field_6_1_2_3_2_1_1_2_10':        company.get("name", ""),
-        'Text Field_6_1_2_3_2_1_1_2_10_1':      company.get("phone", ""),
-        'Text Field_6_1_2_3_2_1_1_2_10_1_1':    test.get("testDateInitial", ""),
-        'Text Field_6_1_2_3_2_1_1_2_10_1_5_2':  company.get("address", ""),
-        'Text Field_6_1_2_3_2_1_1_2_10_1_2':    technician.get("bpatLicenseNumber", ""),
-        'Text Field_6_1_2_3_2_1_1_2_10_1_3':    technician.get("licenseExpirationDate", ""),
-        'Text Field_6_1_2_3_2_1_1_2_10_1_4':    technician.get("name", ""),
+        # Differential pressure gauge (Make/Model at x=117, SN at x=282, date at x=509)
+        'Text Field_6_1_2_3_2_1_1_2_10':     gauge_make_model,
+        'Text Field_6_1_2_3_2_1_1_2_10_1':   gauge.get("serialNumber", ""),
+        'Text Field_6_1_2_3_2_1_1_2_10_1_1': test.get("testDateInitial", ""),
+        # Remarks
+        'Text Field_6_1_2_3_2_1_1_2_10_1_5_2': test.get("remarks", ""),
+        # Tester certification (Company Name/Address/Phone are static in PDF template)
+        'Text Field_6_1_2_3_2_1_1_2_10_1_2': technician.get("name", ""),
+        'Text Field_6_1_2_3_2_1_1_2_10_1_3': technician.get("bpatLicenseNumber", ""),
+        'Text Field_6_1_2_3_2_1_1_2_10_1_4': technician.get("licenseExpirationDate", ""),
     }
 
     # Remove empty strings — don't overwrite with blank
@@ -454,70 +459,93 @@ def _fill_tceq_pdf(device: dict, test: dict, technician: dict, company: dict, ci
 
     writer.update_page_form_field_values(writer.pages[0], text_values)
 
-    # Checkboxes
+    # Checkboxes — BPA TYPE
+    # Row 1 (y≈638): RPZ=RPBA (x=31), RPDA=RPBA-D (x=239), Type II (x=538)
+    # Row 2 (y≈622): DC=DCVA (x=32), DCDA=DCVA-D (x=239), Type II (x=538)
+    # Row 3 (y≈606): PVB (x=31), SVB (x=239)
     device_type = device.get("typeMain", "")
     type_checkbox_map = {
-        "DC": "Check Box_2",
-        "RPZ": "Check Box_2_1",
-        "DCDA": "Check Box_2_4",
-        "RPDA": "Check Box_2_5",
-        "PVB": "Check Box_2_7",
-        "SVB": "Check Box_2_8",
-        "DCDA Type II": "Check Box_2_3",
-        "RPDA Type II": "Check Box_2_6",
+        "RPZ":          "Check Box",        # RPBA: row 1, left
+        "DC":           "Check Box_2_1",    # DCVA: row 2, left
+        "RPDA":         "Check Box_2_4",    # RPBA-D: row 1, middle
+        "DCDA":         "Check Box_2_5",    # DCVA-D: row 2, middle
+        "PVB":          "Check Box_2_3",    # PVB: row 3, left
+        "SVB":          "Check Box_2_6",    # SVB: row 3, middle
+        "RPDA Type II": "Check Box_2_4",    # RPBA-D + Type II box
+        "DCDA Type II": "Check Box_2_5",    # DCVA-D + Type II box
     }
     check_values = {}
     if device_type in type_checkbox_map:
         check_values[type_checkbox_map[device_type]] = True
+        if device_type == "RPDA Type II":
+            check_values["Check Box_2_7"] = True   # Type II col, row 1
+        elif device_type == "DCDA Type II":
+            check_values["Check Box_2_8"] = True   # Type II col, row 2
 
-    # Reason for test
+    # Reason for test (y≈526): New (x=139), Existing (x=216), Replacement (x=327)
     reason = test.get("reasonForTest", "Existing")
     if reason == "New":
-        check_values["Check Box"] = True
+        check_values["Check Box_2_13"] = True
     elif reason == "Existing":
-        check_values["Check Box_1"] = True
-
-    # Installed per code
-    if test.get("installedPerCode") == "Yes":
-        check_values["Check Box_2_27"] = True
-
-    # Non-potable auxiliary
-    if test.get("installedOnNonPotableAuxiliary") == "Yes":
-        check_values["Check Box_2_28"] = True
-
-    # Initial status checkboxes
-    if test.get("firstCheckClosedTightInitial") == "Closed Tight":
-        check_values["Check Box_2_11"] = True
-    else:
         check_values["Check Box_2_12"] = True
+    elif reason == "Replacement":
+        check_values["Check Box_2_11"] = True
 
-    if test.get("secondCheckClosedTightInitial") == "Closed Tight":
+    # Compliance questions (y≈510/494): Yes (x=490), No (x=534)
+    if test.get("installedPerCode") == "Yes":
         check_values["Check Box_2_9"] = True
-    else:
+    elif test.get("installedPerCode") == "No":
         check_values["Check Box_2_10"] = True
 
-    if test.get("reliefValveDidNotOpenInitial") == "Did not open":
-        check_values["Check Box_2_13"] = True
-
-    if test.get("airInletDidNotOpenInitial") == "Yes":
+    if test.get("installedOnNonPotableAuxiliary") == "Yes":
         check_values["Check Box_2_14"] = True
-
-    if test.get("checkValveLeakedInitial") == "No":
+    elif test.get("installedOnNonPotableAuxiliary") == "No":
         check_values["Check Box_2_15"] = True
 
-    # After-repair status checkboxes
-    if test.get("firstCheckClosedTightAfterRepair") == "Closed Tight":
+    # Test result PASS / FAIL (x≈72-73)
+    if test.get("testResult") == "Passed":
+        check_values["Check Box_2_27"] = True
+    elif test.get("testResult") == "Failed":
+        check_values["Check Box_2_28"] = True
+
+    # Initial Test checkboxes (y≈362-390, just below PASS/FAIL row)
+    if test.get("firstCheckClosedTightInitial") == "Closed Tight":
         check_values["Check Box_2_16"] = True
-    elif test.get("firstCheckClosedTightAfterRepair") == "Leaked":
+    elif test.get("firstCheckClosedTightInitial") == "Leaked":
         check_values["Check Box_2_17"] = True
 
-    if test.get("secondCheckClosedTightAfterRepair") == "Closed Tight":
+    if test.get("secondCheckClosedTightInitial") == "Closed Tight":
         check_values["Check Box_2_18"] = True
-    elif test.get("secondCheckClosedTightAfterRepair") == "Leaked":
+    elif test.get("secondCheckClosedTightInitial") == "Leaked":
         check_values["Check Box_2_19"] = True
 
-    if test.get("typeIIBypassClosedTightAfterRepair") == "Closed Tight":
+    if test.get("reliefValveDidNotOpenInitial") == "Did not open":
+        check_values["Check Box_2_20"] = True
+
+    if test.get("typeIIBypassClosedTightInitial") == "Closed Tight":
         check_values["Check Box_2_21"] = True
+    elif test.get("typeIIBypassClosedTightInitial") == "Leaked":
+        check_values["Check Box_2_22"] = True
+
+    if test.get("airInletDidNotOpenInitial") == "Yes":
+        check_values["Check Box_2_23"] = True
+    if test.get("airInletFullyOpenInitial") == "Yes":
+        check_values["Check Box_2_24"] = True
+    elif test.get("airInletFullyOpenInitial") == "No":
+        check_values["Check Box_2_25"] = True
+
+    if test.get("checkValveLeakedInitial") == "Yes":
+        check_values["Check Box_2_26"] = True
+
+    # After Repair checkboxes (y≈272-285, below Repairs section)
+    if test.get("firstCheckClosedTightAfterRepair") == "Closed Tight":
+        check_values["Check Box_2_29"] = True
+
+    if test.get("secondCheckClosedTightAfterRepair") == "Closed Tight":
+        check_values["Check Box_2_30"] = True
+
+    if test.get("typeIIBypassClosedTightAfterRepair") == "Closed Tight":
+        check_values["Check Box_2_31"] = True
 
     # Gauge type
     if gauge_type == "Potable":
