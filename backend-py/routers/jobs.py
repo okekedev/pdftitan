@@ -268,8 +268,7 @@ async def get_technician_jobs(
                 + f"/jobs"
                 f"?page={page}&pageSize={page_size}"
                 f"&technicianId={technician_id}"
-                f"&appointmentStartsOnOrAfter={start_iso}"
-                f"&appointmentStartsBefore={end_iso}"
+                f"&createdOnOrAfter={start_iso}"
                 f"&includeTotal=true"
             )
             data = await st.api_call(endpoint)
@@ -277,6 +276,9 @@ async def get_technician_jobs(
             all_jobs.extend(jobs)
             has_more = len(jobs) == page_size and data.get("hasMore") is not False
             page += 1
+
+        # Client-side guard: drop anything created before the date range
+        all_jobs = [j for j in all_jobs if (j.get("createdOn") or "") >= start_iso]
 
         # Fetch all appointments for this technician in ONE call (no per-job requests)
         appointments_by_job: dict = {}
