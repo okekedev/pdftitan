@@ -8,6 +8,7 @@ interface DeviceListProps {
   onEditDevice: (device: any) => void;
   onSelectDeviceForTest: (device: any) => void;
   onGeneratePDFs: () => void;
+  onBack: () => void;
   canGenerate: boolean;
 }
 
@@ -18,6 +19,7 @@ export default function DeviceList({
   onEditDevice,
   onSelectDeviceForTest,
   onGeneratePDFs,
+  onBack,
   canGenerate,
 }: DeviceListProps) {
   const getDeviceStatus = (device: any): string => {
@@ -47,6 +49,7 @@ export default function DeviceList({
       <div className="device-list-header">
         <h3>Backflow Devices</h3>
         <div className="header-actions">
+          <button onClick={onBack} className="btn btn-secondary">← Back to Jobs</button>
           <button onClick={onAddDevice} className="btn btn-primary">+ Add Device</button>
         </div>
       </div>

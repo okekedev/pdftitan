@@ -170,11 +170,21 @@ export default function PDFGenerator({ devices, testRecords, job, technician, on
             {generatedPDFs.map((pdf: any, index: number) => (
               <div key={pdf.id ?? index} className="pdf-item">
                 <span className="pdf-name">{pdf.fileName}</span>
-                {pdf.serviceTitanAttachmentId ? (
-                  <span style={{ color: '#10b981', fontSize: '0.875rem' }}>Uploaded to ServiceTitan</span>
-                ) : (
-                  <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>Upload failed</span>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  {pdf.serviceTitanAttachmentId ? (
+                    <span style={{ color: '#10b981', fontSize: '0.875rem' }}>Uploaded to ServiceTitan</span>
+                  ) : (
+                    <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>Upload failed</span>
+                  )}
+                  <a
+                    href={`/api/backflow-pdfs/${pdf.id}/download`}
+                    download={pdf.fileName}
+                    className="btn btn-sm btn-secondary"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    Download
+                  </a>
+                </div>
               </div>
             ))}
           </div>

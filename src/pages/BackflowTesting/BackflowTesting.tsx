@@ -184,6 +184,7 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
                 onEditDevice={handleEditDevice}
                 onSelectDeviceForTest={handleSelectDeviceForTest}
                 onGeneratePDFs={handleGeneratePDFs}
+                onBack={onBack}
                 canGenerate={getCompletedDeviceCount() > 0}
               />
             )}
