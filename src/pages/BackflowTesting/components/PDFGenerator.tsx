@@ -69,7 +69,7 @@ export default function PDFGenerator({ devices, testRecords, job, technician, on
       const summary = generateJobNoteSummary();
       await apiClient.addJobNote(job.id, summary);
 
-      const uploadedCount = pdfs.filter((p: any) => p.serviceTitanAttachmentId).length;
+      const uploadedCount = pdfs.filter((p: any) => p.serviceTitanAttachmentId && p.serviceTitanAttachmentId !== 'upload_failed').length;
       setSuccessMessage(
         `${pdfs.length} TCEQ form${pdfs.length !== 1 ? 's' : ''} generated and uploaded to ServiceTitan.` +
         (uploadedCount < pdfs.length
@@ -171,7 +171,7 @@ export default function PDFGenerator({ devices, testRecords, job, technician, on
               <div key={pdf.id ?? index} className="pdf-item">
                 <span className="pdf-name">{pdf.fileName}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  {pdf.serviceTitanAttachmentId ? (
+                  {pdf.serviceTitanAttachmentId && pdf.serviceTitanAttachmentId !== 'upload_failed' ? (
                     <span style={{ color: '#10b981', fontSize: '0.875rem' }}>Uploaded to ServiceTitan</span>
                   ) : (
                     <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>Upload failed</span>

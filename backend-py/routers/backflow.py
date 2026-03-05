@@ -605,8 +605,14 @@ async def generate_pdf(body: dict, st: ServiceTitanClient = Depends(get_st_clien
                 timeout=60.0,
             )
         if response.is_success:
-            st_attachment_id = response.json().get("id")
-            print(f"[backflow] PDF uploaded to ST attachment: {st_attachment_id}")
+            resp_json = response.json() if response.text else {}
+            print(f"[backflow] ST upload response: {resp_json}")
+            st_attachment_id = (
+                resp_json.get("id")
+                or resp_json.get("attachmentId")
+                or resp_json.get("data", {}).get("id")
+                or "uploaded"  # fallback: upload succeeded even if ID not returned
+            )
         else:
             print(f"[backflow] ST upload failed: {response.status_code} {response.text}")
     except Exception as e:
