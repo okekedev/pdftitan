@@ -254,8 +254,8 @@ async def get_technician_jobs(
 ):
     try:
         start_dt, end_dt = st.get_date_range(14)
-        start_iso = start_dt.isoformat()
-        end_iso = end_dt.isoformat()
+        start_iso = start_dt.isoformat().replace("+00:00", "Z")
+        end_iso = end_dt.isoformat().replace("+00:00", "Z")
 
         all_jobs: list = []
         page = 1
