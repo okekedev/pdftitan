@@ -24,6 +24,7 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
   const [selectedDevice, setSelectedDevice] = useState<any>(null);
   const [currentStep, setCurrentStep] = useState<string>('devices');
   const [testRecords, setTestRecords] = useState<Record<string, any>>({});
+  const [generatedPDFs, setGeneratedPDFs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -180,6 +181,7 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
               <DeviceList
                 devices={devices}
                 testRecords={testRecords}
+                generatedPDFs={generatedPDFs}
                 onAddDevice={handleAddDevice}
                 onEditDevice={handleEditDevice}
                 onSelectDeviceForTest={handleSelectDeviceForTest}
@@ -229,6 +231,8 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
                 testRecords={testRecords}
                 job={job}
                 technician={technician}
+                generatedPDFs={generatedPDFs}
+                onPDFsGenerated={setGeneratedPDFs}
                 onBack={handleBackToDevices}
                 onComplete={onBack}
               />

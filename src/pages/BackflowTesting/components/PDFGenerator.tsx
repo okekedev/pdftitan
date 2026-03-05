@@ -8,14 +8,15 @@ interface PDFGeneratorProps {
   testRecords: Record<string, any>;
   job: any;
   technician: any;
+  generatedPDFs: any[];
+  onPDFsGenerated: (pdfs: any[]) => void;
   onBack: () => void;
   onComplete: () => void;
 }
 
-export default function PDFGenerator({ devices, testRecords, job, technician, onBack, onComplete }: PDFGeneratorProps) {
+export default function PDFGenerator({ devices, testRecords, job, technician, generatedPDFs, onPDFsGenerated, onBack, onComplete }: PDFGeneratorProps) {
   const [selectedCity, setSelectedCity] = useState('');
   const [generating, setGenerating] = useState(false);
-  const [generatedPDFs, setGeneratedPDFs] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -64,7 +65,7 @@ export default function PDFGenerator({ devices, testRecords, job, technician, on
       );
       const results = await Promise.all(pdfPromises);
       const pdfs = (results as any[]).map((r: any) => r.data);
-      setGeneratedPDFs(pdfs);
+      onPDFsGenerated(pdfs);
 
       const summary = generateJobNoteSummary();
       await apiClient.addJobNote(job.id, summary);

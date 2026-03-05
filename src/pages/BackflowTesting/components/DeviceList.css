@@ -42,7 +42,7 @@
 
 .devices-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
   gap: 16px;
 }
 
@@ -166,6 +166,25 @@
 .quote-badge {
   background: #ff9800;
   color: white;
+}
+
+.download-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #1976d2;
+  color: white;
+  text-decoration: none;
+}
+
+.download-badge:hover {
+  background: #1565c0;
+}
+
+.tested-date {
+  color: #1976d2;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {

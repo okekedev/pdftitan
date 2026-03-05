@@ -4,6 +4,7 @@ import './DeviceList.css';
 interface DeviceListProps {
   devices: any[];
   testRecords: Record<string, any>;
+  generatedPDFs: any[];
   onAddDevice: () => void;
   onEditDevice: (device: any) => void;
   onSelectDeviceForTest: (device: any) => void;
@@ -15,6 +16,7 @@ interface DeviceListProps {
 export default function DeviceList({
   devices,
   testRecords,
+  generatedPDFs,
   onAddDevice,
   onEditDevice,
   onSelectDeviceForTest,
@@ -44,6 +46,16 @@ export default function DeviceList({
     }
   };
 
+  const getLastTestedDate = (device: any): string | null => {
+    const record = testRecords[device.id];
+    if (!record?.testDateInitial) return null;
+    return record.testDateInitial;
+  };
+
+  const getGeneratedPDF = (device: any): any | null => {
+    return generatedPDFs.find((p: any) => p.deviceId === device.id) ?? null;
+  };
+
   return (
     <div className="device-list-container">
       <div className="device-list-header">
@@ -64,6 +76,9 @@ export default function DeviceList({
           {devices.map((device: any) => {
             const status = getDeviceStatus(device);
             const testRecord = testRecords[device.id];
+            const lastTestedDate = getLastTestedDate(device);
+            const generatedPDF = getGeneratedPDF(device);
+            const isTested = status !== 'not-tested';
 
             return (
               <div key={device.id} className={`device-card device-${status}`}>
@@ -93,6 +108,12 @@ export default function DeviceList({
                     <span className="field-label">Location:</span>
                     <span className="field-value">{device.bpaLocation ?? 'N/A'}</span>
                   </div>
+                  {lastTestedDate && (
+                    <div className="device-field">
+                      <span className="field-label">Last Tested:</span>
+                      <span className="field-value tested-date">{lastTestedDate}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="device-footer">
@@ -100,33 +121,43 @@ export default function DeviceList({
                     <span className={`status-badge status-${status}`}>{getStatusLabel(status)}</span>
                   )}
                   {testRecord?.quoteNeeded && <span className="quote-badge">Quote Needed</span>}
+                  {generatedPDF && (
+                    <a
+                      href={`/api/backflow-pdfs/${generatedPDF.id}/download`}
+                      download={generatedPDF.fileName}
+                      className="download-badge"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      ↓ Download Form
+                    </a>
+                  )}
                 </div>
 
                 <div className="device-actions">
                   <button
-                    className="btn btn-sm btn-primary"
+                    className="btn btn-sm btn-secondary"
                     onClick={(e) => { e.stopPropagation(); onEditDevice(device); }}
                   >
-                    Edit Device
+                    Edit
                   </button>
                   <button
-                    className="btn btn-sm btn-success"
+                    className="btn btn-sm btn-primary"
                     onClick={(e) => { e.stopPropagation(); onSelectDeviceForTest(device); }}
                   >
-                    Record Test
+                    {isTested ? 'Re-Test' : 'Record Test'}
                   </button>
+                  {isTested && (
+                    <button
+                      className="btn btn-sm btn-success"
+                      onClick={(e) => { e.stopPropagation(); onGeneratePDFs(); }}
+                    >
+                      Generate Form
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
-        </div>
-      )}
-
-      {canGenerate && (
-        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-          <button onClick={onGeneratePDFs} className="btn btn-success btn-large">
-            Generate Forms
-          </button>
         </div>
       )}
     </div>
