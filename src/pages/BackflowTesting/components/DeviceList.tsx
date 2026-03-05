@@ -121,6 +121,14 @@ export default function DeviceList({
           })}
         </div>
       )}
+
+      {canGenerate && (
+        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+          <button onClick={onGeneratePDFs} className="btn btn-success btn-large">
+            Generate Forms
+          </button>
+        </div>
+      )}
     </div>
   );
 }
