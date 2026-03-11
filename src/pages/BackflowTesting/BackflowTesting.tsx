@@ -28,6 +28,7 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
 
   useEffect(() => {
     const loadDevices = async () => {
@@ -150,6 +151,32 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
   const getFailedDevices = () =>
     devices.filter((d: any) => testRecords[d.id]?.testResult === 'Failed');
 
+  const getPassedCount = () =>
+    devices.filter((d: any) => testRecords[d.id]?.testResult === 'Passed').length;
+
+  const getLastTestedDate = () => {
+    const dates = Object.values(testRecords)
+      .map((t: any) => t.testDateInitial)
+      .filter(Boolean);
+    return dates.length ? (dates as string[]).sort().reverse()[0] : null;
+  };
+
+  const handleGenerateSummaryPDF = async () => {
+    setGeneratingSummary(true);
+    try {
+      await apiClient.generateJobSummaryPDF(job.id, {
+        technicianName: technician.name,
+        serviceAddress: (job as any).location?.address ?? '',
+        customerName: (job as any).customer?.name ?? '',
+      });
+      showToast('Summary PDF uploaded to job attachments!', 'success');
+    } catch (err) {
+      showToast('Failed to generate summary PDF', 'error');
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
+
   return (
     <div className="backflow-testing-page">
       <div className="page-container">
@@ -167,12 +194,30 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
             <div className="job-info-header">
               <h2>Backflow Testing - Job #{job.number}</h2>
               <p className="job-address">{(job as any).location?.address}</p>
-              <div className="test-progress">
-                <span className="progress-badge">
-                  {getCompletedDeviceCount()} of {devices.length} devices tested
-                </span>
-                {getFailedDevices().length > 0 && (
-                  <span className="failed-badge">{getFailedDevices().length} failed</span>
+              <div className="summary-card">
+                <p className="summary-title">Backflow Test Summary</p>
+                <div className="summary-row">
+                  <span className="stat-item">
+                    {getCompletedDeviceCount()} of {devices.length} devices tested
+                  </span>
+                  {getPassedCount() > 0 && (
+                    <span className="stat-item stat-pass">✓ {getPassedCount()} passed</span>
+                  )}
+                  {getFailedDevices().length > 0 && (
+                    <span className="stat-item stat-fail">✗ {getFailedDevices().length} failed</span>
+                  )}
+                  {getLastTestedDate() && (
+                    <span className="stat-item stat-date">Last tested: {getLastTestedDate()}</span>
+                  )}
+                </div>
+                {getCompletedDeviceCount() > 0 && (
+                  <button
+                    className="btn btn-primary summary-pdf-btn"
+                    onClick={handleGenerateSummaryPDF}
+                    disabled={generatingSummary}
+                  >
+                    {generatingSummary ? 'Generating…' : 'Generate Summary PDF'}
+                  </button>
                 )}
               </div>
             </div>

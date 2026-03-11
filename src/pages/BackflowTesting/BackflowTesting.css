@@ -73,6 +73,54 @@
   color: #d32f2f;
 }
 
+.summary-card {
+  background: #f8faff;
+  border: 1px solid #d0e3f7;
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-top: 12px;
+}
+
+.summary-title {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1565c0;
+}
+
+.summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.stat-item {
+  font-size: 14px;
+  font-weight: 500;
+  color: #444;
+}
+
+.stat-pass {
+  color: #2e7d32;
+}
+
+.stat-fail {
+  color: #c62828;
+}
+
+.stat-date {
+  color: #555;
+  font-weight: 400;
+}
+
+.summary-pdf-btn {
+  margin-top: 2px;
+}
+
 /* Button Styles — scoped to .backflow-testing-page to always win over App.css */
 .backflow-testing-page .btn {
   padding: 10px 20px;

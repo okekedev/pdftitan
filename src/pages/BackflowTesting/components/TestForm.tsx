@@ -560,7 +560,10 @@ export default function TestForm({ device, job, technician, existingTest, onSave
           <div className="form-grid">
             <div className="form-group">
               <label>Test Result *</label>
-              <select value={testData.testResult} onChange={(e) => handleTestChange('testResult', e.target.value)} required>
+              <select value={testData.testResult} onChange={(e) => {
+                handleTestChange('testResult', e.target.value);
+                if (e.target.value === 'Failed') handleTestChange('quoteNeeded', true);
+              }} required>
                 <option value="">Select Result</option>
                 <option value="Passed">Passed</option>
                 <option value="Failed">Failed</option>

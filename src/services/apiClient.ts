@@ -274,6 +274,17 @@ class ApiClient {
     return response;
   }
 
+  async generateJobSummaryPDF(jobId: number | string, data: {
+    technicianName: string;
+    serviceAddress: string;
+    customerName: string;
+  }): Promise<unknown> {
+    console.log('📄 Generating job summary PDF for job:', jobId);
+    const response = await this.apiCall(`/api/job/${jobId}/backflow-summary-pdf`, { method: 'POST', body: data });
+    console.log('✅ Job summary PDF generated:', response);
+    return response;
+  }
+
   async generateOnlineReference(pdfData: unknown) {
     console.log('📄 Generating online reference report:', pdfData);
     const response = await this.apiCall('/api/backflow-pdfs/generate-online-reference', { method: 'POST', body: pdfData });

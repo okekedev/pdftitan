@@ -838,3 +838,376 @@ def _generate_reference_pdf(
     c.save()
     buf.seek(0)
     return buf.getvalue()
+
+
+# ── Job summary PDF ───────────────────────────────────────────────────────────
+
+
+def _generate_job_summary_pdf(
+    job_id: str,
+    job_devices: list,
+    test_by_device: dict,
+    info: dict,
+) -> bytes:
+    import io
+
+    from reportlab.lib import colors
+    from reportlab.lib.colors import Color, HexColor
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (
+        Paragraph, Spacer, Table, TableStyle, SimpleDocTemplate, PageBreak, HRFlowable
+    )
+
+    BLUE = HexColor("#1565c0")
+    BLUE_LIGHT = HexColor("#e3f0ff")
+    GRAY = HexColor("#555555")
+    GRAY_LIGHT = HexColor("#f5f5f5")
+    GREEN = HexColor("#2e7d32")
+    RED = HexColor("#c62828")
+    WHITE = colors.white
+    BLACK = colors.black
+
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle("h1", parent=styles["Heading1"], textColor=BLUE, fontSize=18, spaceAfter=4)
+    h2 = ParagraphStyle("h2", parent=styles["Heading2"], textColor=BLUE, fontSize=13, spaceAfter=4)
+    h3 = ParagraphStyle("h3", parent=styles["Heading3"], textColor=GRAY, fontSize=11, spaceAfter=2)
+    body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, leading=14)
+    small = ParagraphStyle("small", parent=styles["Normal"], fontSize=9, textColor=GRAY)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=letter,
+        leftMargin=0.75 * inch,
+        rightMargin=0.75 * inch,
+        topMargin=0.75 * inch,
+        bottomMargin=0.75 * inch,
+    )
+
+    technician_name = info.get("technicianName", "")
+    service_address = info.get("serviceAddress", "")
+    customer_name = info.get("customerName", "")
+    generated_date = datetime.now().strftime("%B %d, %Y")
+    generated_time = datetime.now().strftime("%I:%M %p")
+
+    tested_devices = [d for d in job_devices if test_by_device.get(d["id"])]
+    passed = [d for d in tested_devices if test_by_device[d["id"]].get("testResult") == "Passed"]
+    failed = [d for d in tested_devices if test_by_device[d["id"]].get("testResult") == "Failed"]
+    quote_needed = [d for d in tested_devices if test_by_device[d["id"]].get("quoteNeeded")]
+
+    story = []
+
+    # ── Cover / Summary ──────────────────────────────────────────────────────
+
+    story.append(Paragraph("Mr. Backflow TX", h1))
+    story.append(Paragraph("Backflow Testing Field Report", h2))
+    story.append(HRFlowable(width="100%", thickness=1, color=BLUE, spaceAfter=10))
+
+    job_info_data = [
+        ["Job #", job_id],
+        ["Date Generated", f"{generated_date} at {generated_time}"],
+        ["Service Address", service_address or "—"],
+        ["Customer", customer_name or "—"],
+        ["Technician", technician_name or "—"],
+    ]
+    job_table = Table(job_info_data, colWidths=[1.6 * inch, 5.4 * inch])
+    job_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR", (0, 0), (0, -1), BLUE),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [WHITE, GRAY_LIGHT]),
+        ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#cccccc")),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(job_table)
+    story.append(Spacer(1, 16))
+
+    # Stats summary table
+    stats_data = [
+        ["Total Devices", "Tested", "Passed", "Failed", "Quote Needed"],
+        [
+            str(len(job_devices)),
+            str(len(tested_devices)),
+            str(len(passed)),
+            str(len(failed)),
+            str(len(quote_needed)),
+        ],
+    ]
+    stats_table = Table(stats_data, colWidths=[1.4 * inch] * 5)
+    stats_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), BLUE),
+        ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#aaaaaa")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [BLUE_LIGHT]),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica-Bold"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(stats_table)
+    story.append(Spacer(1, 16))
+
+    # Device roster table
+    story.append(Paragraph("Device Roster", h3))
+    roster_header = ["Device Type", "Serial #", "Result", "Test Date", "Quote Needed"]
+    roster_rows = [roster_header]
+    for d in job_devices:
+        t = test_by_device.get(d["id"], {})
+        result = t.get("testResult") or "Not Tested"
+        date_val = t.get("testDateInitial") or "—"
+        quote = "Yes" if t.get("quoteNeeded") else ("—" if t else "—")
+        roster_rows.append([
+            d.get("typeMain") or "Unknown",
+            d.get("serialMain") or "—",
+            result,
+            date_val,
+            quote,
+        ])
+    col_widths = [2.0 * inch, 1.4 * inch, 1.0 * inch, 1.2 * inch, 1.1 * inch]
+    roster_table = Table(roster_rows, colWidths=col_widths)
+    roster_style = TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), BLUE),
+        ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, GRAY_LIGHT]),
+        ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#cccccc")),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+    ])
+    # Colour result cells
+    for row_idx, d in enumerate(job_devices, start=1):
+        t = test_by_device.get(d["id"], {})
+        result = t.get("testResult") or ""
+        if result == "Passed":
+            roster_style.add("TEXTCOLOR", (2, row_idx), (2, row_idx), GREEN)
+            roster_style.add("FONTNAME", (2, row_idx), (2, row_idx), "Helvetica-Bold")
+        elif result == "Failed":
+            roster_style.add("TEXTCOLOR", (2, row_idx), (2, row_idx), RED)
+            roster_style.add("FONTNAME", (2, row_idx), (2, row_idx), "Helvetica-Bold")
+    roster_table.setStyle(roster_style)
+    story.append(roster_table)
+
+    # ── Per-device sections ──────────────────────────────────────────────────
+
+    for d in tested_devices:
+        story.append(PageBreak())
+        t = test_by_device[d["id"]]
+        result = t.get("testResult") or "Unknown"
+        serial = d.get("serialMain") or "N/A"
+        dev_type = d.get("typeMain") or "Unknown"
+
+        # Section header
+        story.append(Paragraph(f"{dev_type} — SN: {serial}", h2))
+
+        # PASS / FAIL stamp
+        stamp_color = GREEN if result == "Passed" else RED
+        stamp_data = [[result]]
+        stamp = Table(stamp_data, colWidths=[1.6 * inch])
+        stamp.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (0, 0), stamp_color),
+            ("TEXTCOLOR", (0, 0), (0, 0), WHITE),
+            ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (0, 0), 14),
+            ("ALIGN", (0, 0), (0, 0), "CENTER"),
+            ("TOPPADDING", (0, 0), (0, 0), 8),
+            ("BOTTOMPADDING", (0, 0), (0, 0), 8),
+            ("ROUNDEDCORNERS", [4, 4, 4, 4]),
+        ]))
+        story.append(stamp)
+        story.append(Spacer(1, 10))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=HexColor("#cccccc"), spaceAfter=8))
+
+        def _row(label, value):
+            return [label, str(value) if value else "—"]
+
+        # Device info
+        story.append(Paragraph("Device Information", h3))
+        dev_info_rows = [
+            _row("Manufacturer", d.get("manufacturerMain")),
+            _row("Model", d.get("modelMain")),
+            _row("Size", d.get("sizeMain")),
+            _row("Location", d.get("bpaLocation")),
+            _row("Serves", d.get("bpaServes")),
+        ]
+        if d.get("domesticMainline"):
+            dev_info_rows.append(["Domestic Mainline", "Yes"])
+        dev_table = Table(dev_info_rows, colWidths=[1.8 * inch, 5.2 * inch])
+        dev_table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [WHITE, GRAY_LIGHT]),
+            ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#dddddd")),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(dev_table)
+        story.append(Spacer(1, 10))
+
+        # Test info
+        story.append(Paragraph("Test Information", h3))
+        test_info_rows = [
+            _row("Test Date", t.get("testDateInitial")),
+            _row("Test Time", t.get("testTimeInitial")),
+            _row("Reason for Test", t.get("reasonForTest")),
+            _row("Installed Per Code", "Yes" if t.get("installedPerCode") else "No"),
+            _row("Gauge Type", t.get("gaugeType")),
+        ]
+        test_info_table = Table(test_info_rows, colWidths=[1.8 * inch, 5.2 * inch])
+        test_info_table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [WHITE, GRAY_LIGHT]),
+            ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#dddddd")),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(test_info_table)
+        story.append(Spacer(1, 10))
+
+        # Initial readings
+        reading_rows = []
+        if t.get("firstCheckReadingInitial") is not None and t.get("firstCheckReadingInitial") != "":
+            reading_rows.append(_row("1st Check Reading", f"{t['firstCheckReadingInitial']} PSI"))
+        if t.get("secondCheckReadingInitial") is not None and t.get("secondCheckReadingInitial") != "":
+            reading_rows.append(_row("2nd Check Reading", f"{t['secondCheckReadingInitial']} PSI"))
+        if t.get("reliefValveReadingInitial") is not None and t.get("reliefValveReadingInitial") != "":
+            reading_rows.append(_row("Relief Valve Reading", f"{t['reliefValveReadingInitial']} PSI"))
+        if t.get("airInletReadingInitial") is not None and t.get("airInletReadingInitial") != "":
+            reading_rows.append(_row("Air Inlet Reading", f"{t['airInletReadingInitial']} PSI"))
+        if t.get("checkValveReadingInitial") is not None and t.get("checkValveReadingInitial") != "":
+            reading_rows.append(_row("Check Valve Reading", f"{t['checkValveReadingInitial']} PSI"))
+        if reading_rows:
+            story.append(Paragraph("Initial Readings", h3))
+            readings_table = Table(reading_rows, colWidths=[1.8 * inch, 5.2 * inch])
+            readings_table.setStyle(TableStyle([
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("ROWBACKGROUNDS", (0, 0), (-1, -1), [WHITE, GRAY_LIGHT]),
+                ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#dddddd")),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(readings_table)
+            story.append(Spacer(1, 10))
+
+        # Repairs
+        if t.get("repairsDescription"):
+            story.append(Paragraph("Repairs", h3))
+            repair_rows = [_row("Repair Description", t.get("repairsDescription"))]
+            if t.get("isolationValveUpstream") is not None:
+                repair_rows.append(_row("Isolation Valve Upstream", "Yes" if t.get("isolationValveUpstream") else "No"))
+            if t.get("isolationValveDownstream") is not None:
+                repair_rows.append(_row("Isolation Valve Downstream", "Yes" if t.get("isolationValveDownstream") else "No"))
+            # After-repair readings
+            if t.get("firstCheckReadingAfterRepair") is not None and t.get("firstCheckReadingAfterRepair") != "":
+                repair_rows.append(_row("1st Check After Repair", f"{t['firstCheckReadingAfterRepair']} PSI"))
+            if t.get("secondCheckReadingAfterRepair") is not None and t.get("secondCheckReadingAfterRepair") != "":
+                repair_rows.append(_row("2nd Check After Repair", f"{t['secondCheckReadingAfterRepair']} PSI"))
+            if t.get("reliefValveReadingAfterRepair") is not None and t.get("reliefValveReadingAfterRepair") != "":
+                repair_rows.append(_row("Relief Valve After Repair", f"{t['reliefValveReadingAfterRepair']} PSI"))
+            if t.get("airInletReadingAfterRepair") is not None and t.get("airInletReadingAfterRepair") != "":
+                repair_rows.append(_row("Air Inlet After Repair", f"{t['airInletReadingAfterRepair']} PSI"))
+            if t.get("checkValveReadingAfterRepair") is not None and t.get("checkValveReadingAfterRepair") != "":
+                repair_rows.append(_row("Check Valve After Repair", f"{t['checkValveReadingAfterRepair']} PSI"))
+            repair_table = Table(repair_rows, colWidths=[2.0 * inch, 5.0 * inch])
+            repair_table.setStyle(TableStyle([
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("ROWBACKGROUNDS", (0, 0), (-1, -1), [WHITE, GRAY_LIGHT]),
+                ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#dddddd")),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(repair_table)
+            story.append(Spacer(1, 10))
+
+        # Remarks
+        if t.get("remarks"):
+            story.append(Paragraph("Remarks", h3))
+            story.append(Paragraph(str(t["remarks"]), body))
+            story.append(Spacer(1, 10))
+
+        # Quote needed
+        if t.get("quoteNeeded"):
+            quote_data = [["Quote Needed"]]
+            qt = Table(quote_data, colWidths=[1.8 * inch])
+            qt.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (0, 0), HexColor("#fff3e0")),
+                ("TEXTCOLOR", (0, 0), (0, 0), HexColor("#e65100")),
+                ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (0, 0), 10),
+                ("ALIGN", (0, 0), (0, 0), "CENTER"),
+                ("TOPPADDING", (0, 0), (0, 0), 5),
+                ("BOTTOMPADDING", (0, 0), (0, 0), 5),
+            ]))
+            story.append(qt)
+
+    doc.build(story)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+@router.post("/api/job/{job_id}/backflow-summary-pdf")
+async def generate_job_summary_pdf(
+    job_id: str,
+    body: dict,
+    st: ServiceTitanClient = Depends(get_st_client),
+):
+    job_devices = [d for d in _devices if str(d.get("jobId")) == str(job_id)]
+    job_tests = [t for t in _test_records if str(t.get("jobId")) == str(job_id)]
+    test_by_device = {t["deviceId"]: t for t in job_tests}
+
+    pdf_bytes = _generate_job_summary_pdf(job_id, job_devices, test_by_device, body)
+
+    date_str = datetime.now().strftime("%Y%m%d")
+    file_name = f"Backflow_Summary_Job{job_id}_{date_str}.pdf"
+
+    # Upload to ServiceTitan as job attachment
+    st_attachment_id = None
+    try:
+        token = await st.get_access_token()
+        upload_url = f"{st.api_base_url}/forms/v2/tenant/{st.tenant_id}/jobs/{job_id}/attachments"
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                upload_url,
+                headers={"Authorization": f"Bearer {token}", "ST-App-Key": st.app_key},
+                files={"file": (file_name, pdf_bytes, "application/pdf")},
+                timeout=60.0,
+            )
+        if response.is_success:
+            resp_json = response.json() if response.text else {}
+            print(f"[backflow] Summary PDF ST upload: {resp_json}")
+            st_attachment_id = (
+                resp_json.get("id")
+                or resp_json.get("attachmentId")
+                or resp_json.get("data", {}).get("id")
+                or "uploaded"
+            )
+        else:
+            print(f"[backflow] Summary PDF ST upload failed: {response.status_code} {response.text}")
+    except Exception as e:
+        print(f"[backflow] Summary PDF ST upload error: {e}")
+
+    pdf_record = {
+        "id": f"pdf-{next(_pdf_counter)}",
+        "jobId": job_id,
+        "fileName": file_name,
+        "serviceTitanAttachmentId": st_attachment_id,
+        "isSummary": True,
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+    }
+    _generated_pdfs.append(pdf_record)
+    return {"success": True, "data": pdf_record}
