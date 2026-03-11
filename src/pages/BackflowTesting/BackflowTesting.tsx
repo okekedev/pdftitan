@@ -185,9 +185,7 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
                 onAddDevice={handleAddDevice}
                 onEditDevice={handleEditDevice}
                 onSelectDeviceForTest={handleSelectDeviceForTest}
-                onGeneratePDFs={handleGeneratePDFs}
                 onBack={onBack}
-                canGenerate={getCompletedDeviceCount() > 0}
               />
             )}
 
@@ -220,6 +218,7 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
                 device={selectedDevice}
                 testRecord={testRecords[selectedDevice?.id]}
                 job={job}
+                requiresIsolationValvePhoto={testRecords[selectedDevice?.id]?.requiresWaterBeyondDeviceOff === 'Yes'}
                 onComplete={handlePhotosComplete}
                 onBack={handleBackToDevices}
               />

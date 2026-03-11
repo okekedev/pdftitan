@@ -46,6 +46,7 @@ export default function TestForm({ device, job, technician, existingTest, onSave
     sizeBypass: device?.sizeBypass ?? '',
     bpaLocation: device?.bpaLocation ?? '',
     bpaServes: device?.bpaServes ?? '',
+    isDomesticMainline: device?.isDomesticMainline ?? false,
   });
 
   const [testData, setTestData] = useState({
@@ -85,11 +86,13 @@ export default function TestForm({ device, job, technician, existingTest, onSave
     testResult: existingTest?.testResult ?? '',
     quoteNeeded: existingTest?.quoteNeeded ?? false,
     remarks: existingTest?.remarks ?? '',
+    requiresWaterBeyondDeviceOff: existingTest?.requiresWaterBeyondDeviceOff ?? '',
+    hasIsolationValve: existingTest?.hasIsolationValve ?? '',
   });
 
   const hasRepairs = testData.repairsMain || testData.repairsBypass;
 
-  const handleDeviceChange = (field: string, value: string) =>
+  const handleDeviceChange = (field: string, value: string | boolean) =>
     setDeviceData({ ...deviceData, [field]: value });
 
   const handleTestChange = (field: string, value: unknown) =>
@@ -256,6 +259,20 @@ export default function TestForm({ device, job, technician, existingTest, onSave
                 <label>BPA Serves</label>
                 <input type="text" value={deviceData.bpaServes} onChange={(e) => handleDeviceChange('bpaServes', e.target.value)} placeholder="e.g., Irrigation, Fire sprinkler" />
               </div>
+            </div>
+          </div>
+
+          <div className="form-section">
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={deviceData.isDomesticMainline as boolean}
+                  onChange={(e) => handleDeviceChange('isDomesticMainline', e.target.checked)}
+                />
+                {' '}Is this a known domestic mainline?
+              </label>
+              <p className="field-hint">Check if this device is installed on a domestic (residential) mainline. This flag is permanent and shown on the device card.</p>
             </div>
           </div>
 
@@ -429,6 +446,36 @@ export default function TestForm({ device, job, technician, existingTest, onSave
         </div>
 
         {hasRepairs && (
+          <>
+          <div className="form-section">
+            <h4>Isolation Valve</h4>
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Will this repair require water beyond the device being turned off?</label>
+                <select value={testData.requiresWaterBeyondDeviceOff} onChange={(e) => handleTestChange('requiresWaterBeyondDeviceOff', e.target.value)}>
+                  <option value="">Select...</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+              {testData.requiresWaterBeyondDeviceOff === 'Yes' && (
+                <>
+                  <div className="form-group">
+                    <label>Is there an apparent isolation valve for this device?</label>
+                    <select value={testData.hasIsolationValve} onChange={(e) => handleTestChange('hasIsolationValve', e.target.value)}>
+                      <option value="">Select...</option>
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                    </select>
+                  </div>
+                  <div className="form-group full-width">
+                    <p className="field-note isolation-note">Photo of area required</p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
           <div className="form-section">
             <h4>After-Repair Test Readings</h4>
             <div className="form-grid">
@@ -505,6 +552,7 @@ export default function TestForm({ device, job, technician, existingTest, onSave
               )}
             </div>
           </div>
+          </>
         )}
 
         <div className="form-section">

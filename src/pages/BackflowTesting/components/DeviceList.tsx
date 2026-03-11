@@ -8,9 +8,7 @@ interface DeviceListProps {
   onAddDevice: () => void;
   onEditDevice: (device: any) => void;
   onSelectDeviceForTest: (device: any) => void;
-  onGeneratePDFs: () => void;
   onBack: () => void;
-  canGenerate: boolean;
 }
 
 export default function DeviceList({
@@ -20,9 +18,7 @@ export default function DeviceList({
   onAddDevice,
   onEditDevice,
   onSelectDeviceForTest,
-  onGeneratePDFs,
   onBack,
-  canGenerate,
 }: DeviceListProps) {
   const getDeviceStatus = (device: any): string => {
     const testRecord = testRecords[device.id];
@@ -117,6 +113,9 @@ export default function DeviceList({
                 </div>
 
                 <div className="device-footer">
+                  {(device.isDomesticMainline || testRecord?.isDomesticMainline) && (
+                    <span className="domestic-mainline-badge">DOMESTIC MAINLINE</span>
+                  )}
                   {status !== 'not-tested' && (
                     <span className={`status-badge status-${status}`}>{getStatusLabel(status)}</span>
                   )}
@@ -146,14 +145,6 @@ export default function DeviceList({
                   >
                     {isTested ? 'Re-Test' : 'Record Test'}
                   </button>
-                  {isTested && (
-                    <button
-                      className="btn btn-sm btn-success"
-                      onClick={(e) => { e.stopPropagation(); onGeneratePDFs(); }}
-                    >
-                      Generate Form
-                    </button>
-                  )}
                 </div>
               </div>
             );

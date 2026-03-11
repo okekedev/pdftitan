@@ -297,6 +297,7 @@ async def upload_photo(
     testRecordId: str = Form(""),
     deviceId: str = Form(""),
     isFailedPhoto: str = Form("false"),
+    photoLabel: str = Form(default=""),
     st: ServiceTitanClient = Depends(get_st_client),
 ):
     file_bytes = await photo.read()
@@ -309,6 +310,7 @@ async def upload_photo(
         "originalFileName": photo.filename,
         "generatedFileName": generatedFileName,
         "isFailedPhoto": isFailedPhoto.lower() == "true",
+        "photoLabel": photoLabel,
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "uploadedToServiceTitan": False,
     }

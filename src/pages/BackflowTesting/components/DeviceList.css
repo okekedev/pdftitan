@@ -168,6 +168,16 @@
   color: white;
 }
 
+.domestic-mainline-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #d32f2f;
+  color: white;
+  letter-spacing: 0.5px;
+}
+
 .download-badge {
   padding: 4px 12px;
   border-radius: 12px;
