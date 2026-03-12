@@ -127,6 +127,7 @@ export default function App() {
             onBack={handleBackToJobs}
             technician={technician}
             onLogout={handleLogout}
+            onStartBackflowTesting={handleStartBackflowTesting}
           />
         )}
 

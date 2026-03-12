@@ -13,6 +13,7 @@ interface AttachmentsProps {
   onLogout: () => void;
   onPDFOpen?: () => void;
   onPDFClose?: () => void;
+  onStartBackflowTesting?: (job: Job) => void;
 }
 
 export default function Attachments({
@@ -23,6 +24,7 @@ export default function Attachments({
   onLogout,
   onPDFOpen,
   onPDFClose,
+  onStartBackflowTesting,
 }: AttachmentsProps) {
   const [selectedPDF, setSelectedPDF] = useState<any>(null);
   const [attachments, setAttachments] = useState<any[]>([]);
@@ -34,6 +36,9 @@ export default function Attachments({
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
   const [drafts, setDrafts] = useState<any[]>([]);
   const [completedFiles, setCompletedFiles] = useState<any[]>([]);
+  const [backflowDevices, setBackflowDevices] = useState<any[]>([]);
+  const [backflowTests, setBackflowTests] = useState<Record<string, any>>({});
+  const [isLoadingBackflow, setIsLoadingBackflow] = useState(false);
 
   useEffect(() => {
     const loadJobDetails = async () => {
@@ -96,6 +101,27 @@ export default function Attachments({
       }
     };
     if (job?.id) loadDrafts();
+  }, [job]);
+
+  useEffect(() => {
+    const loadBackflow = async () => {
+      try {
+        setIsLoadingBackflow(true);
+        const [devRes, testRes] = await Promise.all([
+          apiClient.getJobBackflowDevices(job.id),
+          apiClient.getJobBackflowTests(job.id),
+        ]);
+        setBackflowDevices((devRes.data as any[]) ?? []);
+        const map: Record<string, any> = {};
+        ((testRes.data as any[]) ?? []).forEach((t: any) => { map[t.deviceId] = t; });
+        setBackflowTests(map);
+      } catch {
+        // non-critical — silently fail
+      } finally {
+        setIsLoadingBackflow(false);
+      }
+    };
+    if (job?.id) loadBackflow();
   }, [job]);
 
   useEffect(() => {
@@ -430,6 +456,49 @@ export default function Attachments({
                 )}
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="backflow-section">
+          <div className="section-header">
+            <h3>🔧 Backflow Testing</h3>
+          </div>
+          <div className="backflow-content">
+            {isLoadingBackflow ? (
+              <span className="backflow-loading">Loading devices…</span>
+            ) : (
+              <div className="backflow-summary-row">
+                <div className="backflow-stats">
+                  {backflowDevices.length === 0 ? (
+                    <span className="backflow-stat-item">No devices added yet</span>
+                  ) : (
+                    <>
+                      <span className="backflow-stat-item">
+                        {Object.values(backflowTests).filter((t: any) => t.testResult).length} of {backflowDevices.length} devices tested
+                      </span>
+                      {Object.values(backflowTests).filter((t: any) => t.testResult === 'Passed').length > 0 && (
+                        <span className="backflow-stat-item backflow-stat-pass">
+                          ✓ {Object.values(backflowTests).filter((t: any) => t.testResult === 'Passed').length} passed
+                        </span>
+                      )}
+                      {Object.values(backflowTests).filter((t: any) => t.testResult === 'Failed').length > 0 && (
+                        <span className="backflow-stat-item backflow-stat-fail">
+                          ✗ {Object.values(backflowTests).filter((t: any) => t.testResult === 'Failed').length} failed
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+                {onStartBackflowTesting && (
+                  <button
+                    className="backflow-start-btn"
+                    onClick={() => onStartBackflowTesting(job)}
+                  >
+                    {backflowDevices.length === 0 ? 'Set Up Backflow Testing' : 'Continue Testing'}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

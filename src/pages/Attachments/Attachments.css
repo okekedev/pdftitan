@@ -720,6 +720,85 @@
   }
 }
 
+/* ===== BACKFLOW TESTING SECTION ===== */
+.attachments-page .backflow-section {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  border-left: 4px solid #1565c0;
+}
+
+.attachments-page .backflow-section .section-header {
+  padding: 1rem 1.5rem 0.75rem;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.attachments-page .backflow-section .section-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1565c0;
+}
+
+.attachments-page .backflow-content {
+  padding: 1rem 1.5rem;
+}
+
+.attachments-page .backflow-loading {
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.attachments-page .backflow-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.attachments-page .backflow-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.attachments-page .backflow-stat-item {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #444;
+}
+
+.attachments-page .backflow-stat-pass {
+  color: #2e7d32;
+}
+
+.attachments-page .backflow-stat-fail {
+  color: #c62828;
+}
+
+.attachments-page .backflow-start-btn {
+  background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(21, 101, 192, 0.3);
+}
+
+.attachments-page .backflow-start-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(21, 101, 192, 0.4);
+}
+
 /* ===== ANIMATIONS ===== */
 @keyframes spin {
   0% {
