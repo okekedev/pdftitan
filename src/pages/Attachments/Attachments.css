@@ -101,6 +101,29 @@
   gap: 0.5rem;
 }
 
+.attachments-page .refresh-btn {
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #718096;
+  font-size: 1.1rem;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.attachments-page .refresh-btn:hover {
+  background: #edf2f7;
+  color: #0052cc;
+  border-color: #0052cc;
+  transform: rotate(30deg);
+}
+
 .btn-backflow-testing {
   padding: 12px 24px;
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);

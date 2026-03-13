@@ -449,6 +449,21 @@ export default function Attachments({
           <div className="pdf-forms-section">
             <div className="section-header">
               <h3>Available PDF Forms</h3>
+              <button
+                className="refresh-btn"
+                onClick={async () => {
+                  setIsLoading(true);
+                  try {
+                    const data = await apiClient.getJobAttachments(job.id);
+                    setAttachments(data);
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                title="Refresh forms"
+              >
+                ↻
+              </button>
             </div>
             <div className="pdf-forms-grid-container">
               <div className="pdf-forms-grid">
