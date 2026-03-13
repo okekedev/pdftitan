@@ -502,15 +502,6 @@ export default function Attachments({
           <div className="backflow-section-header">
             <h3>🔧 Backflow Testing</h3>
             <div className="backflow-header-actions">
-              {Object.values(backflowTests).some((t: any) => t?.testResult) && (
-                <button
-                  className="backflow-summary-btn"
-                  onClick={handleGenerateSummary}
-                  disabled={generatingSummary}
-                >
-                  {generatingSummary ? 'Generating…' : 'Generate Summary'}
-                </button>
-              )}
               {onStartBackflowTesting && (
                 <button className="backflow-start-btn" onClick={() => onStartBackflowTesting(job)}>
                   + Add Device
@@ -524,50 +515,63 @@ export default function Attachments({
             ) : backflowDevices.length === 0 ? (
               <p className="backflow-empty">No devices added yet.</p>
             ) : (
-              <div className="backflow-device-list">
-                {backflowDevices.map((device: any) => {
-                  const test = backflowTests[device.id];
-                  const result = test?.testResult;
-                  const isTested = !!result;
-                  return (
-                    <div key={device.id} className={`backflow-device-card ${isTested ? (result === 'Failed' ? 'bdc-failed' : 'bdc-passed') : 'bdc-untested'}`}>
-                      <div className="bdc-main">
-                        <div className="bdc-title-row">
-                          <span className="bdc-type">{device.typeMain || 'Device'}</span>
-                          <div className={`bdc-badge ${isTested ? (result === 'Failed' ? 'bdc-badge-fail' : 'bdc-badge-pass') : 'bdc-badge-none'}`}>
-                            {isTested ? result : 'Not Tested'}
+              <>
+                <div className="backflow-device-list">
+                  {backflowDevices.map((device: any) => {
+                    const test = backflowTests[device.id];
+                    const result = test?.testResult;
+                    const isTested = !!result;
+                    return (
+                      <div key={device.id} className={`backflow-device-card ${isTested ? (result === 'Failed' ? 'bdc-failed' : 'bdc-passed') : 'bdc-untested'}`}>
+                        <div className="bdc-main">
+                          <div className="bdc-title-row">
+                            <span className="bdc-type">{device.typeMain || 'Device'}</span>
+                            <div className={`bdc-badge ${isTested ? (result === 'Failed' ? 'bdc-badge-fail' : 'bdc-badge-pass') : 'bdc-badge-none'}`}>
+                              {isTested ? result : 'Not Tested'}
+                            </div>
+                          </div>
+                          <div className="bdc-details">
+                            {device.manufacturerMain && <span><strong>Mfr:</strong> {device.manufacturerMain}</span>}
+                            {device.modelMain && device.modelMain !== 'N/A' && <span><strong>Model:</strong> {device.modelMain}</span>}
+                            <span><strong>SN:</strong> {device.serialMain || '—'}</span>
+                            {device.sizeMain && <span><strong>Size:</strong> {device.sizeMain}</span>}
+                            {device.bpaLocation && <span><strong>Location:</strong> {device.bpaLocation}</span>}
+                            <span><strong>Last Tested:</strong> {test?.testDateInitial || 'Not tested'}</span>
                           </div>
                         </div>
-                        <div className="bdc-details">
-                          {device.manufacturerMain && <span><strong>Mfr:</strong> {device.manufacturerMain}</span>}
-                          {device.modelMain && device.modelMain !== 'N/A' && <span><strong>Model:</strong> {device.modelMain}</span>}
-                          <span><strong>SN:</strong> {device.serialMain || '—'}</span>
-                          {device.sizeMain && <span><strong>Size:</strong> {device.sizeMain}</span>}
-                          {device.bpaLocation && <span><strong>Location:</strong> {device.bpaLocation}</span>}
-                          <span><strong>Last Tested:</strong> {test?.testDateInitial || 'Not tested'}</span>
+                        <div className="bdc-actions">
+                          {onStartBackflowTesting && (
+                            <button className="bdc-btn bdc-btn-edit" onClick={() => onStartBackflowTesting(job, device, 'addDevice')}>
+                              Edit Device
+                            </button>
+                          )}
+                          {isTested && test?.id && (
+                            <button className="bdc-btn bdc-btn-reset" onClick={() => handleResetTest(test.id)}>
+                              Reset Test
+                            </button>
+                          )}
+                          {onStartBackflowTesting && (
+                            <button className="bdc-btn bdc-btn-test" onClick={() => onStartBackflowTesting(job, device, 'test')}>
+                              {isTested ? 'Re-test' : 'Start Testing'}
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <div className="bdc-actions">
-                        {onStartBackflowTesting && (
-                          <button className="bdc-btn bdc-btn-edit" onClick={() => onStartBackflowTesting(job, device, 'addDevice')}>
-                            Edit Device
-                          </button>
-                        )}
-                        {isTested && test?.id && (
-                          <button className="bdc-btn bdc-btn-reset" onClick={() => handleResetTest(test.id)}>
-                            Reset Test
-                          </button>
-                        )}
-                        {onStartBackflowTesting && (
-                          <button className="bdc-btn bdc-btn-test" onClick={() => onStartBackflowTesting(job, device, 'test')}>
-                            {isTested ? 'Re-test' : 'Start Testing'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+                {Object.values(backflowTests).some((t: any) => t?.testResult) && (
+                  <div className="backflow-summary-row">
+                    <button
+                      className="backflow-summary-btn"
+                      onClick={handleGenerateSummary}
+                      disabled={generatingSummary}
+                    >
+                      {generatingSummary ? 'Generating…' : 'Generate Summary'}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

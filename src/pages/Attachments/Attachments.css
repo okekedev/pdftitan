@@ -887,6 +887,12 @@
   gap: 8px;
 }
 
+.attachments-page .backflow-summary-row {
+  display: flex;
+  justify-content: center;
+  padding-top: 12px;
+}
+
 .attachments-page .backflow-summary-btn {
   background: #546e7a;
   color: #ffffff;
