@@ -894,19 +894,21 @@
 }
 
 .attachments-page .backflow-summary-btn {
-  background: #546e7a;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: #ffffff;
   border: none;
   border-radius: 6px;
-  padding: 0.5rem 1.1rem;
+  padding: 0.5rem 1.4rem;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
 }
 
 .attachments-page .backflow-summary-btn:hover:not(:disabled) {
-  background: #455a64;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.45);
 }
 
 .attachments-page .backflow-summary-btn:disabled {
