@@ -10,6 +10,59 @@ interface ManufacturerEntry {
 const DEVICE_TYPES = ['DC', 'RPZ', 'DCDA', 'RPDA', 'DCDA Type II', 'RPDA Type II', 'PVB', 'SVB'];
 const SIZES = ['1/2"', '3/4"', '1"', '1-1/4"', '1-1/2"', '2"', '2-1/2"', '3"', '4"', '6"', '8"', '10"'];
 
+function ManufacturerCombo({ value, manufacturers, onChange }: {
+  value: string;
+  manufacturers: ManufacturerEntry[];
+  onChange: (v: string) => void;
+}) {
+  const isKnown = manufacturers.some((m) => m.name === value);
+  const selectVal = value === '' ? '' : isKnown ? value : '__other__';
+  return (
+    <>
+      <select value={selectVal} onChange={(e) => {
+        if (e.target.value === '__other__') onChange('');
+        else onChange(e.target.value);
+      }}>
+        <option value="">Select manufacturer</option>
+        {manufacturers.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
+        <option value="__other__">Other…</option>
+      </select>
+      {selectVal === '__other__' && (
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)}
+          placeholder="Type manufacturer name" className="combo-custom-input" />
+      )}
+    </>
+  );
+}
+
+function ModelCombo({ value, models, onChange }: {
+  value: string;
+  models: string[];
+  onChange: (v: string) => void;
+}) {
+  if (models.length === 0) {
+    return <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder="e.g., LF007, 765" />;
+  }
+  const isKnown = models.includes(value);
+  const selectVal = value === '' ? '' : isKnown ? value : '__other__';
+  return (
+    <>
+      <select value={selectVal} onChange={(e) => {
+        if (e.target.value === '__other__') onChange('');
+        else onChange(e.target.value);
+      }}>
+        <option value="">Select model</option>
+        {models.map((m) => <option key={m} value={m}>{m}</option>)}
+        <option value="__other__">Other…</option>
+      </select>
+      {selectVal === '__other__' && (
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)}
+          placeholder="e.g., LF007, 765" className="combo-custom-input" />
+      )}
+    </>
+  );
+}
+
 interface TestFormProps {
   device: any;
   job: any;
@@ -35,6 +88,7 @@ export default function TestForm({ device, job, technician, existingTest, onSave
   );
 
   const [deviceData, setDeviceData] = useState({
+    id: device?.id ?? '',
     typeMain: device?.typeMain ?? '',
     manufacturerMain: device?.manufacturerMain ?? '',
     modelMain: device?.modelMain ?? '',
@@ -165,29 +219,22 @@ export default function TestForm({ device, job, technician, existingTest, onSave
               </div>
               <div className="form-group">
                 <label>Manufacturer</label>
-                <input
-                  type="text"
-                  list="manufacturers-main"
+                <ManufacturerCombo
                   value={deviceData.manufacturerMain}
-                  onChange={(e) => handleDeviceChange('manufacturerMain', e.target.value)}
-                  placeholder="e.g., Watts, Febco"
+                  manufacturers={manufacturers}
+                  onChange={(v) => {
+                    handleDeviceChange('manufacturerMain', v);
+                    if (v !== deviceData.manufacturerMain) handleDeviceChange('modelMain', '');
+                  }}
                 />
-                <datalist id="manufacturers-main">
-                  {manufacturers.map((m) => <option key={m.name} value={m.name} />)}
-                </datalist>
               </div>
               <div className="form-group">
                 <label>Model</label>
-                <input
-                  type="text"
-                  list="models-main"
+                <ModelCombo
                   value={deviceData.modelMain}
-                  onChange={(e) => handleDeviceChange('modelMain', e.target.value)}
-                  placeholder="e.g., LF007, 765"
+                  models={getModelsFor(deviceData.manufacturerMain)}
+                  onChange={(v) => handleDeviceChange('modelMain', v)}
                 />
-                <datalist id="models-main">
-                  {getModelsFor(deviceData.manufacturerMain).map((m) => <option key={m} value={m} />)}
-                </datalist>
               </div>
               <div className="form-group">
                 <label>Serial Number *</label>
@@ -209,29 +256,22 @@ export default function TestForm({ device, job, technician, existingTest, onSave
               <div className="form-grid">
                 <div className="form-group">
                   <label>Manufacturer</label>
-                  <input
-                    type="text"
-                    list="manufacturers-bypass"
+                  <ManufacturerCombo
                     value={deviceData.manufacturerBypass}
-                    onChange={(e) => handleDeviceChange('manufacturerBypass', e.target.value)}
-                    placeholder="e.g., Watts, Febco"
+                    manufacturers={manufacturers}
+                    onChange={(v) => {
+                      handleDeviceChange('manufacturerBypass', v);
+                      if (v !== deviceData.manufacturerBypass) handleDeviceChange('modelBypass', '');
+                    }}
                   />
-                  <datalist id="manufacturers-bypass">
-                    {manufacturers.map((m) => <option key={m.name} value={m.name} />)}
-                  </datalist>
                 </div>
                 <div className="form-group">
                   <label>Model</label>
-                  <input
-                    type="text"
-                    list="models-bypass"
+                  <ModelCombo
                     value={deviceData.modelBypass}
-                    onChange={(e) => handleDeviceChange('modelBypass', e.target.value)}
-                    placeholder="e.g., LF007, 765"
+                    models={getModelsFor(deviceData.manufacturerBypass)}
+                    onChange={(v) => handleDeviceChange('modelBypass', v)}
                   />
-                  <datalist id="models-bypass">
-                    {getModelsFor(deviceData.manufacturerBypass).map((m) => <option key={m} value={m} />)}
-                  </datalist>
                 </div>
                 <div className="form-group">
                   <label>Serial Number</label>
@@ -277,8 +317,8 @@ export default function TestForm({ device, job, technician, existingTest, onSave
           </div>
 
           <div className="form-actions">
-            <button type="button" onClick={onCancel} className="btn btn-primary">Cancel</button>
-            <button type="button" onClick={isDeviceOnly ? handleDeviceSave : handleDeviceNext} className="btn btn-success">
+            <button type="button" onClick={onCancel} className="tf-btn tf-btn-cancel">Cancel</button>
+            <button type="button" onClick={isDeviceOnly ? handleDeviceSave : handleDeviceNext} className="tf-btn tf-btn-save">
               {isDeviceOnly ? 'Save' : 'Next: Test Data'}
             </button>
           </div>
@@ -561,8 +601,12 @@ export default function TestForm({ device, job, technician, existingTest, onSave
             <div className="form-group">
               <label>Test Result *</label>
               <select value={testData.testResult} onChange={(e) => {
-                handleTestChange('testResult', e.target.value);
-                if (e.target.value === 'Failed') handleTestChange('quoteNeeded', true);
+                const result = e.target.value;
+                setTestData(prev => ({
+                  ...prev,
+                  testResult: result,
+                  ...(result === 'Failed' && { quoteNeeded: true }),
+                }));
               }} required>
                 <option value="">Select Result</option>
                 <option value="Passed">Passed</option>
@@ -570,7 +614,8 @@ export default function TestForm({ device, job, technician, existingTest, onSave
               </select>
             </div>
             <div className="form-group">
-              <label>
+              <label className="form-label-spacer">&nbsp;</label>
+              <label className="checkbox-label">
                 <input type="checkbox" checked={testData.quoteNeeded} onChange={(e) => handleTestChange('quoteNeeded', e.target.checked)} />
                 {' '}Quote Needed
               </label>
@@ -583,11 +628,11 @@ export default function TestForm({ device, job, technician, existingTest, onSave
         </div>
 
         <div className="form-actions">
-          <button type="button" onClick={onCancel} className="btn btn-secondary">Cancel</button>
+          <button type="button" onClick={onCancel} className="tf-btn tf-btn-cancel">Cancel</button>
           {device?.isNew && (
-            <button type="button" onClick={() => setIsDeviceStep(true)} className="btn btn-secondary">Back to Device</button>
+            <button type="button" onClick={() => setIsDeviceStep(true)} className="tf-btn tf-btn-cancel">Back to Device</button>
           )}
-          <button type="submit" className="btn btn-primary">Save & Continue</button>
+          <button type="submit" className="tf-btn tf-btn-save">Save & Continue</button>
         </div>
       </form>
     </div>

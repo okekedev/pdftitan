@@ -4,8 +4,8 @@ import Header from './components/Header/Header';
 import Login from './pages/Login/Login';
 import Jobs from './pages/Jobs/Jobs';
 import Attachments from './pages/Attachments/Attachments';
-import Documentation from './pages/Documentation/Documentation';
 import BackflowTesting from './pages/BackflowTesting/BackflowTesting';
+import Documentation from './pages/Documentation/Documentation';
 import type { Technician, Job, Breadcrumb } from './types';
 import './App.css';
 
@@ -15,6 +15,8 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState('jobs');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [preSelectedDevice, setPreSelectedDevice] = useState<any>(null);
+  const [backflowInitialStep, setBackflowInitialStep] = useState<string>('devices');
 
   // ===== SESSION MANAGEMENT =====
   useEffect(() => {
@@ -51,8 +53,10 @@ export default function App() {
     setCurrentPage('jobs');
   };
 
-  const handleStartBackflowTesting = (job: Job) => {
+  const handleStartBackflowTesting = (job: Job, device?: any, step?: string) => {
     setSelectedJob(job);
+    setPreSelectedDevice(device ?? null);
+    setBackflowInitialStep(step ?? (device ? 'test' : 'devices'));
     setCurrentPage('backflow-testing');
   };
 
@@ -73,8 +77,8 @@ export default function App() {
         return [{ id: 'attachments', label: `Job #${selectedJob?.number ?? 'Unknown'} - PDF Forms`, active: true }];
       case 'backflow-testing':
         return [
-          { id: 'jobs', label: 'Jobs', active: false },
-          { id: 'backflow-testing', label: `Backflow Testing - Job #${selectedJob?.number ?? 'Unknown'}`, active: true },
+          { id: 'attachments', label: `Job #${selectedJob?.number ?? 'Unknown'}`, active: false },
+          { id: 'backflow-testing', label: 'Backflow Testing', active: true },
         ];
       case 'documentation':
         return [{ id: 'documentation', label: 'Documentation', active: true }];
@@ -116,7 +120,6 @@ export default function App() {
           <Jobs
             technician={technician}
             onSelectJob={handleSelectJob}
-            onStartBackflowTesting={handleStartBackflowTesting}
             onLogout={handleLogout}
           />
         )}
@@ -135,8 +138,10 @@ export default function App() {
           <BackflowTesting
             job={selectedJob}
             technician={technician}
-            onBack={handleBackToJobs}
+            onBack={() => setCurrentPage('attachments')}
             onLogout={handleLogout}
+            preSelectedDevice={preSelectedDevice}
+            initialStep={backflowInitialStep}
           />
         )}
 

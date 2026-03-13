@@ -57,7 +57,6 @@ export default function DeviceList({
       <div className="device-list-header">
         <h3>Backflow Devices</h3>
         <div className="header-actions">
-          <button onClick={onBack} className="btn btn-secondary">← Back to Jobs</button>
           <button onClick={onAddDevice} className="btn btn-primary">+ Add Device</button>
         </div>
       </div>
@@ -104,12 +103,10 @@ export default function DeviceList({
                     <span className="field-label">Location:</span>
                     <span className="field-value">{device.bpaLocation ?? 'N/A'}</span>
                   </div>
-                  {lastTestedDate && (
-                    <div className="device-field">
-                      <span className="field-label">Last Tested:</span>
-                      <span className="field-value tested-date">{lastTestedDate}</span>
-                    </div>
-                  )}
+                  <div className="device-field">
+                    <span className="field-label">Last Tested:</span>
+                    <span className="field-value tested-date">{lastTestedDate ?? 'Not tested'}</span>
+                  </div>
                 </div>
 
                 <div className="device-footer">
@@ -134,13 +131,13 @@ export default function DeviceList({
 
                 <div className="device-actions">
                   <button
-                    className="btn btn-sm btn-secondary"
+                    className="device-action-edit"
                     onClick={(e) => { e.stopPropagation(); onEditDevice(device); }}
                   >
                     Edit
                   </button>
                   <button
-                    className="btn btn-sm btn-primary"
+                    className="device-action-test"
                     onClick={(e) => { e.stopPropagation(); onSelectDeviceForTest(device); }}
                   >
                     {isTested ? 'Re-Test' : 'Record Test'}

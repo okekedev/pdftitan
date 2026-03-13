@@ -228,6 +228,10 @@ class ApiClient {
     return response;
   }
 
+  async deleteBackflowTest(testId: string) {
+    return this.apiCall(`/api/backflow-tests/${testId}`, { method: 'DELETE' });
+  }
+
   async getBackflowTestPhotos(testId: number | string) {
     console.log(`📷 Fetching photos for test: ${testId}`);
     const response = await this.apiCall<{ data: unknown[] }>(`/api/backflow-tests/${testId}/photos`);

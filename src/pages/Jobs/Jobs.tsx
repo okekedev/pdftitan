@@ -7,7 +7,6 @@ import './Jobs.css';
 interface JobsProps {
   technician: Technician;
   onSelectJob: (job: Job) => void;
-  onStartBackflowTesting: (job: Job) => void;
   onLogout: () => void;
 }
 
@@ -40,28 +39,12 @@ function sortJobsByStatus(jobs: Job[]): Job[] {
   });
 }
 
-function getTestedTime(jobId: number | string): string | null {
-  try {
-    const raw = localStorage.getItem('mrbackflow_tested_today');
-    if (!raw) return null;
-    const stored = JSON.parse(raw) as Record<string, Record<string, string>>;
-    const today = new Date().toISOString().split('T')[0];
-    return stored[today]?.[String(jobId)] ?? null;
-  } catch {
-    return null;
-  }
-}
 
-export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, onLogout }: JobsProps) {
+export default function Jobs({ technician, onSelectJob, onLogout }: JobsProps) {
   const [groupedJobs, setGroupedJobs] = useState<Record<string, DateGroup>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [pendingJob, setPendingJob] = useState<Job | null>(null);
-
   useEffect(() => {
     const loadJobs = async () => {
       try {
@@ -85,27 +68,6 @@ export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, 
 
     if (technician?.id) loadJobs();
   }, [technician]);
-
-  const handlePasswordSubmit = () => {
-    if (passwordInput === '4533') {
-      setShowPasswordDialog(false);
-      setPasswordInput('');
-      setPasswordError('');
-      if (onStartBackflowTesting && pendingJob) {
-        onStartBackflowTesting(pendingJob);
-      }
-      setPendingJob(null);
-    } else {
-      setPasswordError('Incorrect password. To edit PDF forms, use the "View Forms" button.');
-    }
-  };
-
-  const handlePasswordCancel = () => {
-    setShowPasswordDialog(false);
-    setPasswordInput('');
-    setPasswordError('');
-    setPendingJob(null);
-  };
 
   const getStatusIcon = (status: string | undefined): string => {
     switch (status?.toLowerCase()) {
@@ -272,7 +234,7 @@ export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, 
                   {jobs.map((job) => (
                     <div
                       key={job.id}
-                      className={`job-card${getTestedTime(job.id) ? ' job-card--tested' : ''}`}
+                      className="job-card"
                       onClick={() => handleJobSelection(job)}
                       role="button"
                       tabIndex={0}
@@ -280,11 +242,6 @@ export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, 
                         if (e.key === 'Enter' || e.key === ' ') handleJobSelection(job);
                       }}
                     >
-                      {getTestedTime(job.id) && (
-                        <div className="tested-today-banner">
-                          Tested today at {getTestedTime(job.id)}
-                        </div>
-                      )}
                       <div className="card-header">
                         <div className="job-identifier">
                           <h4 className="customer-name">{job.customer?.name ?? 'Unknown Customer'}</h4>
@@ -330,33 +287,8 @@ export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, 
                       </div>
 
                       <div className="card-footer">
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const jobData: Job = {
-                              id: job.id,
-                              number: job.number,
-                              title: job.title,
-                              status: job.status,
-                              priority: job.priority,
-                              customer: job.customer,
-                              nextAppointment: job.nextAppointment,
-                            };
-                            if (import.meta.env.DEV) {
-                              setPendingJob(jobData);
-                              setShowPasswordDialog(true);
-                              setPasswordInput('');
-                              setPasswordError('');
-                            } else {
-                              if (onStartBackflowTesting) onStartBackflowTesting(jobData);
-                            }
-                          }}
-                          title="Start Testing"
-                        >
-                          <span className="btn btn-sm btn-success">Start Testing</span>
-                        </div>
                         <div className="view-forms-btn">
-                          <span className="btn btn-sm btn-primary">View Forms →</span>
+                          <span className="btn btn-sm btn-primary">View Job →</span>
                         </div>
                       </div>
                     </div>
@@ -369,62 +301,6 @@ export default function Jobs({ technician, onSelectJob, onStartBackflowTesting, 
         </div>
       </div>
 
-      {showPasswordDialog && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', zIndex: 10000,
-        }}>
-          <div style={{
-            backgroundColor: 'white', padding: '2rem', borderRadius: '12px',
-            maxWidth: '400px', width: '90%', boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-          }}>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: '#333' }}>
-              🔐 Dev Access Required
-            </h3>
-            <p style={{ margin: '0 0 1.5rem 0', color: '#666', fontSize: '0.9rem' }}>
-              What's the password to start backflow testing?
-            </p>
-            <p style={{ margin: '0 0 1rem 0', color: '#0052cc', fontSize: '0.85rem', fontStyle: 'italic' }}>
-              💡 Note: To edit PDF forms, use the "View Forms" button.
-            </p>
-            <input
-              type="password"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handlePasswordSubmit(); }}
-              placeholder="Enter password"
-              autoFocus
-              style={{
-                width: '100%', padding: '0.75rem', fontSize: '1rem',
-                border: passwordError ? '2px solid #ef4444' : '2px solid #e0e0e0',
-                borderRadius: '8px', marginBottom: '0.5rem', boxSizing: 'border-box',
-              }}
-            />
-            {passwordError && (
-              <p style={{ margin: '0 0 1rem 0', color: '#ef4444', fontSize: '0.85rem' }}>
-                ❌ {passwordError}
-              </p>
-            )}
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-              <button onClick={handlePasswordCancel} style={{
-                flex: 1, padding: '0.75rem', fontSize: '1rem',
-                backgroundColor: '#f3f4f6', color: '#333', border: 'none',
-                borderRadius: '8px', cursor: 'pointer', fontWeight: '500',
-              }}>
-                Cancel
-              </button>
-              <button onClick={handlePasswordSubmit} style={{
-                flex: 1, padding: '0.75rem', fontSize: '1rem',
-                backgroundColor: '#0052cc', color: 'white', border: 'none',
-                borderRadius: '8px', cursor: 'pointer', fontWeight: '500',
-              }}>
-                Submit
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

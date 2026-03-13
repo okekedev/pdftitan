@@ -336,3 +336,44 @@
     flex-direction: column;
   }
 }
+
+/* Self-contained action buttons — no App.css inheritance */
+.pc-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.pc-btn-secondary { background-color: #546e7a; color: #ffffff; }
+.pc-btn-secondary:hover { background-color: #455a64; }
+.pc-btn-primary { background-color: #1976d2; color: #ffffff; }
+.pc-btn-primary:hover:not(:disabled) { background-color: #1565c0; }
+.pc-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Skip confirmation toast */
+.skip-confirm-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background-color: #fff3e0;
+  border: 1px solid #ffb74d;
+  border-left: 4px solid #f57c00;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.skip-confirm-msg {
+  font-size: 14px;
+  font-weight: 500;
+  color: #e65100;
+}
+
+.skip-confirm-actions {
+  display: flex;
+  gap: 8px;
+}

@@ -43,6 +43,7 @@ export default function PhotoCapture({ device, testRecord, job, requiresIsolatio
   const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
   const [uploadingExtra, setUploadingExtra] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
 
   const requiredSlots = requiresIsolationValvePhoto
     ? [...BASE_REQUIRED_SLOTS, ISOLATION_SLOT]
@@ -194,12 +195,10 @@ export default function PhotoCapture({ device, testRecord, job, requiresIsolatio
 
   const handleSkip = () => {
     if (!allRequiredSlotsFilled) {
-      const confirmed = window.confirm(
-        'Required photos are not complete. Are you sure you want to skip?\n\nMinimum required photos have not been uploaded.'
-      );
-      if (!confirmed) return;
+      setShowSkipConfirm(true);
+    } else {
+      onComplete();
     }
-    onComplete();
   };
 
   return (
@@ -307,13 +306,23 @@ export default function PhotoCapture({ device, testRecord, job, requiresIsolatio
         )}
       </div>
 
+      {showSkipConfirm && (
+        <div className="skip-confirm-toast">
+          <span className="skip-confirm-msg">⚠️ Not all required photos uploaded. Skip anyway?</span>
+          <div className="skip-confirm-actions">
+            <button className="pc-btn pc-btn-secondary" onClick={() => setShowSkipConfirm(false)}>No, go back</button>
+            <button className="pc-btn pc-btn-primary" onClick={() => { setShowSkipConfirm(false); onComplete(); }}>Yes, skip</button>
+          </div>
+        </div>
+      )}
+
       <div className="photo-actions">
-        <button onClick={onBack} className="btn btn-secondary">Back</button>
+        <button onClick={onBack} className="pc-btn pc-btn-secondary">Back</button>
         <div className="right-actions">
-          <button onClick={handleSkip} className="btn btn-secondary">Skip Photos</button>
+          <button onClick={handleSkip} className="pc-btn pc-btn-secondary">Skip Photos</button>
           <button
             onClick={onComplete}
-            className="btn btn-primary"
+            className="pc-btn pc-btn-primary"
             disabled={!allRequiredSlotsFilled}
             title={!allRequiredSlotsFilled ? 'Upload all required photos to complete' : ''}
           >

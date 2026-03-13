@@ -13,7 +13,7 @@ interface AttachmentsProps {
   onLogout: () => void;
   onPDFOpen?: () => void;
   onPDFClose?: () => void;
-  onStartBackflowTesting?: (job: Job) => void;
+  onStartBackflowTesting?: (job: Job, device?: any, step?: string) => void;
 }
 
 export default function Attachments({
@@ -39,6 +39,13 @@ export default function Attachments({
   const [backflowDevices, setBackflowDevices] = useState<any[]>([]);
   const [backflowTests, setBackflowTests] = useState<Record<string, any>>({});
   const [isLoadingBackflow, setIsLoadingBackflow] = useState(false);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   useEffect(() => {
     const loadJobDetails = async () => {
@@ -116,7 +123,7 @@ export default function Attachments({
         ((testRes.data as any[]) ?? []).forEach((t: any) => { map[t.deviceId] = t; });
         setBackflowTests(map);
       } catch {
-        // non-critical — silently fail
+        // non-critical
       } finally {
         setIsLoadingBackflow(false);
       }
@@ -127,6 +134,38 @@ export default function Attachments({
   useEffect(() => {
     if (onPdfEditorStateChange) onPdfEditorStateChange(selectedPDF !== null);
   }, [selectedPDF, onPdfEditorStateChange]);
+
+  const handleResetTest = async (testId: string) => {
+    try {
+      await apiClient.deleteBackflowTest(testId);
+      setBackflowTests(prev => {
+        const updated = { ...prev };
+        for (const key of Object.keys(updated)) {
+          if (updated[key]?.id === testId) delete updated[key];
+        }
+        return updated;
+      });
+    } catch (err) {
+      console.error('Failed to reset test', err);
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    setGeneratingSummary(true);
+    try {
+      await apiClient.generateJobSummaryPDF(job.id, {
+        technicianName: technician.name,
+        serviceAddress: (job as any).location?.address ?? '',
+        customerName: (job as any).customer?.name ?? '',
+      });
+      showToast('Summary PDF uploaded to job attachments in ServiceTitan!');
+    } catch (err) {
+      console.error('Failed to generate summary PDF', err);
+      showToast('Failed to generate summary PDF', 'error');
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
 
   const handleOpenPDF = (attachment: any) => {
     console.log(`📖 Opening PDF: ${attachment.name}`);
@@ -415,7 +454,7 @@ export default function Attachments({
               <div className="pdf-forms-grid">
                 {attachments.length > 0 ? (
                   attachments.map((attachment: any) => {
-                    const displayName = attachment.name.replace(/^Attaches\//, '');
+                    const displayName = attachment.name.replace(/^.*\//, '').replace(/\.pdf$/i, '');
                     return (
                       <div
                         key={attachment.id}
@@ -460,43 +499,74 @@ export default function Attachments({
         </div>
 
         <div className="backflow-section">
-          <div className="section-header">
+          <div className="backflow-section-header">
             <h3>🔧 Backflow Testing</h3>
+            <div className="backflow-header-actions">
+              {Object.values(backflowTests).some((t: any) => t?.testResult) && (
+                <button
+                  className="backflow-summary-btn"
+                  onClick={handleGenerateSummary}
+                  disabled={generatingSummary}
+                >
+                  {generatingSummary ? 'Generating…' : 'Generate Summary'}
+                </button>
+              )}
+              {onStartBackflowTesting && (
+                <button className="backflow-start-btn" onClick={() => onStartBackflowTesting(job)}>
+                  + Add Device
+                </button>
+              )}
+            </div>
           </div>
           <div className="backflow-content">
             {isLoadingBackflow ? (
-              <span className="backflow-loading">Loading devices…</span>
+              <span className="backflow-loading">Loading…</span>
+            ) : backflowDevices.length === 0 ? (
+              <p className="backflow-empty">No devices added yet.</p>
             ) : (
-              <div className="backflow-summary-row">
-                <div className="backflow-stats">
-                  {backflowDevices.length === 0 ? (
-                    <span className="backflow-stat-item">No devices added yet</span>
-                  ) : (
-                    <>
-                      <span className="backflow-stat-item">
-                        {Object.values(backflowTests).filter((t: any) => t.testResult).length} of {backflowDevices.length} devices tested
-                      </span>
-                      {Object.values(backflowTests).filter((t: any) => t.testResult === 'Passed').length > 0 && (
-                        <span className="backflow-stat-item backflow-stat-pass">
-                          ✓ {Object.values(backflowTests).filter((t: any) => t.testResult === 'Passed').length} passed
-                        </span>
-                      )}
-                      {Object.values(backflowTests).filter((t: any) => t.testResult === 'Failed').length > 0 && (
-                        <span className="backflow-stat-item backflow-stat-fail">
-                          ✗ {Object.values(backflowTests).filter((t: any) => t.testResult === 'Failed').length} failed
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-                {onStartBackflowTesting && (
-                  <button
-                    className="backflow-start-btn"
-                    onClick={() => onStartBackflowTesting(job)}
-                  >
-                    {backflowDevices.length === 0 ? 'Set Up Backflow Testing' : 'Continue Testing'}
-                  </button>
-                )}
+              <div className="backflow-device-list">
+                {backflowDevices.map((device: any) => {
+                  const test = backflowTests[device.id];
+                  const result = test?.testResult;
+                  const isTested = !!result;
+                  return (
+                    <div key={device.id} className={`backflow-device-card ${isTested ? (result === 'Failed' ? 'bdc-failed' : 'bdc-passed') : 'bdc-untested'}`}>
+                      <div className="bdc-main">
+                        <div className="bdc-title-row">
+                          <span className="bdc-type">{device.typeMain || 'Device'}</span>
+                          <div className={`bdc-badge ${isTested ? (result === 'Failed' ? 'bdc-badge-fail' : 'bdc-badge-pass') : 'bdc-badge-none'}`}>
+                            {isTested ? result : 'Not Tested'}
+                          </div>
+                        </div>
+                        <div className="bdc-details">
+                          {device.manufacturerMain && <span><strong>Mfr:</strong> {device.manufacturerMain}</span>}
+                          {device.modelMain && device.modelMain !== 'N/A' && <span><strong>Model:</strong> {device.modelMain}</span>}
+                          <span><strong>SN:</strong> {device.serialMain || '—'}</span>
+                          {device.sizeMain && <span><strong>Size:</strong> {device.sizeMain}</span>}
+                          {device.bpaLocation && <span><strong>Location:</strong> {device.bpaLocation}</span>}
+                          <span><strong>Last Tested:</strong> {test?.testDateInitial || 'Not tested'}</span>
+                        </div>
+                      </div>
+                      <div className="bdc-actions">
+                        {onStartBackflowTesting && (
+                          <button className="bdc-btn bdc-btn-edit" onClick={() => onStartBackflowTesting(job, device, 'addDevice')}>
+                            Edit Device
+                          </button>
+                        )}
+                        {isTested && test?.id && (
+                          <button className="bdc-btn bdc-btn-reset" onClick={() => handleResetTest(test.id)}>
+                            Reset Test
+                          </button>
+                        )}
+                        {onStartBackflowTesting && (
+                          <button className="bdc-btn bdc-btn-test" onClick={() => onStartBackflowTesting(job, device, 'test')}>
+                            {isTested ? 'Re-test' : 'Start Testing'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -585,6 +655,18 @@ export default function Attachments({
           </div>
         </div>
       </div>
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px',
+          background: toast.type === 'success' ? '#1b5e20' : '#b71c1c',
+          color: 'white', padding: '14px 20px', borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9999,
+          fontSize: '14px', fontWeight: 500, maxWidth: '360px',
+        }}>
+          {toast.type === 'success' ? '✓ ' : '✕ '}{toast.message}
+        </div>
+      )}
     </div>
   );
 }

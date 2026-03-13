@@ -7,6 +7,7 @@ customer notes for durability.
 import itertools
 import json
 import os
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -81,7 +82,7 @@ def _format_device_note(device: dict) -> str:
 
 def _parse_device_note(note_text: str) -> Optional[dict]:
     try:
-        id_match = __import__("re").search(r"\[BACKFLOW_DEVICE_(.*?)\]", note_text)
+        id_match = re.search(r"\[BACKFLOW_DEVICE_(.*?)\]", note_text)
         if not id_match:
             return None
         device_id = id_match.group(1)
@@ -120,6 +121,32 @@ def _parse_device_note(note_text: str) -> Optional[dict]:
         return device
     except Exception as e:
         print(f"[backflow] Error parsing device note: {e}")
+        return None
+
+
+# ── Test note serialization (persisted to ST job notes) ───────────────────────
+
+
+def _format_test_note(test: dict) -> str:
+    test_id = test.get("id", "unknown")
+    payload = json.dumps(test)
+    return f"[BACKFLOW_TEST_{test_id}]\n{payload}\n[/BACKFLOW_TEST]"
+
+
+def _parse_test_note(note_text: str) -> Optional[dict]:
+    try:
+        if "[BACKFLOW_TEST_" not in note_text:
+            return None
+        content_match = re.search(
+            r"\[BACKFLOW_TEST_.*?\]\n(.*?)\n\[/BACKFLOW_TEST\]",
+            note_text,
+            re.DOTALL,
+        )
+        if not content_match:
+            return None
+        return json.loads(content_match.group(1))
+    except Exception as e:
+        print(f"[backflow] Error parsing test note: {e}")
         return None
 
 
@@ -179,13 +206,15 @@ async def create_device(
     body: dict,
     st: ServiceTitanClient = Depends(get_st_client),
 ):
+    location_id = None
+    customer_id = None
     try:
         job_endpoint = st.build_tenant_url("jpm") + f"/jobs/{job_id}"
         job_data = await st.api_call(job_endpoint)
         location_id = job_data.get("locationId")
         customer_id = job_data.get("customerId")
     except Exception as e:
-        raise HTTPException(500, f"Failed to fetch job: {e}")
+        print(f"[backflow] Warning: could not fetch job {job_id} from ST: {e}")
 
     new_device = {
         "id": f"device-{next(_device_counter)}",
@@ -231,12 +260,45 @@ async def update_device(device_id: str, body: dict):
 
 
 @router.get("/api/job/{job_id}/backflow-tests")
-async def get_tests(job_id: str):
-    return {"success": True, "data": [t for t in _test_records if t.get("jobId") == job_id]}
+async def get_tests(job_id: str, st: ServiceTitanClient = Depends(get_st_client)):
+    try:
+        notes_endpoint = st.build_tenant_url("jpm") + f"/jobs/{job_id}/notes?pageSize=200"
+        notes_response = await st.api_call(notes_endpoint)
+        notes = notes_response.get("data", [])
+
+        # Collect most-recent test per deviceId
+        by_device: dict = {}
+        for note in notes:
+            text = note.get("text") or ""
+            if "[BACKFLOW_TEST_" not in text:
+                continue
+            test = _parse_test_note(text)
+            if not test:
+                continue
+            dev_id = test.get("deviceId")
+            if not dev_id:
+                continue
+            existing = by_device.get(dev_id)
+            if not existing or test.get("createdAt", "") >= existing.get("createdAt", ""):
+                by_device[dev_id] = test
+
+        result = list(by_device.values())
+
+        # Hydrate in-memory cache
+        for test in result:
+            t_id = test.get("id")
+            if t_id and not any(t.get("id") == t_id for t in _test_records):
+                _test_records.append(test)
+
+        return {"success": True, "data": result}
+
+    except Exception as e:
+        print(f"[backflow] Error loading tests from job notes: {e}")
+        return {"success": True, "data": [t for t in _test_records if t.get("jobId") == job_id]}
 
 
 @router.post("/api/backflow-tests/save")
-async def save_test(body: dict):
+async def save_test(body: dict, st: ServiceTitanClient = Depends(get_st_client)):
     device = body.get("device") or {}
     test = body.get("test") or {}
 
@@ -265,6 +327,7 @@ async def save_test(body: dict):
     new_test = {
         "id": f"test-{next(_test_counter)}",
         "deviceId": saved_device["id"],
+        "jobId": test.get("jobId") or body.get("jobId"),
         **test,
         "createdAt": datetime.now(timezone.utc).isoformat(),
     }
@@ -275,10 +338,54 @@ async def save_test(body: dict):
     )
     if existing_idx != -1:
         _test_records[existing_idx] = {**_test_records[existing_idx], **new_test}
-        return {"success": True, "data": _test_records[existing_idx]}
+        saved_test = _test_records[existing_idx]
     else:
         _test_records.append(new_test)
-        return {"success": True, "data": new_test}
+        saved_test = new_test
+
+    # Persist to ServiceTitan job notes
+    job_id = saved_test.get("jobId")
+    if job_id:
+        try:
+            note_text = _format_test_note(saved_test)
+            notes_endpoint = st.build_tenant_url("jpm") + f"/jobs/{job_id}/notes"
+            await st.api_call(
+                notes_endpoint,
+                method="POST",
+                json={"text": note_text, "pinToTop": False},
+            )
+        except Exception as e:
+            print(f"[backflow] Warning: could not persist test to job notes: {e}")
+
+    return {"success": True, "data": saved_test}
+
+
+@router.delete("/api/backflow-tests/{test_id}")
+async def delete_test(test_id: str, st: ServiceTitanClient = Depends(get_st_client)):
+    idx = next((i for i, t in enumerate(_test_records) if t.get("id") == test_id), -1)
+    if idx == -1:
+        raise HTTPException(404, "Test not found")
+
+    deleted = _test_records.pop(idx)
+
+    # Post a reset marker to ST job notes so future loads treat device as untested
+    job_id = deleted.get("jobId")
+    dev_id = deleted.get("deviceId")
+    if job_id and dev_id:
+        try:
+            reset_note = _format_test_note({
+                "id": f"reset-{test_id}",
+                "deviceId": dev_id,
+                "jobId": job_id,
+                "testResult": "",
+                "createdAt": datetime.now(timezone.utc).isoformat(),
+            })
+            notes_endpoint = st.build_tenant_url("jpm") + f"/jobs/{job_id}/notes"
+            await st.api_call(notes_endpoint, method="POST", json={"text": reset_note, "pinToTop": False})
+        except Exception as e:
+            print(f"[backflow] Warning: could not post reset marker: {e}")
+
+    return {"success": True}
 
 
 # ── Photo routes ───────────────────────────────────────────────────────────────
@@ -1166,14 +1273,63 @@ async def generate_job_summary_pdf(
     body: dict,
     st: ServiceTitanClient = Depends(get_st_client),
 ):
-    job_devices = [d for d in _devices if str(d.get("jobId")) == str(job_id)]
-    job_tests = [t for t in _test_records if str(t.get("jobId")) == str(job_id)]
+    # Load devices from ST customer notes (authoritative source)
+    job_devices: list = []
+    try:
+        job_endpoint = st.build_tenant_url("jpm") + f"/jobs/{job_id}"
+        job_data = await st.api_call(job_endpoint)
+        customer_id = job_data.get("customerId")
+        location_id = str(job_data.get("locationId") or "")
+        if customer_id:
+            notes_resp = await st.api_call(
+                st.build_tenant_url("crm") + f"/customers/{customer_id}/notes?pageSize=100"
+            )
+            for note in notes_resp.get("data", []):
+                text = note.get("text") or ""
+                if "[BACKFLOW_DEVICE_" not in text:
+                    continue
+                dev = _parse_device_note(text)
+                if not dev:
+                    continue
+                dev["jobId"] = job_id
+                dev_loc = str(dev.get("locationId") or "")
+                if not dev_loc or dev_loc == location_id:
+                    job_devices.append(dev)
+    except Exception as e:
+        print(f"[backflow] Summary PDF: could not load devices from ST: {e}")
+        job_devices = [d for d in _devices if str(d.get("jobId")) == str(job_id)]
+
+    # Load tests from ST job notes (authoritative source)
+    job_tests: list = []
+    try:
+        notes_resp = await st.api_call(
+            st.build_tenant_url("jpm") + f"/jobs/{job_id}/notes?pageSize=200"
+        )
+        by_device: dict = {}
+        for note in notes_resp.get("data", []):
+            text = note.get("text") or ""
+            if "[BACKFLOW_TEST_" not in text:
+                continue
+            t = _parse_test_note(text)
+            if not t:
+                continue
+            dev_id = t.get("deviceId")
+            if not dev_id:
+                continue
+            existing = by_device.get(dev_id)
+            if not existing or t.get("createdAt", "") >= existing.get("createdAt", ""):
+                by_device[dev_id] = t
+        job_tests = list(by_device.values())
+    except Exception as e:
+        print(f"[backflow] Summary PDF: could not load tests from ST: {e}")
+        job_tests = [t for t in _test_records if str(t.get("jobId")) == str(job_id)]
+
     test_by_device = {t["deviceId"]: t for t in job_tests}
 
     pdf_bytes = _generate_job_summary_pdf(job_id, job_devices, test_by_device, body)
 
     date_str = datetime.now().strftime("%Y%m%d")
-    file_name = f"Backflow_Summary_Job{job_id}_{date_str}.pdf"
+    file_name = f"{date_str}_TEST_Summary.pdf"
 
     # Upload to ServiceTitan as job attachment
     st_attachment_id = None

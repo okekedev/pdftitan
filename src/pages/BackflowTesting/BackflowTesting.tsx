@@ -12,6 +12,9 @@ interface BackflowTestingProps {
   technician: Technician;
   onBack: () => void;
   onLogout: () => void;
+  embedded?: boolean;
+  preSelectedDevice?: any;
+  initialStep?: string;
 }
 
 interface Toast {
@@ -19,16 +22,15 @@ interface Toast {
   type: 'success' | 'error' | 'info';
 }
 
-export default function BackflowTesting({ job, technician, onBack, onLogout }: BackflowTestingProps) {
+export default function BackflowTesting({ job, technician, onBack, onLogout, embedded = false, preSelectedDevice, initialStep }: BackflowTestingProps) {
   const [devices, setDevices] = useState<any[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState<any>(null);
-  const [currentStep, setCurrentStep] = useState<string>('devices');
+  const [selectedDevice, setSelectedDevice] = useState<any>(preSelectedDevice ?? null);
+  const [currentStep, setCurrentStep] = useState<string>(initialStep ?? (preSelectedDevice ? 'test' : 'devices'));
   const [testRecords, setTestRecords] = useState<Record<string, any>>({});
   const [generatedPDFs, setGeneratedPDFs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
-  const [generatingSummary, setGeneratingSummary] = useState(false);
 
   useEffect(() => {
     const loadDevices = async () => {
@@ -112,17 +114,6 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
 
       setTestRecords({ ...testRecords, [selectedDevice.id]: response.data });
 
-      // Mark this job as tested today in localStorage so the Jobs page can show an indicator
-      const today = new Date().toISOString().split('T')[0];
-      const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-      try {
-        const raw = localStorage.getItem('mrbackflow_tested_today');
-        const stored = raw ? JSON.parse(raw) : {};
-        if (!stored[today]) stored[today] = {};
-        stored[today][String(job.id)] = time;
-        localStorage.setItem('mrbackflow_tested_today', JSON.stringify(stored));
-      } catch { /* non-critical */ }
-
       showToast('Test recorded successfully!', 'success');
       setCurrentStep('photos');
     } catch (err) {
@@ -134,48 +125,26 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
 
   const handlePhotosComplete = () => {
     showToast('Photos uploaded successfully!', 'success');
-    setCurrentStep('devices');
-    setSelectedDevice(null);
+    if (preSelectedDevice) {
+      onBack();
+    } else {
+      setCurrentStep('devices');
+      setSelectedDevice(null);
+    }
   };
 
   const handleGeneratePDFs = () => setCurrentStep('generate');
 
   const handleBackToDevices = () => {
-    setCurrentStep('devices');
-    setSelectedDevice(null);
-  };
-
-  const getCompletedDeviceCount = () =>
-    devices.filter((d: any) => testRecords[d.id]?.testResult).length;
-
-  const getFailedDevices = () =>
-    devices.filter((d: any) => testRecords[d.id]?.testResult === 'Failed');
-
-  const getPassedCount = () =>
-    devices.filter((d: any) => testRecords[d.id]?.testResult === 'Passed').length;
-
-  const getLastTestedDate = () => {
-    const dates = Object.values(testRecords)
-      .map((t: any) => t.testDateInitial)
-      .filter(Boolean);
-    return dates.length ? (dates as string[]).sort().reverse()[0] : null;
-  };
-
-  const handleGenerateSummaryPDF = async () => {
-    setGeneratingSummary(true);
-    try {
-      await apiClient.generateJobSummaryPDF(job.id, {
-        technicianName: technician.name,
-        serviceAddress: (job as any).location?.address ?? '',
-        customerName: (job as any).customer?.name ?? '',
-      });
-      showToast('Summary PDF uploaded to job attachments!', 'success');
-    } catch (err) {
-      showToast('Failed to generate summary PDF', 'error');
-    } finally {
-      setGeneratingSummary(false);
+    if (preSelectedDevice || (initialStep && initialStep !== 'devices')) {
+      onBack();
+    } else {
+      setCurrentStep('devices');
+      setSelectedDevice(null);
     }
   };
+
+
 
   return (
     <div className="backflow-testing-page">
@@ -191,36 +160,14 @@ export default function BackflowTesting({ job, technician, onBack, onLogout }: B
           </div>
         ) : (
           <>
-            <div className="job-info-header">
-              <h2>Backflow Testing - Job #{job.number}</h2>
-              <p className="job-address">{(job as any).location?.address}</p>
-              <div className="summary-card">
-                <p className="summary-title">Backflow Test Summary</p>
-                <div className="summary-row">
-                  <span className="stat-item">
-                    {getCompletedDeviceCount()} of {devices.length} devices tested
-                  </span>
-                  {getPassedCount() > 0 && (
-                    <span className="stat-item stat-pass">✓ {getPassedCount()} passed</span>
-                  )}
-                  {getFailedDevices().length > 0 && (
-                    <span className="stat-item stat-fail">✗ {getFailedDevices().length} failed</span>
-                  )}
-                  {getLastTestedDate() && (
-                    <span className="stat-item stat-date">Last tested: {getLastTestedDate()}</span>
-                  )}
-                </div>
-                {getCompletedDeviceCount() > 0 && (
-                  <button
-                    className="btn btn-primary summary-pdf-btn"
-                    onClick={handleGenerateSummaryPDF}
-                    disabled={generatingSummary}
-                  >
-                    {generatingSummary ? 'Generating…' : 'Generate Summary PDF'}
-                  </button>
-                )}
+            {!embedded && (
+              <div className="job-info-header">
+                <button onClick={onBack} className="back-to-jobs-btn">← Back to Job</button>
+                <h2>Backflow Testing - Job #{job.number}</h2>
+                <p className="job-address">{(job as any).location?.address}</p>
               </div>
-            </div>
+            )}
+
 
             {currentStep === 'devices' && (
               <DeviceList

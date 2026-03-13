@@ -58,9 +58,9 @@
   margin-bottom: 1.5rem;
 }
 
-/* ===== CUSTOMER INFO SECTION (33%) ===== */
+/* ===== CUSTOMER INFO SECTION (50%) ===== */
 .attachments-page .customer-info-section {
-  flex: 0 0 33%;
+  flex: 0 0 50%;
   background: white;
   border-radius: 20px;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
@@ -613,6 +613,13 @@
   align-items: center;
   justify-content: center;
   flex: 1;
+  max-width: none;
+  width: 100%;
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+  margin: 0;
 }
 
 .attachments-page .loading-spinner {
@@ -730,12 +737,15 @@
   border-left: 4px solid #1565c0;
 }
 
-.attachments-page .backflow-section .section-header {
+.attachments-page .backflow-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 1rem 1.5rem 0.75rem;
   border-bottom: 1px solid #eef2f7;
 }
 
-.attachments-page .backflow-section .section-header h3 {
+.attachments-page .backflow-section-header h3 {
   margin: 0;
   font-size: 1rem;
   font-weight: 700;
@@ -743,7 +753,7 @@
 }
 
 .attachments-page .backflow-content {
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 1.5rem 1rem;
 }
 
 .attachments-page .backflow-loading {
@@ -751,52 +761,167 @@
   color: #888;
 }
 
-.attachments-page .backflow-summary-row {
+.attachments-page .backflow-empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #999;
+}
+
+.attachments-page .backflow-device-list {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attachments-page .backflow-device-card {
+  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  background: #fafafa;
 }
 
-.attachments-page .backflow-stats {
+.attachments-page .backflow-device-card.bdc-passed {
+  border-color: #a5d6a7;
+  background: #f1f8f4;
+}
+
+.attachments-page .backflow-device-card.bdc-failed {
+  border-color: #ef9a9a;
+  background: #fff5f5;
+}
+
+.attachments-page .bdc-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.attachments-page .bdc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.attachments-page .bdc-type {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #222;
+}
+
+.attachments-page .bdc-details {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  align-items: center;
+  gap: 4px 16px;
+  font-size: 0.82rem;
+  color: #555;
 }
 
-.attachments-page .backflow-stat-item {
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #444;
+.attachments-page .bdc-badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
 }
 
-.attachments-page .backflow-stat-pass {
+.attachments-page .bdc-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-end;
+}
+
+.attachments-page .bdc-btn {
+  border: none;
+  border-radius: 5px;
+  padding: 4px 11px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.attachments-page .bdc-btn-edit {
+  background: #546e7a;
+  color: #ffffff;
+}
+
+.attachments-page .bdc-btn-edit:hover { background: #455a64; }
+
+.attachments-page .bdc-btn-reset {
+  background: #ef6c00;
+  color: #ffffff;
+}
+
+.attachments-page .bdc-btn-reset:hover { background: #e65100; }
+
+.attachments-page .bdc-btn-test {
+  background: #1565c0;
+  color: #ffffff;
+}
+
+.attachments-page .bdc-btn-test:hover { background: #0d47a1; }
+
+.attachments-page .bdc-badge-pass {
+  background: #e8f5e9;
   color: #2e7d32;
 }
 
-.attachments-page .backflow-stat-fail {
+.attachments-page .bdc-badge-fail {
+  background: #ffebee;
   color: #c62828;
 }
 
-.attachments-page .backflow-start-btn {
-  background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
-  color: white;
+.attachments-page .bdc-badge-none {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.attachments-page .backflow-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attachments-page .backflow-summary-btn {
+  background: #546e7a;
+  color: #ffffff;
   border: none;
-  border-radius: 8px;
-  padding: 0.65rem 1.4rem;
-  font-size: 0.9rem;
+  border-radius: 6px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(21, 101, 192, 0.3);
+}
+
+.attachments-page .backflow-summary-btn:hover:not(:disabled) {
+  background: #455a64;
+}
+
+.attachments-page .backflow-summary-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.attachments-page .backflow-start-btn {
+  background: #1565c0;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .attachments-page .backflow-start-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(21, 101, 192, 0.4);
+  background: #0d47a1;
 }
 
 /* ===== ANIMATIONS ===== */
