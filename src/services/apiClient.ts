@@ -280,7 +280,6 @@ class ApiClient {
 
   async generateJobSummaryPDF(jobId: number | string, data: {
     technicianName: string;
-    serviceAddress: string;
     customerName: string;
   }): Promise<unknown> {
     console.log('📄 Generating job summary PDF for job:', jobId);

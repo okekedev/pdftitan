@@ -155,7 +155,6 @@ export default function Attachments({
     try {
       await apiClient.generateJobSummaryPDF(job.id, {
         technicianName: technician.name,
-        serviceAddress: (job as any).location?.address ?? '',
         customerName: (job as any).customer?.name ?? '',
       });
       showToast('Summary PDF uploaded to job attachments in ServiceTitan!');

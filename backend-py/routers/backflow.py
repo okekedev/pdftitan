@@ -994,7 +994,6 @@ def _generate_job_summary_pdf(
     )
 
     technician_name = info.get("technicianName", "")
-    service_address = info.get("serviceAddress", "")
     customer_name = info.get("customerName", "")
     generated_date = datetime.now().strftime("%B %d, %Y")
     generated_time = datetime.now().strftime("%I:%M %p")
@@ -1015,7 +1014,6 @@ def _generate_job_summary_pdf(
     job_info_data = [
         ["Job #", job_id],
         ["Date Generated", f"{generated_date} at {generated_time}"],
-        ["Service Address", service_address or "—"],
         ["Customer", customer_name or "—"],
         ["Technician", technician_name or "—"],
     ]
